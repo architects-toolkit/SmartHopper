@@ -45,7 +45,7 @@ namespace SmartHopper.Components.AI
         /// <summary>
         /// Gets the component's icon.
         /// </summary>
-        protected override Bitmap Icon => Resources.context;
+        protected override Bitmap Icon => Resources.AIFileMetadata;
 
         /// <inheritdoc/>
         public override GH_Exposure Exposure => GH_Exposure.secondary;
@@ -67,7 +67,7 @@ namespace SmartHopper.Components.AI
         /// </summary>
         public AIFileMetadataComponent()
             : base("File Metadata", "FileMeta",
-                "Defines metadata for the current file (title, description, version, author, tags).\nAI-powered components will read this information to generate relevant responses, and it will be included in GhJSON when 'Include Metadata' is enabled.",
+                "Define metadata for the current Grasshopper file (title, description, version, author, and tags).\nSmartHopper's assistant and AI components read this context to better understand your definition, and Get GhJSON includes it when 'Include Metadata' is enabled.",
                 "SmartHopper",
                 "A. AI")
         {
@@ -84,11 +84,11 @@ namespace SmartHopper.Components.AI
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Title", "T", "Title of the file or definition", GH_ParamAccess.item, string.Empty);
-            pManager.AddTextParameter("Description", "D", "Description of what this file does, your expectations of the results, the main input parameters, and what to avoid (also used as metadata for GhJSON)", GH_ParamAccess.item, string.Empty);
-            pManager.AddTextParameter("Version", "V", "Version of the definition", GH_ParamAccess.item, string.Empty);
-            pManager.AddTextParameter("Author", "A", "Author of the definition", GH_ParamAccess.item, string.Empty);
-            pManager.AddTextParameter("Tags", "Ta", "Tags for categorizing and searching definitions", GH_ParamAccess.list, string.Empty);
+            pManager.AddTextParameter("Title", "T", "Title of the Grasshopper definition.", GH_ParamAccess.item, string.Empty);
+            pManager.AddTextParameter("Description", "D", "Summary of what this definition does, its main inputs, expected outputs, and any constraints (also exported in GhJSON metadata).", GH_ParamAccess.item, string.Empty);
+            pManager.AddTextParameter("Version", "V", "Version number or label for this definition.", GH_ParamAccess.item, string.Empty);
+            pManager.AddTextParameter("Author", "A", "Author or team name for this definition.", GH_ParamAccess.item, string.Empty);
+            pManager.AddTextParameter("Tags", "Ta", "Keywords or tags for categorizing and searching this definition.", GH_ParamAccess.list, string.Empty);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)

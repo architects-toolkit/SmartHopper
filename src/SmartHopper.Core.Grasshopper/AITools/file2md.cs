@@ -19,19 +19,26 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Grasshopper.Converters.Formats;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Core.Types;
+using SmartHopper.DocumentProcessing;
+using SmartHopper.Infrastructure.AICall.Fallback;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.FileSystem;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -79,7 +86,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Convert a local file (PDF, DOCX, XLS, XLSX, PPTX, ODT, ODS, ODP, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown text. Use this when you need to read the contents of a file that the user has mentioned or referenced. Example: file2md({ filePath: 'C:/docs/spec.pdf' }).",
+                description: "Read a local document as extracted Markdown and visual evidence. PDF documents include rendered pages with page references, preserving charts, diagrams, scans and layout. No AI call is made unless describeImages or consumerSupportsImages=false is explicitly requested. Use pages and region for bounded page selection and high-resolution details.",
                 category: "Knowledge.Files",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -115,18 +122,36 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         },
                         ""extractImages"": {
                             ""type"": ""boolean"",
-                            ""description"": ""Whether to extract embedded images from the document as base64 data. Applies to PDF, DOCX, and PPTX. Default: false."",
-                            ""default"": false
+                            ""description"": ""Preserve visual evidence. For PDF documents this includes rendered pages and extracted embedded assets. Default: true. Set false for local text-only extraction without rendering."",
+                            ""default"": true
                         },
                         ""describeImages"": {
                             ""type"": ""boolean"",
-                            ""description"": ""When true, uses AI to describe each extracted image and embeds the results in the markdown output. Forces extractImages=true automatically. Requires an AI provider with vision capability. Default: false."",
+                            ""description"": ""Explicitly use a configured vision helper to add contextual textual visual evidence while retaining source text and images. This may incur provider costs. Default: false."",
                             ""default"": false
                         },
-                        ""imageMode"": {
-                            ""type"": ""string"",
-                            ""description"": ""Controls how described images appear in the markdown. 'embed' (default): embed image as base64 data URI with short AI caption as alt text. 'describe': replace image with a long AI text description. 'caption': replace image with a short AI-generated title."",
-                            ""default"": ""embed""
+                        ""consumerSupportsImages"": {
+                            ""type"": [""boolean"", ""null""],
+                            ""description"": ""Whether the external consuming model accepts image input. False explicitly requests vision-helper textual evidence; true preserves native images. If omitted, return original evidence and report that the client must check its model capabilities. This does not infer capabilities from MCP image transport support.""
+                        },
+                        ""pages"": {
+                            ""type"": ""array"",
+                            ""items"": { ""type"": ""integer"", ""minimum"": 1 },
+                            ""minItems"": 1,
+                            ""uniqueItems"": true,
+                            ""description"": ""Optional unique 1-based PDF page numbers. Omit to select the whole document. Empty, duplicate, fractional and out-of-range values are invalid. Render at most 32 pages per call.""
+                        },
+                        ""region"": {
+                            ""type"": ""object"",
+                            ""properties"": {
+                                ""page"": { ""type"": ""integer"", ""minimum"": 1 },
+                                ""x"": { ""type"": ""number"" },
+                                ""y"": { ""type"": ""number"" },
+                                ""width"": { ""type"": ""number"", ""exclusiveMinimum"": 0 },
+                                ""height"": { ""type"": ""number"", ""exclusiveMinimum"": 0 }
+                            },
+                            ""required"": [""page"", ""x"", ""y"", ""width"", ""height""],
+                            ""description"": ""Optional high-resolution PDF detail region: page is a selected 1-based page number; x, y, width and height are normalized top-left coordinates within that visible page. The region must lie entirely inside the page.""
                         },
                         ""imageDescriptionPrompt"": {
                             ""type"": ""string"",
@@ -154,8 +179,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.File2MdAsync,
                 mutatesCanvas: false,
                 tags: new[] { "file", "knowledge", "text", "read-only" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""text"": { ""type"": ""string"", ""description"": ""Markdown representation of the file contents."" }, ""fileType"": { ""type"": ""string"" }, ""images"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""content"": { ""type"": ""string"" }, ""originalFormat"": { ""type"": ""string"" }, ""pages"": { ""type"": ""array"" }, ""images"": { ""type"": ""array"" }, ""coverage"": { ""type"": ""object"" }, ""warnings"": { ""type"": ""array"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
+                activityLabel: "converting file to markdown",
+                resultLabel: "converted file to markdown");
         }
 
         private async Task<AIReturn> File2MdAsync(AIToolCall toolCall)
@@ -183,8 +210,38 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Get conversion options
                 bool describeImages = args["describeImages"]?.Value<bool>() ?? false;
-                string imageMode = args["imageMode"]?.ToString() ?? "embed";
+                bool? consumerSupportsImages = args.ContainsKey("consumerSupportsImages")
+                    ? args["consumerSupportsImages"]?.Value<bool?>()
+                    : null;
                 string imageDescriptionPrompt = args["imageDescriptionPrompt"]?.ToString();
+                var isPdf = string.Equals(Path.GetExtension(filePath), ".pdf", StringComparison.OrdinalIgnoreCase);
+
+                // Structured page/region options — invalid on non-PDF sources.
+                if (!DocumentSelectionJsonParser.TryParsePages(args["pages"], out var pages, out var pagesError))
+                {
+                    output.CreateError(pagesError);
+                    return output;
+                }
+
+                if (!DocumentSelectionJsonParser.TryParseRegion(args["region"], out var region, out var regionError))
+                {
+                    output.CreateError(regionError);
+                    return output;
+                }
+
+                if (!isPdf && (pages != null || region != null))
+                {
+                    output.CreateError("'pages' and 'region' are only valid for PDF sources.");
+                    return output;
+                }
+
+                // Actionable contradiction, validated before any conversion work.
+                var explicitAi = describeImages || consumerSupportsImages == false;
+                if (explicitAi && args["extractImages"]?.Value<bool>() == false)
+                {
+                    output.CreateError("extractImages=false contradicts an explicit AI visual comprehension request (describeImages or consumerSupportsImages=false).");
+                    return output;
+                }
 
                 var options = new FileConversionOptions
                 {
@@ -196,13 +253,26 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     PreserveEndnotes = args["preserveEndnotes"]?.Value<bool>() ?? true,
                     PreserveHyperlinks = true,
                     PreserveMath = true,
-                    ExtractImages = (args["extractImages"]?.Value<bool>() ?? false) || describeImages,
+                    ExtractImages = args["extractImages"]?.Value<bool>() ?? true,
                     DetectHeadings = true,
                     MaxContentLength = 0,
                     HtmlReadabilityMode = ReadabilityModeExtensions.FromString(args["HTMLreadabilityMode"]?.ToString()),
                     IncludeLinks = args["includeLinks"]?.Value<bool>() ?? true,
                     IncludeImages = args["includeImages"]?.Value<bool>() ?? true,
+                    Pages = pages,
+                    Region = region,
+                    CancellationToken = toolCall.CancellationToken,
                 };
+
+                // Local file reads require explicit approval; remote URLs are
+                // governed by the external-source gate inside the converters.
+                if (!Uri.TryCreate(filePath, UriKind.Absolute, out var fileUri)
+                    || (fileUri.Scheme != Uri.UriSchemeHttp && fileUri.Scheme != Uri.UriSchemeHttps))
+                {
+                    await LocalFileAccess.RequireAsync(
+                        filePath, LocalFileCapability.Read, this.toolName, toolCall.CancellationToken)
+                        .ConfigureAwait(false);
+                }
 
                 // Convert the file
                 var converterRegistry = GetRegistry();
@@ -217,101 +287,29 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                // Build result
-                var toolResult = new JObject
-                {
-                    ["content"] = result.MarkdownContent,
-                    ["originalFormat"] = result.DetectedFormat,
-                    ["source"] = filePath,
-                };
-
-                // Add metadata if present
-                if (result.Metadata.Count > 0)
-                {
-                    var metadata = new JObject();
-                    foreach (var kvp in result.Metadata)
-                    {
-                        metadata[kvp.Key] = kvp.Value;
-                    }
-
-                    toolResult["metadata"] = metadata;
-                }
-
-                // Always return raw images array when images were extracted
-                if (result.Images.Count > 0)
-                {
-                    var imagesArray = new JArray();
-                    foreach (var image in result.Images)
-                    {
-                        imagesArray.Add(new JObject
-                        {
-                            ["id"] = image.Id,
-                            ["mimeType"] = image.MimeType,
-                            ["context"] = image.Context,
-                            ["pageOrSlide"] = image.PageOrSlide,
-                            ["base64Data"] = image.RawValue,
-                        });
-                    }
-
-                    toolResult["images"] = imagesArray;
-                    toolResult["imageCount"] = result.Images.Count;
-
-                    // Describe images via AI and replace inline [image N] placeholders
-                    if (describeImages)
-                    {
-                        string providerName = toolCall.Provider?.ToString();
-                        if (string.IsNullOrWhiteSpace(providerName))
-                        {
-                            result.Warnings.Add("Image description skipped: no AI provider configured. Configure a provider or set describeImages=false.");
-                        }
-                        else
-                        {
-                            string prompt = string.IsNullOrWhiteSpace(imageDescriptionPrompt)
-                                ? ImageProcessingService.GetDefaultPrompt(imageMode)
-                                : imageDescriptionPrompt;
-
-                            var items = result.Images.Select((image, i) => new ImageProcessingItem
-                            {
-                                Id = image.Id,
-                                Context = image.Context,
-                                MimeType = image.MimeType,
-                                Base64Data = image.RawValue,
-                                AltText = image.Context,
-                                Placeholder = $"[image {i + 1}]",
-                            }).ToList();
-
-                            result.MarkdownContent = await ImageProcessingService.ProcessMarkdownImagesAsync(
-                                result.MarkdownContent,
-                                items,
-                                imageMode,
-                                toolCall,
-                                prompt: prompt).ConfigureAwait(false);
-                            toolResult["content"] = result.MarkdownContent;
-                        }
-                    }
-                }
-
-                // Add warnings if present
-                if (result.Warnings.Count > 0)
-                {
-                    var warnings = new JArray();
-                    foreach (var warning in result.Warnings)
-                    {
-                        warnings.Add(warning);
-                    }
-
-                    toolResult["warnings"] = warnings;
-                }
-
-                var builder = AIBodyBuilder.Create();
-                builder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name);
-                var immutable = builder.Build();
-                output.CreateSuccess(immutable, toolCall);
-                return output;
+                return await ConversionToolResultBuilder.BuildAsync(
+                    result,
+                    filePath,
+                    toolCall,
+                    toolInfo,
+                    describeImages,
+                    consumerSupportsImages,
+                    imageDescriptionPrompt,
+                    toolCall.CancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Consent denials are a refusal, not a fetch failure — let them
+                // propagate so the tool reports an explicit runtime error.
+                throw;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[File2Md] Error in File2MdAsync: {ex.Message}");
+                Logger.For<file2md>().Exception(ex, $"[File2Md] Error in File2MdAsync: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }

@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using GH_IO.Serialization;
 using Grasshopper.Kernel;
 using SmartHopper.Core.ComponentBase;
@@ -49,6 +50,8 @@ namespace SmartHopper.Core.ComponentBase.Mixins
     {
         private readonly List<IGH_DocumentObject> selected = new List<IGH_DocumentObject>();
         private readonly SelectingComponentCore core;
+        private string committedFingerprint;
+        private string runFingerprint;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SelectingSupport"/> class
@@ -87,6 +90,58 @@ namespace SmartHopper.Core.ComponentBase.Mixins
         public void EnableSelectionMode() => this.core.EnableSelectionMode();
 
         /// <summary>
+        /// Gets a value indicating whether the current selection differs from the
+        /// one the last run consumed. The first evaluation adopts the current
+        /// selection as the baseline, so a freshly placed or freshly restored
+        /// component never reports a phantom selection change.
+        /// </summary>
+        public bool HasPendingSelectionChange
+        {
+            get
+            {
+                var current = this.Fingerprint();
+                if (this.committedFingerprint == null)
+                {
+                    this.committedFingerprint = current;
+                    return false;
+                }
+
+                return current != this.committedFingerprint;
+            }
+        }
+
+        /// <summary>
+        /// Captures the selection the incoming run is about to consume. Called
+        /// when the host enters Processing so a selection change made while work
+        /// is in flight stays pending for the next solve.
+        /// </summary>
+        public void CaptureRunSelection() => this.runFingerprint = this.Fingerprint();
+
+        /// <summary>
+        /// Acknowledges the captured run selection after the run finishes,
+        /// is cancelled, or errors. Selection changes made mid-run remain
+        /// pending because only the run-time fingerprint is committed.
+        /// </summary>
+        public void CommitRunSelection() =>
+            this.committedFingerprint = this.runFingerprint ?? this.Fingerprint();
+
+        /// <summary>
+        /// Restores the selection from the given reader and schedules a deferred
+        /// restoration pass once the owning document finishes loading.
+        /// </summary>
+        /// <returns><c>true</c> on success.</returns>
+        public bool Read(GH_IReader reader) => this.core.Read(reader);
+
+        private string Fingerprint()
+        {
+            return string.Join(
+                ",",
+                this.SelectedObjects
+                    .Select(o => o.InstanceGuid.ToString("N"))
+                    .OrderBy(g => g, StringComparer.Ordinal));
+        }
+
+        /// <summary>
         /// Must be invoked from the host's <see cref="GH_DocumentObject.RemovedFromDocument"/>
         /// override so the document-added subscription is released.
         /// </summary>
@@ -97,12 +152,5 @@ namespace SmartHopper.Core.ComponentBase.Mixins
         /// </summary>
         /// <returns><c>true</c> on success.</returns>
         public bool Write(GH_IWriter writer) => this.core.Write(writer);
-
-        /// <summary>
-        /// Restores the selection from the given reader and schedules a deferred
-        /// restoration pass once the owning document finishes loading.
-        /// </summary>
-        /// <returns><c>true</c> on success.</returns>
-        public bool Read(GH_IReader reader) => this.core.Read(reader);
     }
 }

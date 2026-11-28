@@ -22,22 +22,35 @@ using System.Linq;
 using Eto.Drawing;
 using Eto.Forms;
 using SmartHopper.Infrastructure.AICall.Fallback;
-using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Menu.Dialogs.SettingsTabs.Models;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Logging;
 
 namespace SmartHopper.Menu.Dialogs.SettingsTabs
 {
     /// <summary>
-    /// Settings page for general SmartHopper configuration including default provider, debounce time,
-    /// batch poll interval, and modality fallback settings.
+    /// Settings page for general SmartHopper configuration: the provider tile grid,
+    /// default provider, debounce and batch poll interval, and modality fallback.
+    /// Log sink controls are built here too but hosted in the
+    /// Developer tab through <see cref="DeveloperContent"/>.
     /// </summary>
     public class GeneralSettingsPage : Panel
     {
+        private static readonly (ProviderLogLevel Level, string Label)[] LogLevels =
+        {
+            (ProviderLogLevel.Trace, "Trace"),
+            (ProviderLogLevel.Info, "Info"),
+            (ProviderLogLevel.Warning, "Warning"),
+            (ProviderLogLevel.Error, "Error"),
+        };
+
         private readonly DropDown _defaultProviderComboBox;
         private readonly NumericStepper _debounceControl;
         private readonly NumericStepper _batchPollIntervalControl;
+        /// <summary>Gets the log-sink controls hosted in the Developer tab.</summary>
+        public Control DeveloperContent { get; }
         private readonly IAIProvider[] _providers;
 
         // Modality fallback controls (AI section)
@@ -47,11 +60,19 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         private readonly Dictionary<string, DropDown> _fallbackModelDropDowns = new();
         private readonly Dictionary<string, IModalityFallback> _fallbacks = new();
 
+        // Log sink controls (Logs section)
+        private readonly CheckBox _liveOutputCheckBox;
+        private readonly DropDown _liveOutputLevelDropDown;
+        private readonly CheckBox _logFileCheckBox;
+        private readonly DropDown _logFileLevelDropDown;
+        private readonly NumericStepper _retentionControl;
+
         /// <summary>
         /// Initializes a new instance of the GeneralSettingsPage class
         /// </summary>
         /// <param name="providers">Available AI providers</param>
-        public GeneralSettingsPage(IAIProvider[] providers)
+        /// <param name="configureProvider">Callback invoked when a provider tile is clicked.</param>
+        public GeneralSettingsPage(IAIProvider[] providers, Action<IAIProvider> configureProvider)
         {
             this._providers = providers;
 
@@ -70,21 +91,67 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 MaxValue = 1800,
                 Increment = 5,
             };
+
+            this._fallbackModeDropDown = new DropDown();
+            this._fallbackModeDropDown.Items.Add(new ListItem { Text = "Disabled", Key = "0" });
+            this._fallbackModeDropDown.Items.Add(new ListItem { Text = "Same Provider", Key = "1" });
+            this._fallbackModeDropDown.Items.Add(new ListItem { Text = "Any Provider", Key = "2" });
+            this._fallbackModeDropDown.SelectedIndexChanged += this.OnFallbackModeChanged;
+
+            this._liveOutputCheckBox = new CheckBox { Text = "Echo logs to Rhino command line" };
+            this._liveOutputLevelDropDown = BuildLogLevelDropDown();
+            this._logFileCheckBox = new CheckBox { Text = "Write logs to file" };
+            this._logFileLevelDropDown = BuildLogLevelDropDown();
+            this._retentionControl = new NumericStepper { MinValue = 1, MaxValue = 90, Increment = 1 };
+
             foreach (var provider in this._providers)
             {
                 this._defaultProviderComboBox.Items.Add(new ListItem { Text = provider.Name });
             }
 
-            this._fallbackModeDropDown = new DropDown();
-            this._fallbackModeDropDown.Items.Add(new ListItem { Text = "Disabled", Key = "0" });
-            this._fallbackModeDropDown.Items.Add(new ListItem { Text = "Configured Provider", Key = "1" });
-            this._fallbackModeDropDown.Items.Add(new ListItem { Text = "Any Provider", Key = "2" });
-            this._fallbackModeDropDown.SelectedIndexChanged += this.OnFallbackModeChanged;
-
             // Create layout
             var layout = new DynamicLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
 
-            // Default provider section
+            // AI Providers section — one tile per provider opens its settings view.
+            layout.Add(new Label
+            {
+                Text = "AI Providers",
+                Font = new Font(SystemFont.Bold, 12),
+            });
+
+            layout.Add(SettingsText.DescriptionLabel("Select a provider to configure its connection."));
+
+            layout.Add(new Panel { Height = 5 });
+
+            // Untrusted providers get no tile: configuring a provider that cannot run
+            // only produces failures later, so the entry point is removed entirely.
+            var trustedProviders = this._providers.Where(IsProviderTrusted).ToArray();
+            layout.Add(CreateProviderGrid(trustedProviders, configureProvider));
+            if (trustedProviders.Length == 0)
+            {
+                layout.Add(new Panel { Height = 5 });
+                layout.Add(SettingsText.DescriptionLabel(
+                    "No AI providers are currently available. If providers were blocked by the integrity check, review them on the Security tab."));
+            }
+            else if (trustedProviders.Length < this._providers.Length)
+            {
+                layout.Add(new Panel { Height = 5 });
+                layout.Add(SettingsText.DescriptionLabel(
+                    "Some providers are hidden because they are not trusted yet. Trust a provider on the Security tab first to be able to configure it."));
+            }
+
+            layout.Add(new Panel { Height = 15 });
+
+            // AI section
+            layout.Add(new Label
+            {
+                Text = "AI",
+                Font = new Font(SystemFont.Bold, 12),
+            });
+
+            layout.Add(new Panel { Height = 5 });
+
+            // Default provider
             var providerRowLayout = new TableLayout
             {
                 Spacing = new Size(10, 0),
@@ -94,19 +161,12 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 new TableCell(this._defaultProviderComboBox, true)));
             layout.Add(providerRowLayout);
 
-            layout.Add(new Label
-            {
-                Text = "The default AI provider to use for new components",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,  // Max width for better text wrapping
-            });
+            layout.Add(SettingsText.DescriptionLabel("The default AI provider to use for new components"));
 
             // Add spacing
             layout.Add(new Panel { Height = 10 });
 
-            // Debounce time section
+            // Debounce time
             var debounceRowLayout = new TableLayout
             {
                 Spacing = new Size(10, 0),
@@ -118,19 +178,13 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             layout.Add(debounceRowLayout);
 
-            layout.Add(new Label
-            {
-                Text = "Time to wait for input data to stabilize before sending requests to AI providers. Especially relevant when run is permanently set to true.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,  // Max width for better text wrapping
-            });
+            layout.Add(SettingsText.DescriptionLabel(
+                "Time to wait for input data to stabilize before sending requests to AI providers. Especially relevant when run is permanently set to true."));
 
             // Add spacing
             layout.Add(new Panel { Height = 10 });
 
-            // Batch poll interval section
+            // Batch poll interval
             var batchPollRowLayout = new TableLayout
             {
                 Spacing = new Size(10, 0),
@@ -142,16 +196,10 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             layout.Add(batchPollRowLayout);
 
-            layout.Add(new Label
-            {
-                Text = "Minimum interval between batch status poll requests. Applies to all providers that support batch processing.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,
-            });
+            layout.Add(SettingsText.DescriptionLabel(
+                "Minimum interval between batch status poll requests. Applies to all providers that support batch processing."));
 
-            // Add end spacing
+            // Add spacing
             layout.Add(new Panel { Height = 10 });
 
             // Modality fallback mode
@@ -161,38 +209,26 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 new TableCell(this._fallbackModeDropDown, true)));
             layout.Add(fallbackModeRowLayout);
 
-            layout.Add(new Label
-            {
-                Text = "Controls what happens when an AI model does not support the required input modality (e.g. images sent to a text-only model). " +
-                       "Disabled: unsupported modalities produce an error. " +
-                       "Configured Provider: convert using the component's configured provider. " +
-                       "Any Provider: convert using whichever configured provider can handle the conversion.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,
-            });
+            layout.Add(SettingsText.DescriptionLabel(
+                "Controls what happens when an AI model does not support the required input modality (e.g. images sent to a text-only model). " +
+                "Disabled: unsupported modalities produce an error. " +
+                "Same Provider: convert using the component's configured provider. " +
+                "Any Provider: convert using whichever configured provider can handle the conversion."));
 
             layout.Add(new Panel { Height = 10 });
 
-            // Build the pins container with title, description and rows
+            // Fallback model override pins
             var pinsLayout = new DynamicLayout { Spacing = new Size(5, 5) };
 
             pinsLayout.Add(new Label
             {
                 Text = "Fallback Model Overrides",
-                Font = new Font(SystemFont.Bold, 12),
+                Font = new Font(SystemFont.Bold, 11),
             });
 
-            pinsLayout.Add(new Label
-            {
-                Text = "Optionally pin a specific provider/model for each fallback conversion. " +
-                       "Leave as 'Auto' to let the resolver choose automatically.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,
-            });
+            pinsLayout.Add(SettingsText.DescriptionLabel(
+                "Optionally pin a specific provider/model for each fallback conversion. " +
+                "Leave as 'Auto' to let the resolver choose automatically."));
 
             pinsLayout.Add(new Panel { Height = 5 });
 
@@ -225,9 +261,12 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 modelDropDown.Enabled = false;
                 this._fallbackModelDropDowns[fb.Name] = modelDropDown;
 
+                var fbLabel = SettingsText.DescriptionLabel(fb.Description, width: 230);
+                fbLabel.VerticalAlignment = VerticalAlignment.Center;
+
                 var row = new TableLayout { Spacing = new Size(10, 0) };
                 row.Rows.Add(new TableRow(
-                    new TableCell(new Label { Text = fb.Description, VerticalAlignment = VerticalAlignment.Center, Width = 250 }, false),
+                    new TableCell(fbLabel, false),
                     new TableCell(providerDropDown, true),
                     new TableCell(modelDropDown, true)));
                 rowsLayout.Add(row);
@@ -238,11 +277,253 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             this._fallbackPinsContainer = new Panel { Content = pinsLayout };
             layout.Add(this._fallbackPinsContainer);
-            layout.Add(null);
 
-            this.Content = new Scrollable { Content = layout };
+            var generalLayout = layout;
+            layout = new DynamicLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
+
+            // Logs section
+            layout.Add(new Label
+            {
+                Text = "Logs",
+                Font = new Font(SystemFont.Bold, 12),
+            });
+
+            layout.Add(new Panel { Height = 5 });
+
+            layout.Add(new Panel { Height = 10 });
+
+            layout.Add(this._liveOutputCheckBox);
+            AddRow(layout, "Live level:", this._liveOutputLevelDropDown);
+            AddDescription(layout, "Echoes log entries at or above the selected level to Rhino's command-line window.");
+            layout.Add(new Panel { Height = 10 });
+
+            layout.Add(this._logFileCheckBox);
+            AddRow(layout, "File level:", this._logFileLevelDropDown);
+            AddRow(layout, "Retention (days):", this._retentionControl);
+            AddDescription(layout, "Writes log entries at or above the selected level to a rolling per-day log file under the diagnostics folder, keeping the last N days.");
+            layout.Add(new Panel { Height = 10 });
+
+            // Add end spacing
+            layout.Add(new Panel { Height = 10 });
+
+            this.DeveloperContent = new Scrollable { Content = layout };
+            this.Content = new Scrollable { Content = generalLayout };
 
             this.UpdateFallbackPinsVisibility();
+        }
+
+        /// <summary>
+        /// Reports whether the provider is trusted. Missing entries default to trusted,
+        /// matching the Security tab checkboxes.
+        /// </summary>
+        private static bool IsProviderTrusted(IAIProvider provider)
+        {
+            var assemblyName = provider.GetType().Assembly.GetName().Name;
+            var trusted = SmartHopperSettings.Instance.TrustedProviders;
+            return !trusted.TryGetValue(assemblyName, out var isTrusted) || isTrusted;
+        }
+
+        /// <summary>
+        /// Builds the provider tile grid: one clickable tile per provider showing its
+        /// icon and name; clicking navigates to that provider's settings view.
+        /// </summary>
+        private static Control CreateProviderGrid(IAIProvider[] providers, Action<IAIProvider> configureProvider)
+        {
+            var tiles = providers.OrderBy(p => p.Name)
+                .Select(p => (Control)CreateProviderTile(p, configureProvider))
+                .ToArray();
+            return new ProviderTileGrid(tiles);
+        }
+
+        /// <summary>
+        /// Responsive tile container: a <see cref="PixelLayout"/> whose column count is
+        /// recomputed from the available width on every resize; tiles are positioned
+        /// absolutely so they re-flow without ever being reparented.
+        /// </summary>
+        private sealed class ProviderTileGrid : Panel
+        {
+            private const int TileWidth = 160;
+            private const int TileHeight = 44;
+            private const int TileSpacing = 8;
+            private const int FallbackWidth = 500;
+
+            private readonly PixelLayout pixelLayout = new PixelLayout();
+            private readonly Control[] tiles;
+
+            /// <summary>Initializes the grid and lays out the tiles for the current width.</summary>
+            public ProviderTileGrid(Control[] tiles)
+            {
+                this.tiles = tiles;
+                this.Content = this.pixelLayout;
+                foreach (var tile in tiles)
+                {
+                    tile.Size = new Size(TileWidth, TileHeight);
+                    this.pixelLayout.Add(tile, 0, 0);
+                }
+
+                this.SizeChanged += (_, _) => this.Reflow();
+                this.Reflow();
+            }
+
+            private void Reflow()
+            {
+                var available = this.Size.Width > 0 ? this.Size.Width : FallbackWidth;
+                var columns = Math.Max(1, available / (TileWidth + TileSpacing));
+                for (var i = 0; i < this.tiles.Length; i++)
+                {
+                    this.pixelLayout.Move(
+                        this.tiles[i],
+                        (i % columns) * (TileWidth + TileSpacing),
+                        (i / columns) * (TileHeight + TileSpacing));
+                }
+
+                var rows = (this.tiles.Length + columns - 1) / columns;
+                this.Height = Math.Max(0, (rows * TileHeight) + ((rows - 1) * TileSpacing));
+            }
+        }
+
+        /// <summary>Creates a single provider tile button with the provider's icon and name.</summary>
+        private static Button CreateProviderTile(IAIProvider provider, Action<IAIProvider> configureProvider)
+        {
+            var tile = new Button
+            {
+                Text = provider.Name,
+                Image = ProviderTileIcon.Load(provider, 20),
+                ImagePosition = ButtonImagePosition.Left,
+                Height = 44,
+            };
+            tile.Click += (_, _) => configureProvider?.Invoke(provider);
+            return tile;
+        }
+
+        /// <summary>
+        /// Loads settings into the UI controls
+        /// </summary>
+        /// <param name="settings">General settings to load</param>
+        /// <param name="logSettings">Log sink settings to load</param>
+        /// <param name="fallbackMode">Modality fallback mode to load</param>
+        /// <param name="fallbackPins">Fallback provider/model pins to load</param>
+        public void LoadSettings(GeneralSettings settings, LogSettings logSettings, ModalityFallbackMode fallbackMode, Dictionary<string, FallbackProviderPin> fallbackPins)
+        {
+            // Set default provider
+            if (!string.IsNullOrEmpty(settings.DefaultAIProvider))
+            {
+                for (int i = 0; i < this._defaultProviderComboBox.Items.Count; i++)
+                {
+                    if (this._defaultProviderComboBox.Items[i].Text == settings.DefaultAIProvider)
+                    {
+                        this._defaultProviderComboBox.SelectedIndex = i;
+                        break;
+                    }
+                }
+            }
+            else if (this._defaultProviderComboBox.Items.Count > 0)
+            {
+                this._defaultProviderComboBox.SelectedIndex = 0;
+            }
+
+            // Set debounce time
+            this._debounceControl.Value = settings.DebounceTime;
+
+            // Set batch poll interval
+            this._batchPollIntervalControl.Value = settings.BatchPollIntervalSeconds;
+
+            // Set modality fallback mode and pins
+            this._fallbackModeDropDown.SelectedIndex = (int)fallbackMode;
+            this.UpdateFallbackPinsVisibility();
+
+            if (fallbackPins != null)
+            {
+                foreach (var kvp in fallbackPins)
+                {
+                    if (!this._fallbackProviderDropDowns.TryGetValue(kvp.Key, out var provDD) || kvp.Value == null)
+                    {
+                        continue;
+                    }
+
+                    for (int i = 0; i < provDD.Items.Count; i++)
+                    {
+                        if (provDD.Items[i].Key == (kvp.Value.Provider ?? ""))
+                        {
+                            provDD.SelectedIndex = i;
+                            break;
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(kvp.Value.Model) &&
+                        this._fallbackModelDropDowns.TryGetValue(kvp.Key, out var modelDD))
+                    {
+                        for (int i = 0; i < modelDD.Items.Count; i++)
+                        {
+                            if (modelDD.Items[i].Key == kvp.Value.Model)
+                            {
+                                modelDD.SelectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Set log sink settings
+            this._liveOutputCheckBox.Checked = logSettings.LiveOutputEnabled;
+            SetLogLevel(this._liveOutputLevelDropDown, logSettings.LiveOutputLevel);
+            this._logFileCheckBox.Checked = logSettings.LogFileEnabled;
+            SetLogLevel(this._logFileLevelDropDown, logSettings.LogFileLevel);
+            this._retentionControl.Value = logSettings.LogRetentionDays;
+        }
+
+        /// <summary>
+        /// Saves UI control values back to the settings models
+        /// </summary>
+        /// <param name="settings">General settings to update</param>
+        /// <param name="logSettings">Log sink settings to update</param>
+        /// <param name="fallbackMode">Resulting modality fallback mode</param>
+        /// <param name="fallbackPins">Resulting fallback provider/model pins</param>
+        public void SaveSettings(GeneralSettings settings, LogSettings logSettings, out ModalityFallbackMode fallbackMode, out Dictionary<string, FallbackProviderPin> fallbackPins)
+        {
+            // Save default provider
+            if (this._defaultProviderComboBox.SelectedIndex >= 0)
+            {
+                settings.DefaultAIProvider = this._defaultProviderComboBox.Items[this._defaultProviderComboBox.SelectedIndex].Text;
+            }
+
+            // Save debounce time
+            settings.DebounceTime = (int)this._debounceControl.Value;
+
+            // Save batch poll interval
+            settings.BatchPollIntervalSeconds = (int)this._batchPollIntervalControl.Value;
+
+            // Save modality fallback mode and pins
+            fallbackMode = (ModalityFallbackMode)(this._fallbackModeDropDown.SelectedIndex >= 0 ? this._fallbackModeDropDown.SelectedIndex : 0);
+            fallbackPins = new Dictionary<string, FallbackProviderPin>();
+
+            foreach (var kvp in this._fallbackProviderDropDowns)
+            {
+                var selectedProviderKey = kvp.Value.SelectedKey;
+                if (!string.IsNullOrEmpty(selectedProviderKey))
+                {
+                    var pin = new FallbackProviderPin { Provider = selectedProviderKey };
+
+                    if (this._fallbackModelDropDowns.TryGetValue(kvp.Key, out var modelDD))
+                    {
+                        var selectedModelKey = modelDD.SelectedKey;
+                        if (!string.IsNullOrEmpty(selectedModelKey))
+                        {
+                            pin.Model = selectedModelKey;
+                        }
+                    }
+
+                    fallbackPins[kvp.Key] = pin;
+                }
+            }
+
+            // Save log sink settings
+            logSettings.LiveOutputEnabled = this._liveOutputCheckBox.Checked == true;
+            logSettings.LiveOutputLevel = LogLevels[this._liveOutputLevelDropDown.SelectedIndex].Level;
+            logSettings.LogFileEnabled = this._logFileCheckBox.Checked == true;
+            logSettings.LogFileLevel = LogLevels[this._logFileLevelDropDown.SelectedIndex].Level;
+            logSettings.LogRetentionDays = (int)this._retentionControl.Value;
         }
 
         private void OnFallbackModeChanged(object sender, EventArgs e)
@@ -292,118 +573,44 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             modelDD.SelectedIndex = 0;
         }
 
-        /// <summary>
-        /// Loads settings into the UI controls
-        /// </summary>
-        /// <param name="settings">General settings to load</param>
-        /// <param name="fallbackMode">Modality fallback mode to load</param>
-        /// <param name="fallbackPins">Fallback provider pins to load</param>
-        public void LoadSettings(GeneralSettings settings, ModalityFallbackMode fallbackMode, Dictionary<string, FallbackProviderPin> fallbackPins)
+        private static DropDown BuildLogLevelDropDown()
         {
-            // Set default provider
-            if (!string.IsNullOrEmpty(settings.DefaultAIProvider))
+            var dropDown = new DropDown();
+            foreach (var (_, label) in LogLevels)
             {
-                for (int i = 0; i < this._defaultProviderComboBox.Items.Count; i++)
-                {
-                    if (this._defaultProviderComboBox.Items[i].Text == settings.DefaultAIProvider)
-                    {
-                        this._defaultProviderComboBox.SelectedIndex = i;
-                        break;
-                    }
-                }
-            }
-            else if (this._defaultProviderComboBox.Items.Count > 0)
-            {
-                this._defaultProviderComboBox.SelectedIndex = 0;
+                dropDown.Items.Add(new ListItem { Text = label });
             }
 
-            // Set debounce time
-            this._debounceControl.Value = settings.DebounceTime;
-
-            // Set batch poll interval
-            this._batchPollIntervalControl.Value = settings.BatchPollIntervalSeconds;
-
-            // Set fallback mode and pins
-            this._fallbackModeDropDown.SelectedIndex = (int)fallbackMode;
-            this.UpdateFallbackPinsVisibility();
-
-            if (fallbackPins != null)
-            {
-                foreach (var kvp in fallbackPins)
-                {
-                    if (!this._fallbackProviderDropDowns.TryGetValue(kvp.Key, out var provDD) || kvp.Value == null)
-                    {
-                        continue;
-                    }
-
-                    for (int i = 0; i < provDD.Items.Count; i++)
-                    {
-                        if (provDD.Items[i].Key == (kvp.Value.Provider ?? ""))
-                        {
-                            provDD.SelectedIndex = i;
-                            break;
-                        }
-                    }
-
-                    if (!string.IsNullOrEmpty(kvp.Value.Model) &&
-                        this._fallbackModelDropDowns.TryGetValue(kvp.Key, out var modelDD))
-                    {
-                        for (int i = 0; i < modelDD.Items.Count; i++)
-                        {
-                            if (modelDD.Items[i].Key == kvp.Value.Model)
-                            {
-                                modelDD.SelectedIndex = i;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
+            dropDown.SelectedIndex = 0;
+            return dropDown;
         }
 
-        /// <summary>
-        /// Saves UI control values back to the settings model
-        /// </summary>
-        /// <param name="settings">General settings to update</param>
-        /// <param name="fallbackMode">Resulting modality fallback mode</param>
-        /// <param name="fallbackPins">Resulting fallback provider pins</param>
-        public void SaveSettings(GeneralSettings settings, out ModalityFallbackMode fallbackMode, out Dictionary<string, FallbackProviderPin> fallbackPins)
+        private static void SetLogLevel(DropDown dropDown, ProviderLogLevel level)
         {
-            // Save default provider
-            if (this._defaultProviderComboBox.SelectedIndex >= 0)
+            for (var i = 0; i < LogLevels.Length; i++)
             {
-                settings.DefaultAIProvider = this._defaultProviderComboBox.Items[this._defaultProviderComboBox.SelectedIndex].Text;
-            }
-
-            // Save debounce time
-            settings.DebounceTime = (int)this._debounceControl.Value;
-
-            // Save batch poll interval
-            settings.BatchPollIntervalSeconds = (int)this._batchPollIntervalControl.Value;
-
-            // Save fallback mode and pins
-            fallbackMode = (ModalityFallbackMode)(this._fallbackModeDropDown.SelectedIndex >= 0 ? this._fallbackModeDropDown.SelectedIndex : 0);
-            fallbackPins = new Dictionary<string, FallbackProviderPin>();
-
-            foreach (var kvp in this._fallbackProviderDropDowns)
-            {
-                var selectedProviderKey = kvp.Value.SelectedKey;
-                if (!string.IsNullOrEmpty(selectedProviderKey))
+                if (LogLevels[i].Level == level)
                 {
-                    var pin = new FallbackProviderPin { Provider = selectedProviderKey };
-
-                    if (this._fallbackModelDropDowns.TryGetValue(kvp.Key, out var modelDD))
-                    {
-                        var selectedModelKey = modelDD.SelectedKey;
-                        if (!string.IsNullOrEmpty(selectedModelKey))
-                        {
-                            pin.Model = selectedModelKey;
-                        }
-                    }
-
-                    fallbackPins[kvp.Key] = pin;
+                    dropDown.SelectedIndex = i;
+                    return;
                 }
             }
+
+            dropDown.SelectedIndex = 0;
+        }
+
+        private static void AddRow(DynamicLayout layout, string label, Control control)
+        {
+            var row = new TableLayout { Spacing = new Size(10, 0) };
+            row.Rows.Add(new TableRow(
+                new TableCell(new Label { Text = label, VerticalAlignment = VerticalAlignment.Center, Width = 150 }, false),
+                new TableCell(control, true)));
+            layout.Add(row);
+        }
+
+        private static void AddDescription(DynamicLayout layout, string text)
+        {
+            layout.Add(SettingsText.DescriptionLabel(text));
         }
     }
 }

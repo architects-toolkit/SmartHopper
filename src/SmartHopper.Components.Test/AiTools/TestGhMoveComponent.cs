@@ -180,7 +180,7 @@ namespace SmartHopper.Components.Test.AiTools
                 };
 
                 var toolCall = new AIToolCall();
-                toolCall.Endpoint = "gh_move";
+                toolCall.Origin = "gh_move";
                 toolCall.FromToolCallInteraction(toolCallInteraction);
                 toolCall.SkipMetricsValidation = true;
 

@@ -120,10 +120,10 @@ in the AI Chat component.
 | `ladybug_forum_topic_summarize` | Knowledge.LadybugForum | Generate a concise summary of a Ladybug Tools forum topic by ID, based on its posts. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_list_categories` | Canvas.Query | Discover what component categories are available in the user's Grasshopper installation (e.g., 'Maths', 'Curve', 'Surface'). Use this before gh_list_components to narrow your search. Apply filters to find specific categories and save tokens. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_list_components` | Canvas.Query | Search for available Grasshopper components by category or name to find what the user can use. Returns component details including inputs/outputs. IMPORTANT: Use includeDetails parameter to request only needed fields (e.g., ['name','description','inputs','outputs']) to avoid token waste. Use maxResults to limit output. | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_get` | Canvas.Query | Read the current Grasshopper file with optional filters. By default, it returns all components. Supports attrFilters, categoryFilter, typeFilter (+startnodes/+endnodes/+params/...), guidFilter, nameFilter, viewportOnly, connectionDepth, pagination, detail ('full' GhJSON or compact 'summary' projection via 'fields'), and includeRuntimeData/includeInternalizedData/includeRuntimeMessages/includeMetadata flags. (The former `*_with_data` variants equate to includeRuntimeData+includeInternalizedData together.) | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_get_selected` | Canvas.Query | Read only the selected components from the Grasshopper canvas. Use this when the user asks about 'selected', 'this', or 'these' components. Accepts the same filters as gh_get (includeRuntimeData, connectionDepth, detail, ...). Returns a GhJSON structure. | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_get_by_guid` | Canvas.Query | Read specific components by their GUIDs (guidFilter is required). Accepts the same filters as gh_get (includeRuntimeData, detail, ...). Returns a GhJSON structure. | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_get_errors` | Canvas.Query | Read only components that have error messages (runtime messages always included). Use this when debugging or when the user asks about errors or broken components. Accepts the same filters as gh_get; combine detail:'summary' + fields:['name','messages'] for a compact report. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get` | Canvas.Query | Read the current Grasshopper file with optional filters. By default, it returns all components. Returns a GhJSON structure of the file. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_selected` | Canvas.Query | Read only the selected components from the Grasshopper canvas. Use this when the user asks about 'selected', 'this', or 'these' components. Returns a GhJSON structure. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_by_guid` | Canvas.Query | Read specific components by their GUIDs. Use this when you have component GUIDs from a previous query. Returns a GhJSON structure. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_errors` | Canvas.Query | Read only components that have error messages. Use this when debugging or when the user asks about errors or broken components. Returns a GhJSON structure. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_put` | GhJSON.Tools | Add new components to the canvas from GhJSON format. Use this to create component networks, add missing components, or build parametric definitions. The GhJSON must include component types, positions, and connections. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_merge` | GhJSON.Tools | Merge two GhJSON documents into one. The target document takes priority on conflicts (duplicate components by GUID are skipped from source). Connections and groups from both documents are combined with proper ID remapping and deduplication. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_diff` | GhJSON.Tools | Diff two GhJSON documents and produce a structured `.ghpatch` document describing the differences (added/removed/modified components, connections, groups, and metadata). Components are matched by instanceGuid, then id, then structural fingerprint (componentGuid + name + optional pivot). Connections are matched by their endpoints (paramName preferred, paramIndex fallback). By default, runtime messages, metadata counters and metadata timestamps are ignored. | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -136,8 +136,6 @@ in the AI Chat component.
 | `gh_component_lock_selected` | Canvas.ComponentControl | Lock (disable) currently selected components. Quick way to disable selected items without needing to specify GUIDs manually. Locked components don't execute and show as grayed out. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_component_unlock_selected` | Canvas.ComponentControl | Unlock (enable) currently selected components. Quick way to enable selected items without needing to specify GUIDs manually. Unlocked components will execute normally. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_move` | Canvas.Modifications | Reposition components on the canvas by specifying target coordinates. Use absolute coordinates (canvas position) or relative offsets (move by delta). Useful for organizing layouts or separating component groups. Requires component GUIDs from gh_get. | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_set_value` | Canvas.Modifications | Set the value of an existing canvas object in place: panel or scribble text, a boolean toggle, a number slider (clamped to its range), a value list selection (by index, name or item value), or a standalone persistent parameter. When 'param' is supplied and the target is a component, the matching input parameter's persistent default is set instead. Requires component GUIDs from gh_get. | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_run` | Canvas.Modifications | Re-run (recompute) components by pulsing their lock state: each target is disabled then re-enabled on the UI thread so Grasshopper schedules a normal solution. Refused while a solution is in progress; locked objects are skipped. Requires component GUIDs from gh_get. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_tidy_up` | Canvas.Modifications | Automatically arrange components into a clean grid layout respecting data flow direction. Organizes components left-to-right based on their connections. Use this to clean up messy definitions. Requires component GUIDs from gh_get. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_tidy_up_selected` | Canvas.Modifications | Organize currently selected components into a tidy grid layout. Quick way to clean up selected items without needing to specify GUIDs manually. Arranges components left-to-right based on connections. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_generate` | GhJSON.Generation | Generate GhJSON for creating a set of Grasshopper components by name and parameters. Returns a valid GhJSON structure that can be passed to gh_put to place components on canvas. Use this to create individual components or small networks when you know the exact component names. For complex networks, consider using the full gh_put workflow with AI-generated GhJSON. | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -146,6 +144,12 @@ in the AI Chat component.
 | `gh_disconnect` | Canvas.Modifications | Disconnect Grasshopper components by removing wires between outputs and inputs. Use this to break data flow between existing components on the canvas. Requires component GUIDs (use gh_get_selected or gh_get to find them first). | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_group` | Canvas.Modifications | Create a visual group container around components to organize and annotate them. Use this to highlight related components, mark areas of interest, or add notes to the canvas. Requires component GUIDs from gh_get. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_group_selected` | Canvas.Modifications | Create a group around currently selected components. Quick way to organize selected items without needing to specify GUIDs manually. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_select` | Canvas.Modifications | Update the Grasshopper canvas selection: 'set' replaces the selection with the given GUIDs, 'add' extends it, 'remove' deselects the given GUIDs, 'clear' deselects everything. | - | - | - | - |
+| `gh_set_value` | Canvas.Modifications | Set the value of an existing canvas object in place: panel or scribble text, a boolean toggle, a number slider, a value list selection, or a standalone persistent parameter. Optional 'param' targets a component input's persistent default; 'panelMode' controls how panel text is emitted. | - | - | - | - |
+| `gh_edit_datatree` | Canvas.Modifications | Replace individual items or whole branches inside the stored data of an existing canvas object (panels, standalone persistent params, or a component's input/output parameter via 'param') without rewriting the rest of the tree. Values use GhJSON prefixed encodings; applied as one undoable step. | - | - | - | - |
+| `gh_run` | Canvas.Modifications | Re-run (recompute) components by pulsing their lock state: each target is disabled then re-enabled on the UI thread so Grasshopper schedules a normal solution. Locked objects are skipped. | - | - | - | - |
+| `gh_apply_changes` | Canvas.Modifications | Apply a finite set of related canvas changes in one review, one undo step and one scheduled solve. 'operations' accepts at most one 'put' followed by 'set_value', 'set_provider' and 'connect'/'disconnect' ops; targets are live instance GUIDs or ids inside the request's put fragment. Rejecting any reviewed row rejects the whole set. | - | - | - | - |
+| `gh_batch_import_results` | Canvas.ComponentControl | Import locally saved provider batch-result files (*.jsonl/*.json) into a stateful AI component that ran a batch (Batch tier). Results are matched by custom_id and delivered as component outputs, never in the tool response. | - | - | - | - |
 | `gh_parameter_data_mapping_none` | Canvas.ComponentControl | Set a parameter's data mapping to None | ⚪ | 🟡 | - | - |
 | `gh_parameter_data_mapping_flatten` | Canvas.ComponentControl | Set a parameter's data mapping to Flatten | ⚪ | 🟡 | - | - |
 | `gh_parameter_data_mapping_graft` | Canvas.ComponentControl | Set a parameter's data mapping to Graft | ⚪ | 🟡 | - | - |
@@ -170,16 +174,25 @@ in the AI Chat component.
 | `gh_clear` | Canvas.Modifications | Clear all components from the Grasshopper canvas. Optionally keep locked (disabled) components. Protected components (and their direct neighbors) are always preserved. This is a destructive operation - use with caution. Supports undo (Ctrl+Z). | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_report` | Canvas.Query | Generate a comprehensive status report of the current Grasshopper canvas. Returns a structured markdown summary including object counts by type/topology, unique component names, group titles, scribble texts, viewport contents, file metadata, and all errors/warnings. Optionally includes an AI-generated summary of the file purpose. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_smart_connect` | Canvas.Modifications | AI-powered smart connection tool. Given a set of component GUIDs and a purpose description, retrieves their structure via gh_get, asks an AI model to suggest optimal connections, and executes them via gh_connect. Returns the connection results and the AI reasoning. | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_component_set_provider` | AIProviders | Configure an `IProviderComponent` by setting its selected AI provider and wiring a new Panel with the model name into its Settings input. Component-scoped (not global). Supports undo and respects `CanvasProtection`. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_component_set_provider` | AIProviders | Configure an `IProviderComponent` by setting its selected AI provider and wiring a new Panel with the model name into its Settings input. Supports undo and respects `CanvasProtection`. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `canvas_screenshot` | Canvas.Vision | Captures the currently visible Grasshopper canvas viewport as a base64-encoded PNG. The image is resized to fit within maxWidth and maxHeight while preserving its aspect ratio. | - | - | - | - |
 | `viewport_screenshot` | Canvas.Vision | Captures the active or named Rhino 3D viewport as a base64-encoded PNG. The image is resized to fit within width and height while preserving its aspect ratio. | - | - | - | - |
 | `canvas_hi-res_screenshot` | Canvas.Vision | Renders a region of the Grasshopper canvas to a high-resolution PNG for publishing or printing, independent of the visible viewport. Use 'scope' to capture the whole document, the current selection, specific components by GUID, or an explicit bounds rectangle; 'scale' controls resolution (default 2.0; 1.0 matches on-screen size); 'background' supports transparency. This tool is meant for presentable output, not for AI agent vision of the canvas: it can produce very large images that would consume too many unnecessary tokens. Use canvas_screenshot for agent vision instead. | - | - | - | - |
 | `canvas_point` | Canvas.ViewControl | Points the user's attention at something on the Grasshopper canvas: pans and zooms the viewport to the target and draws a border highlight for a few seconds. Provide component instance GUIDs and/or a canvas region (x, y, width, height) as the target. The 'message' is shown in chat next to a button that replays the pan/zoom/highlight. Use it to refer the user to a specific component or area, e.g. 'this is the component you are struggling with'. It never changes the document. | - | - | - | - |
 | `canvas_view` | Canvas.ViewControl | Adjusts the Grasshopper canvas viewport without changing the document. Actions: 'zoomExtents' frames every object; 'frameGuids' frames the given component GUIDs; 'setZoom' sets the zoom factor (1 = 100%); 'setCenter' centres the view on canvas coordinates x/y. | - | - | - | - |
-| `gh_document_list` | Canvas.Documents | List the Grasshopper documents open in Rhino with their documentId, name, filePath, isActive, isModified and objectCount. Use the documentId with gh_get, gh_document_switch or gh_document_save to work with a document that is not active. | - | - | - | - |
+| `ask_user` | AgentPlanning | Ask the user a structured set of questions through the SmartHopper dialog (text, textarea, yes/no, choice, multi-choice). Blocks until the user answers, skips, or cancels. Requires an active SmartHopper session — do not use in autonomous/background runs. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `plan_propose` | AgentPlanning | Propose a plan of action for the conversation. Returns the plan as a JSON object with a markdown summary. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `plan_tasks` | AgentPlanning | Manage task tracking via `add`, `update`, `remove`, `complete`, `list`, or `status` operations. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `search_tools` | Assistant.Meta | Discover additional tools not already in your toolset: describe what you want to do (e.g. "connect two components", "run a background agent") and matching tool definitions are returned, then call them by name. | - | - | - | - |
+| `spawn_subagent` | AgentPlanning | Spawn a persistent background subagent that works a delegated brief in its own conversation and reports back automatically. Canvas-mutating tools are unavailable to subagents. | - | - | - | - |
+| `send_to_subagent` | AgentPlanning | Send a follow-up instruction to an existing subagent: 'queue' (default) delivers it as the next run; 'on-the-fly' steers the live run immediately. | - | - | - | - |
+| `wait_subagents` | AgentPlanning | Block until the selected subagents finish (or the timeout elapses) and collect their results inside this turn. | - | - | - | - |
+| `list_subagents` | AgentPlanning | List this session's subagents with their latest run status, bounded result or error, and the instruction that produced it. | - | - | - | - |
+| `gh_document_list` | Canvas.Documents | List the Grasshopper documents open in Rhino with their documentId, name, filePath, isActive, isModified, objectCount and hostsMcpServer (true when the document contains the enabled SmartHopper MCP Server component — unloading it disconnects the MCP session). Use the documentId with gh_get, gh_document_switch or gh_document_save to work with a document that is not active. | - | - | - | - |
 | `gh_document_new` | Canvas.Documents | Create a new blank Grasshopper document and make it the active document. Use gh_document_save with a filePath to save it to disk. | - | - | - | - |
 | `gh_document_open` | Canvas.Documents | Open a Grasshopper document (.gh or .ghx) from an absolute file path and make it the active document. If the file is already open, it is activated instead of opened twice. | - | - | - | - |
 | `gh_document_switch` | Canvas.ViewControl | Show another open Grasshopper document in the canvas, making it the active document for all canvas tools. Get documentId values from gh_document_list. | - | - | - | - |
+| `show_ghjson` | GhJSON.Generation | Shows a GhJSON definition to the user as a persistent artifact card in the chat (collapsed source, copy button, and a place-on-canvas action when the document is valid). ALWAYS use this to deliver a GhJSON definition — never paste GhJSON into your reply text. The document is validated against the GhJSON schema first; on failure the call returns structured validation errors — fix the document and call again. It never changes the document. | - | - | - | - |
 
 Notes:
 
@@ -233,43 +246,48 @@ Notes:
 
 | Provider | Model | Verified | Streaming | Deprecated | Default For | Capabilities |
 |---|---|:---:|:---:|:---:|---|---|
-| Anthropic | `claude-sonnet-4-6` | - | ✅ | - | Text2Json | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
-| Anthropic | `claude-haiku-4-5-20251001` | ⭐ | ✅ | - | Text2Text, ReasoningChat, ToolReasoningChat, ToolChat, Image2Text | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
-| Anthropic | `claude-sonnet-4-5-20250929` | ⭐ | ✅ | - | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, Reasoning |
+| Anthropic | `claude-haiku-5-5` | ⭐ | ✅ | - | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat, ToolChat, Image2Text | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| Anthropic | `claude-sonnet-5-5` | ⭐ | ✅ | - | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat, ToolChat, Image2Text | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| Anthropic | `claude-opus-5-5` | ⭐ | ✅ | - | - | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | DeepSeek | `deepseek-flash` | - | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json | TextInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
-| Gemini | `gemini-3.1-flash-image-preview` | - | ✅ | - | Text2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
-| Gemini | `gemini-2.5-flash-image` | ⭐ | ✅ | - | Text2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput |
-| Gemini | `gemini-3-pro-image-preview` | - | ✅ | - | Text2Image, Image2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
-| Gemini | `gemini-2.5-flash-lite` | ⭐ | ✅ | - | - | TextInput, ImageInput, SpeechInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
-| Gemini | `gemini-2.5-flash` | ⭐ | ✅ | - | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, SpeechInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
-| Gemini | `gemini-2.5-pro` | ⭐ | ✅ | - | - | TextInput, ImageInput, SpeechInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
-| MistralAI | `mistral-small-2603` | ⭐ | ✅ | - | Text2Text, ToolChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| OpenAI | `gpt-5.4-mini-2026-03-17` | - | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| Gemini | `gemini-3.8-flash` | - | - | - | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, AudioInput, SpeechInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| Gemini | `gemini-3.1-flash-lite-image` | - | - | - | Text2Image, Image2Image, Image2Text | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
+| Gemini | `gemini-2.5-flash-image` | ⭐ | ✅ | - | - | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput |
+| Gemini | `gemini-2.5-flash` | ⭐ | ✅ | - | - | TextInput, ImageInput, AudioInput, SpeechInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| MistralAI | `mistral-large-4-0` | - | ✅ | - | Text2Text, ToolChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| MistralAI | `mistral-small-2603` | ⭐ | ✅ | - | Text2Text, ToolChat, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| MistralAI | `codestral-embed-2505` | - | - | - | EmbedOutput | TextInput, EmbedOutput |
+| MistralAI | `mistral-embed-2312` | - | - | - | EmbedOutput | TextInput, EmbedOutput |
+| OpenAI | `gpt-6-luna` | ⭐ | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| OpenAI | `gpt-6.1-sol` | ⭐ | ✅ | - | - | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | OpenAI | `gpt-audio-mini-2025-12-15` | - | - | - | Audio2Text | TextInput, AudioInput, TextOutput, AudioOutput, FunctionCalling |
-| OpenAI | `gpt-5-mini-2025-08-07` | ⭐ | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| OpenAI | `gpt-5-mini-2025-08-07` | ⭐ | ✅ | - | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 | OpenAI | `gpt-4o-mini-tts-2025-12-15` | - | - | - | Text2Speech | TextInput, SpeechOutput |
-| OpenAI | `gpt-image-2-2026-04-21` | - | - | - | Image2Image | TextInput, ImageInput, ImageOutput |
-| OpenAI | `whisper-1` | - | - | - | Speech2Text | SpeechInput, TextOutput |
-| OpenRouter | `openai/gpt-5.6-luna` | - | - | - | ToolChat, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
-| OpenRouter | `google/gemini-3.1-flash-lite` | - | - | - | Audio2Text | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| OpenAI | `gpt-4o-transcribe` | - | - | - | Speech2Text | SpeechInput, TextOutput |
+| OpenAI | `gpt-image-2.6-flare` | - | ✅ | - | Text2Image, Image2Image | TextInput, ImageInput, ImageOutput |
+| OpenAI | `gpt-image-2.6-sunburst` | - | ✅ | - | Text2Image, Image2Image | TextInput, ImageInput, ImageOutput |
+| OpenAI | `text-embedding-3-large` | - | - | - | EmbedOutput | TextInput, EmbedOutput |
+| OpenAI | `text-embedding-3-small` | - | - | - | EmbedOutput | TextInput, EmbedOutput |
+| OpenRouter | `openai/gpt-5.6-luna` | - | - | - | Text2Text, Text2Json, ToolChat, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | OpenRouter | `google/gemini-3.1-flash-lite-image` | - | - | - | Text2Image, Image2Image, Image2Text | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
 | OpenRouter | `google/lyria-3-pro-preview` | - | ✅ | - | Text2Audio | TextInput, ImageInput, TextOutput, AudioOutput, JsonOutput |
-| OpenRouter | `openai/gpt-5-mini` | - | ✅ | - | Text2Text, Text2Json | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| OpenRouter | `google/gemini-3.1-flash-lite` | - | - | - | Audio2Text | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 
 ### Discouraged models for script tools
 
 Some models are still supported but **not recommended** for script-oriented tools due to quality and stability trade-offs. These models are marked with `DiscouragedForTools` in the provider registries and surface in the UI as a "Not Recommended" badge when used with those tools.
 
 - **Anthropic**
-  - `claude-haiku-4-5-20251001`/`claude-haiku-4-5`/`claude-haiku-4-5-latest`/`claude-haiku-4.5`/`claude-haiku-4.5-latest` -> discouraged for: `script_generate`, `script_edit`
+  - `claude-haiku-4-5-20251001`/`claude-haiku-4-5`/`claude-haiku-4-5-latest`/`claude-haiku-4.5`/`claude-haiku-4.5-latest`/`claude-haiku-4-5-20251001:batch` -> discouraged for: `script_generate`, `script_edit`
   - `claude-3-5-haiku-20241022`/`claude-3-5-haiku`/`claude-3-5-haiku-latest` -> discouraged for: `script_generate`, `script_edit`
   - `claude-3-haiku-20240307`/`claude-3-haiku`/`claude-3-haiku-latest` -> discouraged for: `script_generate`, `script_edit`
 - **MistralAI**
   - `mistral-small-2603`/`mistral-small`/`mistral-small-latest`/`magistral-small-latest`/`mistral-vibe-cli-fast`/`mistral-small-2603:batch` -> discouraged for: `script_generate`, `script_edit`
-  - `mistral-ocr-2512`/`mistral-ocr-3-0`/`mistral-ocr-3`/`Mistral OCR 3.0` -> discouraged for: any tool
   - `mistral-ocr-2505` -> discouraged for: any tool
+  - `mistral-ocr-2512`/`mistral-ocr-3-0`/`mistral-ocr-3`/`Mistral OCR 3.0` -> discouraged for: any tool
 - **OpenAI**
   - `gpt-live-1` -> discouraged for: any tool
+  - `gpt-live-1.1` -> discouraged for: any tool
   - `gpt-live-transcribe` -> discouraged for: any tool
   - `omni-moderation-2024-09-26`/`omni-moderation-latest`/`omni-moderation` -> discouraged for: any tool
 

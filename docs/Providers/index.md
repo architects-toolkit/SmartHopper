@@ -43,7 +43,7 @@ Providers implement API-specific logic while conforming to a common contract so 
   - `AIProvider` — base template method flow and HTTP orchestration
   - `AIProviderModels` — capability and default model registry integration
   - `ProviderManager` — discovery, trust, registration, settings persistence
-- External providers: `SmartHopper.Providers.*` projects (e.g., OpenAI, DeepSeek, MistralAI, Gemini)
+- External providers: `SmartHopper.Providers.*` projects (e.g., OpenAI, DeepSeek, MistralAI, Gemini, OpenRouter, SmartHopper Cloud)
 
 ### Lifecycle
 

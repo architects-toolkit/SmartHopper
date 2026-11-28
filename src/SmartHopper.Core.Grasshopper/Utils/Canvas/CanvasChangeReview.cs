@@ -112,6 +112,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
     {
         private readonly IReadOnlyDictionary<string, CanvasChangeReviewItem> itemsByKey;
         private readonly Dictionary<int, RectangleF> proposedComponentBounds = new Dictionary<int, RectangleF>();
+        private readonly Dictionary<int, string> resolvedComponentNames = new Dictionary<int, string>();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CanvasChangeReviewSession"/> class.
@@ -222,6 +223,32 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         public bool TryGetProposedComponentBounds(int componentId, out RectangleF bounds)
         {
             return this.proposedComponentBounds.TryGetValue(componentId, out bounds);
+        }
+
+        /// <summary>
+        /// Stores the Grasshopper component name a proposed component resolves to during
+        /// deserialization, so the review can show when it differs from the proposed
+        /// <c>name</c> (for example a wrong <c>componentGuid</c> resolving to a different type).
+        /// </summary>
+        /// <param name="componentId">Proposed component ID.</param>
+        /// <param name="resolvedName">Name of the resolved Grasshopper component.</param>
+        public void SetResolvedComponentName(int componentId, string resolvedName)
+        {
+            if (!string.IsNullOrWhiteSpace(resolvedName))
+            {
+                this.resolvedComponentNames[componentId] = resolvedName;
+            }
+        }
+
+        /// <summary>
+        /// Gets the Grasshopper component name a proposed component resolves to.
+        /// </summary>
+        /// <param name="componentId">Proposed component ID.</param>
+        /// <param name="resolvedName">The resolved name when available.</param>
+        /// <returns><c>true</c> when a resolved name was stored for the component.</returns>
+        public bool TryGetResolvedComponentName(int componentId, out string resolvedName)
+        {
+            return this.resolvedComponentNames.TryGetValue(componentId, out resolvedName);
         }
     }
 }

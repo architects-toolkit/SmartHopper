@@ -27,6 +27,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using System.Threading.Tasks;
     using SmartHopper.Infrastructure.AICall.Execution;
     using SmartHopper.Infrastructure.AICall.Policies;
+    using SmartHopper.Infrastructure.AICall.Subagents;
     using SmartHopper.Infrastructure.AICall.Utilities;
     using SmartHopper.Infrastructure.Consent;
     using SmartHopper.Infrastructure.Interaction;
@@ -38,7 +39,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using SmartHopper.ProviderSdk.AICall.Core.Returns;
     using SmartHopper.ProviderSdk.AICall.Metrics;
     using SmartHopper.ProviderSdk.AICall.Utilities;
+    using SmartHopper.ProviderSdk.AIModels;
     using SmartHopper.ProviderSdk.Diagnostics;
+    using SmartHopper.ProviderSdk.Logging;
     using SmartHopper.ProviderSdk.Settings;
     using SmartHopper.ProviderSdk.Streaming;
     /// <summary>
@@ -171,6 +174,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// <param name="taskPlanPresenter">Optional presenter for invocation-specific task plan updates.</param>
         /// <param name="canvasPointerPresenter">Optional presenter for invocation-specific canvas pointer cards.</param>
         /// <param name="userQuestionPresenter">Optional presenter for invocation-specific user questions.</param>
+        /// <param name="ghJsonArtifactPresenter">Optional presenter for invocation-specific GhJSON artifact cards.</param>
+        /// <param name="subagentHost">Optional subagent host for conductor tools; child sessions receive none.</param>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="request"/> is null.</exception>
         public ConversationSession(
             AIRequestCall request,
@@ -180,7 +185,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             IConsentPresenter? consentPresenter = null,
             ITaskPlanPresenter? taskPlanPresenter = null,
             ICanvasPointerPresenter? canvasPointerPresenter = null,
-            IUserQuestionPresenter? userQuestionPresenter = null)
+            IUserQuestionPresenter? userQuestionPresenter = null,
+            IGhJsonArtifactPresenter? ghJsonArtifactPresenter = null,
+            ISubagentHost? subagentHost = null)
         {
             this.Request = request ?? throw new ArgumentNullException(nameof(request));
             this._initialRequest = request;
@@ -191,6 +198,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             this.TaskPlanPresenter = taskPlanPresenter;
             this.CanvasPointerPresenter = canvasPointerPresenter;
             this.UserQuestionPresenter = userQuestionPresenter;
+            this.GhJsonArtifactPresenter = ghJsonArtifactPresenter;
+            this.SubagentHost = subagentHost;
 
             // Initialize _lastReturn with initial request body
             this._lastReturn.SetBody(request.Body);
@@ -333,7 +342,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                 var retryOk = await this.TrySummarizeAndRetryAsync("Provider returned context exceeded error", linkedCts.Token).ConfigureAwait(false);
                                 if (retryOk)
                                 {
-                                    Debug.WriteLine("[ConversationSession] Retrying provider turn after summarization (non-streaming)");
+                                    Logger.For<StreamProcessingResult>().Trace("[ConversationSession] Retrying provider turn after summarization (non-streaming)");
                                     nsPrepared = await this.ExecuteProviderTurnAsync(options, turnId, linkedCts.Token).ConfigureAwait(false);
                                 }
                             }
@@ -369,7 +378,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                 {
                                     try
                                     {
-                                        Debug.WriteLine("[ConversationSession] Retrying provider turn after summarization (non-streaming exception)");
+                                        Logger.For<StreamProcessingResult>().Warning("[ConversationSession] Retrying provider turn after summarization (non-streaming exception)");
                                         nsPrepared = await this.ExecuteProviderTurnAsync(options, turnId, linkedCts.Token).ConfigureAwait(false);
                                         lastReturn = nsPrepared;
 
@@ -468,7 +477,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                 var retryOk = await this.TrySummarizeAndRetryAsync("Streaming provider returned context exceeded error", linkedCts.Token).ConfigureAwait(false);
                                 if (retryOk)
                                 {
-                                    Debug.WriteLine("[ConversationSession] Retrying streaming after summarization");
+                                    Logger.For<StreamProcessingResult>().Trace("[ConversationSession] Retrying streaming after summarization");
                                     streamResult = await this.ProcessStreamingDeltasAsync(adapter, streamingOptions!, state.TurnId, linkedCts.Token).ConfigureAwait(false);
                                 }
                             }
@@ -536,7 +545,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             {
                                 try
                                 {
-                                    Debug.WriteLine("[ConversationSession] Retrying as non-streaming after summarization (streaming exception)");
+                                    Logger.For<StreamProcessingResult>().Warning("[ConversationSession] Retrying as non-streaming after summarization (streaming exception)");
                                     var composite = await this.ExecuteProviderTurnAsync(options, state.TurnId, linkedCts.Token).ConfigureAwait(false);
                                     lastReturn = composite;
                                     this.NotifyFinal(composite);
@@ -646,6 +655,17 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// Gets the invocation-specific user question presenter.
         /// </summary>
         public IUserQuestionPresenter? UserQuestionPresenter { get; }
+
+        /// <summary>
+        /// Gets the invocation-specific GhJSON artifact presenter.
+        /// </summary>
+        public IGhJsonArtifactPresenter? GhJsonArtifactPresenter { get; }
+
+        /// <summary>
+        /// Gets the session's subagent host, when this session acts as a conductor.
+        /// Null on child sessions, which keeps subagent depth at one level.
+        /// </summary>
+        public ISubagentHost? SubagentHost { get; }
 
         /// <summary>
         /// Adds a new user interaction to the conversation.
@@ -786,6 +806,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             Interlocked.Exchange(ref this._autonomyExtraTokens, 0);
             this._runBaselineInteractions = this.Request.Body?.Interactions?.Count ?? 0;
             this._autonomyStopwatch.Restart();
+
+            // Bound the media-conversion memoization to this run: repeated preparations of
+            // the same evidence across turns (including tool follow-ups) reuse it, and a new
+            // run starts with a fresh cache so documents never leak across runs.
+            this.Request.PreparationCache = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
         }
 
         /// <summary>
@@ -797,24 +822,37 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// <param name="callResult">The completed call's return; its body aggregate is the usage source.</param>
         /// <param name="sentBody">The request body actually sent to the provider (input estimate source).</param>
         /// <param name="produced">Interactions produced by the call (output estimate source).</param>
-        private void AccumulateCallUsage(AIReturn? callResult, AIBody? sentBody, IReadOnlyList<IAIInteraction>? produced)
+        private void AccumulateCallUsage(AIReturn? callResult, AIBody? sentBody, IReadOnlyList<IAIInteraction>? produced, IReadOnlyList<AIMetrics>? preparationMetrics = null)
         {
             var usage = callResult?.Metrics;
             if (usage == null || usage.TotalTokens <= 0)
             {
                 var (sentIn, sentOut) = AIBodyExtensions.EstimateTokensFromInteractions(sentBody?.Interactions);
                 var (prodIn, prodOut) = AIBodyExtensions.EstimateTokensFromInteractions(produced);
-                usage = (usage ?? new AIMetrics()) with
-                {
-                    EstimatedInputTokens = sentIn + sentOut,
-                    EstimatedOutputTokens = prodIn + prodOut,
-                };
+                usage = (usage ?? new AIMetrics())
+                    .WithQuantity(AIQuantityKey.EstimatedTextInput, AIPriceUnit.Token, sentIn + sentOut)
+                    .WithQuantity(AIQuantityKey.EstimatedTextOutput, AIPriceUnit.Token, prodIn + prodOut);
                 this._runUsageEstimated = true;
             }
 
             this._runUsageMetrics = this._runUsageMetrics.WithCombined(usage);
             this._runTokensEffective += Math.Max(0, usage.EffectiveTotalTokens);
-            Debug.WriteLine($"[ConversationSession.AccumulateCallUsage] callTokens={usage.EffectiveTotalTokens} (actual={usage.TotalTokens}, estimated={usage.TotalEstimatedTokens}), runTotal={this._runTokensEffective}");
+            Logger.For<StreamProcessingResult>().Trace($"[ConversationSession.AccumulateCallUsage] callTokens={usage.EffectiveTotalTokens} (actual={usage.TotalTokens}, estimated={usage.TotalEstimatedTokens}), runTotal={this._runTokensEffective}");
+
+            // Helper calls made while preparing this request are metered once each,
+            // separately from the primary call's usage (they carry their own provider/model).
+            var extras = (callResult?.ExtraMetrics ?? Enumerable.Empty<AIMetrics>())
+                .Concat(preparationMetrics ?? Enumerable.Empty<AIMetrics>());
+            foreach (var extra in extras)
+            {
+                if (extra == null)
+                {
+                    continue;
+                }
+
+                this._runUsageMetrics = this._runUsageMetrics.WithCombined(extra);
+                this._runTokensEffective += Math.Max(0, extra.EffectiveTotalTokens);
+            }
         }
 
         /// <summary>
@@ -912,7 +950,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             if (extended)
             {
-                Debug.WriteLine($"[ConversationSession.ExtendAutonomyLimits] extended by +50%: +{options.MaxAutonomousTime.TotalSeconds * 0.5:0.#}s, +{options.MaxAutonomousTokens / 2} tokens");
+                Logger.For<StreamProcessingResult>().Trace($"[ConversationSession.ExtendAutonomyLimits] extended by +50%: +{options.MaxAutonomousTime.TotalSeconds * 0.5:0.#}s, +{options.MaxAutonomousTokens / 2} tokens");
             }
 
             return extended;
@@ -930,7 +968,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var settings = SmartHopperSettings.Instance;
             if (!settings.SmartHopperAssistant.EnableAIGreeting)
             {
-                Debug.WriteLine("[ConversationSession] AI greeting disabled in settings, skipping greeting generation");
+                Logger.For<StreamProcessingResult>().Warning("[ConversationSession] AI greeting disabled in settings, skipping greeting generation");
                 return null;
             }
 
@@ -946,7 +984,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     this._initialRequest.Provider,
                     systemMessageText?.Content);
 
-                Debug.WriteLine($"[ConversationSession] Generating greeting via special turn: provider={this._initialRequest.Provider}, streaming={streamChunks}");
+                Logger.For<StreamProcessingResult>().Trace($"[ConversationSession] Generating greeting via special turn: provider={this._initialRequest.Provider}, streaming={streamChunks}");
 
                 // Execute greeting as a special turn
                 var result = await this.ExecuteSpecialTurnAsync(
@@ -961,7 +999,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ConversationSession] Error generating greeting via special turn: {ex.Message}");
+                Logger.For<StreamProcessingResult>().Exception(ex, $"[ConversationSession] Error generating greeting via special turn: {ex.Message}");
                 return null;
             }
         }
@@ -975,8 +1013,10 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         {
             ct.ThrowIfCancellationRequested();
 
+            this.ApplyContextEditing();
+
             var stopwatch = Stopwatch.StartNew();
-            var res = await this.Request.Exec(stream: false).ConfigureAwait(false);
+            var res = await this.Request.Exec(stream: false, ct).ConfigureAwait(false);
             stopwatch.Stop();
 
             // Post-exec body reflects request policies applied inside Exec — this is the prompt actually sent
@@ -1046,6 +1086,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var result = new StreamProcessingResult();
             var stopwatch = Stopwatch.StartNew();
             AIBody? sentBody = null;
+            AIRequestPreparation preparation = null;
 
             // Everything this provider call produced: coalesced text plus persisted non-text
             // interactions. Used to estimate usage when the provider does not report it.
@@ -1053,16 +1094,47 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             try
             {
-                // Ensure request policies are applied for streaming calls as well.
-                // Streaming adapters can bypass AIRequestCall.Exec(), so policies like ContextInjectionRequestPolicy
-                // must be applied explicitly to keep context up-to-date on every provider call.
-                await PolicyPipeline.Default.ApplyRequestPoliciesAsync(this.Request).ConfigureAwait(false);
+                this.ApplyContextEditing();
 
-                // Snapshot the post-policy body: this is the prompt actually sent, used to
-                // estimate usage when the provider does not report it.
-                sentBody = this.Request.Body;
+                // Ensure request policies and approved-source materialization are applied for
+                // streaming calls as well. Streaming adapters can bypass AIRequestCall.Exec(),
+                // so the host pipeline (policies + materialization + preparation) runs explicitly.
+                await SmartHopper.ProviderSdk.Hosting.ProviderSdkHost.PolicyPipeline.ApplyRequestPoliciesAsync(this.Request).ConfigureAwait(false);
 
-                await foreach (var rawDelta in adapter.StreamAsync(this.Request, streamingOptions, ct).ConfigureAwait(false))
+                // Model-bound preparation on the streaming path mirrors Exec: produce the
+                // outbound execution view; the session body stays canonical. Blocking
+                // errors abort before the provider is invoked.
+                preparation = await SmartHopper.ProviderSdk.Hosting.ProviderSdkHost.PolicyPipeline
+                    .PrepareExecutionAsync(this.Request, ct).ConfigureAwait(false);
+
+                var outbound = preparation?.Request;
+                if (outbound != null)
+                {
+                    // Shared outbound gate (modality + structural + trust) — same as Exec.
+                    preparation.Messages.AddRange(AIRequestPreparation.ValidateOutboundRequest(outbound));
+                }
+
+                if (outbound == null || preparation.HasBlockingErrors)
+                {
+                    result.HasError = true;
+                    result.ErrorMessage = preparation?.Messages != null
+                        ? string.Join(" \n", preparation.Messages.Where(m => m != null && m.Severity == SHRuntimeMessageSeverity.Error).Select(m => m.Message))
+                        : "Request preparation failed";
+                    if (string.IsNullOrWhiteSpace(result.ErrorMessage))
+                    {
+                        result.ErrorMessage = "Request preparation failed";
+                    }
+
+                    // Charged helper usage is metered even when the run aborts here.
+                    this.AccumulateCallUsage(null, null, null, preparation?.ExtraMetrics);
+                    return result;
+                }
+
+                // Snapshot the post-policy body actually sent: used to estimate usage when
+                // the provider does not report it.
+                sentBody = outbound.Body;
+
+                await foreach (var rawDelta in adapter.StreamAsync(outbound, streamingOptions, ct).ConfigureAwait(false))
                 {
                     if (rawDelta == null)
                     {
@@ -1088,11 +1160,19 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                 result.AccumulatedText = TextStreamCoalescer.Coalesce(result.AccumulatedText, textDelta, turnId, preserveMetrics: false);
                                 textInteractions.Add(textDelta);
                             }
+                            else if (interaction is AIInteractionToolResult)
+                            {
+                                // AIInteractionToolResult derives from AIInteractionToolCall and must be
+                                // handled before the call branch: a result is not an updatable call.
+                                this.AppendToSessionHistory(interaction);
+                                nonTextInteractions.Add(interaction);
+                            }
                             else if (interaction is AIInteractionToolCall tc)
                             {
-                                // Check if this tool call already exists in history
+                                // Check if this tool call already exists in history (excluding results,
+                                // which share the call base type and Id keyspace)
                                 var exists = this.Request?.Body?.Interactions?.OfType<AIInteractionToolCall>()?
-                                    .Any(x => !string.IsNullOrWhiteSpace(x?.Id) && string.Equals(x.Id, tc.Id, StringComparison.Ordinal)) ?? false;
+                                    .Any(x => x is not AIInteractionToolResult && !string.IsNullOrWhiteSpace(x?.Id) && string.Equals(x.Id, tc.Id, StringComparison.Ordinal)) ?? false;
 
                                 if (!exists)
                                 {
@@ -1136,7 +1216,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             }
                             catch (Exception ex)
                             {
-                                Debug.WriteLine($"[ConversationSession.ProcessStreamingDeltasAsync] Error emitting persisted non-text delta: {ex.Message}");
+                                Logger.For<StreamProcessingResult>().Exception(ex, $"[ConversationSession.ProcessStreamingDeltasAsync] Error emitting persisted non-text delta: {ex.Message}");
                             }
                         }
 
@@ -1161,13 +1241,25 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             // Meter the call into the run ledger. Usage is cumulative per call, so take the
             // last delta carrying metrics (covers providers reporting usage on a non-final chunk).
+            // Helper metrics from preparation are metered once, separately from the primary.
             var usageDelta = result.Deltas.LastOrDefault(d => d?.Metrics?.TotalTokens > 0) ?? result.LastDelta;
             if (result.AccumulatedText != null)
             {
                 producedInteractions.Insert(0, result.AccumulatedText);
             }
 
-            this.AccumulateCallUsage(usageDelta, sentBody, producedInteractions);
+            if (preparation?.Messages != null && usageDelta != null)
+            {
+                foreach (var message in preparation.Messages)
+                {
+                    if (message != null)
+                    {
+                        usageDelta.AddRuntimeMessage(message);
+                    }
+                }
+            }
+
+            this.AccumulateCallUsage(usageDelta, sentBody, producedInteractions, preparation?.ExtraMetrics);
 
             return result;
         }
@@ -1226,7 +1318,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 // Guard: providers must only be invoked when every tool_call already has a persisted tool_result
                 if (this.Request.Body.PendingToolCallsCount() > 0)
                 {
-                    Debug.WriteLine("[ConversationSession.ProcessPendingToolsAsync] Pending tool calls remain after execution; deferring provider turn until results are appended.");
+                    Logger.For<StreamProcessingResult>().Trace("[ConversationSession.ProcessPendingToolsAsync] Pending tool calls remain after execution; deferring provider turn until results are appended.");
                     continue;
                 }
 

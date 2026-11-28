@@ -124,8 +124,6 @@ Components are the core elements of a GhJSON document. Each component represents
   "name": "Addition",
   "library": "Maths",
   "nickName": "Add",
-  "componentGuid": "a0d62394-a118-422d-abb3-6af115c75b25",
-  "instanceGuid": "12345678-1234-1234-1234-123456789abc",
   "id": 1,
   "pivot": "100,200",
   "inputSettings": [ ... ],
@@ -144,7 +142,7 @@ Components are the core elements of a GhJSON document. Each component represents
 | `componentGuid` | uuid | No | Component type GUID |
 | `instanceGuid` | uuid | No | Instance GUID |
 | `id` | integer | Conditional | Integer ID for references (required when referenced by connections/groups) |
-| `pivot` | string or object | No | Canvas position (string: "X,Y" or object: `{ "x": 100, "y": 200 }`) |
+| `pivot` | string, object, or array | No | Canvas position (string: `"X,Y"`, object: `{ "x": 100, "y": 200 }`, or array: `[100, 200]`) |
 | `inputSettings` | array | No | Input parameter settings |
 | `outputSettings` | array | No | Output parameter settings |
 | `componentState` | object | No | UI-specific state |
@@ -162,6 +160,12 @@ Or an explicit object format:
 ```json
 "pivot": { "x": 100.5, "y": 200.25 }
 ```
+Or a two-element array format:
+```json
+"pivot": [100.5, 200.25]
+```
+
+All three forms are equivalent; consumers MAY normalize them to a single internal representation. The array form exists for producer convenience — JSON emitters (notably language models) naturally produce `[x, y]` tuples — but documents SHOULD prefer the compact string or object form for readability.
 
 ### 3.4 Component Identification
 
@@ -174,7 +178,7 @@ Components can be identified with any of these combinations:
 3. **By Component GUID + ID**: `componentGuid` plus `id`
 4. **By Component GUID + Instance GUID**: `componentGuid` plus `instanceGuid`
 
-You MAY include both `componentGuid` and `name` together. For reliable instantiation, include `componentGuid` and an `id` when the component will be referenced by connections or groups.
+When generating a document for placement, omit `componentGuid` and `instanceGuid` for new components: supply `name` and an `id` (when referenced by connections or groups) and let the deserializer resolve the component type and assign instance GUIDs. Never invent GUID values. Include `componentGuid` only when it is the component type's real GUID copied from a serialized document — a wrong but plausible value silently instantiates a different component than `name` suggests.
 
 When deserializing (placing) a document onto a Grasshopper canvas, `instanceGuid` carries identity semantics: a component whose `instanceGuid` matches an object already on the canvas SHOULD update that object in place — preserving its identity, its position (unless `pivot` is provided), and its existing wires — rather than producing a duplicate. To place additional copies of an object, omit `instanceGuid` (or assign a new one) so the component is treated as new.
 
@@ -218,6 +222,26 @@ newline-separated panel text — one line per item — emitted as individual ite
 (the `gh.panel` extension remains the canonical representation; see
 [extensions.md](extensions.md#51-ghpanel)).
 
+### 3.7 Unrecognized Properties and Component State
+
+Producers MUST NOT invent top-level component properties for component state.
+All component-specific state lives under `componentState.extensions` (for
+example, a Panel's text is `componentState.extensions["gh.panel"].text` — not a
+hypothetical top-level `userText`/`text`/`content` field). Emitting state as
+new top-level properties is the most common generator mistake.
+
+The schema is strict at every level of the document (`additionalProperties:
+false` on components, connections, endpoints, groups, and similar closed
+objects): unrecognized members make the document **fail validation**, and a
+validator MUST surface the offending member path in the error. A loudly
+rejected field is intentional — a silently dropped field looks identical to a
+successfully applied one from the producer's side, so producers learn the
+correct field names from explicit rejection.
+
+Implementations that deserialize a document **without** validating it SHOULD
+still preserve unrecognized members for round-trip fidelity rather than
+silently discarding them, and SHOULD report them as warnings to the caller.
+
 ---
 
 ## 4. Connections
@@ -249,15 +273,40 @@ Connections represent the wires between component parameters.
 
 | Property | Type | Required | Description |
 | ---------- | ------ | ---------- | ------------- |
-| `id` | integer | **Yes** | Component integer ID |
+| `id` | integer or string | **Yes** | Component reference — the integer `id` is the preferred shape (compact and unambiguous). A component's `instanceGuid` string is also accepted for canvas-bound references (see §4.5); an integer encoded as a string is coerced during parsing. |
 | `paramName` | string | Conditional | Parameter name (required if `paramIndex` is not provided) |
 | `paramIndex` | integer | Conditional | Zero-based parameter index (required if `paramName` is not provided) |
 
 The `paramIndex` provides reliable parameter matching when parameter names may vary due to localization or custom nicknames.
 
-### 4.4 Document Scope
+### 4.4 Parameter Name Resolution
+
+Implementations resolve a `paramName` against a component's parameters with the
+following precedence (first match wins):
+
+1. **Nickname** — exact match, case-insensitive.
+2. **Name** — exact match, case-insensitive.
+3. **Numeric name** — a `paramName` that parses as an integer is treated as a
+   zero-based index (equivalent to `paramIndex`).
+4. **`paramIndex`** — when a supplied `paramName` matches nothing, a co-present
+   `paramIndex` is used as fallback.
+5. **Alias** — common shorthand is normalized through an alias table (for
+   example `pt` → `Point`, `out` → `Output`, `number` → `Number`, `crv` →
+   `Curve`).
+6. **Fuzzy** — approximate matching against the component's real parameter
+   names (small edit-distance tolerance) as a last resort.
+
+Resolution is a convenience for producers, not a contract: emitters SHOULD
+prefer exact parameter names or `paramIndex`, and validators treat only steps
+1–3 as reliable identification. A `paramName` that resolves through alias or
+fuzzy matching SHOULD be reported as a warning so producers can correct it —
+a silently fuzzy-matched wire looks identical to an explicitly intended one.
+
+### 4.5 Document Scope
 
 Connection endpoints are document-scoped: endpoint `id` values only reference components declared in the same document's `components` array. A connection cannot wire an endpoint to an object that exists only on the canvas unless that object is also described in the document (typically as an unchanged component carrying its `instanceGuid`). Implementations that need to wire pre-existing canvas objects MUST use a separate mechanism (for example, a dedicated connect operation keyed by `instanceGuid`).
+
+When an endpoint needs a stable reference across documents — for instance to a component that carries an `instanceGuid` — the `instanceGuid` string MAY be used in place of the integer `id`. The integer `id` remains the preferred shape: it is shorter and unambiguous within the document. Producers SHOULD emit integer `id` whenever the target is declared in the same document.
 
 ---
 
@@ -504,7 +553,6 @@ Unlike Rhino 8 script components (C#, Python 3, IronPython 2) which implement `I
 {
   "name": "LB Hourly Plot",
   "library": "Ladybug",
-  "componentGuid": "410755b1-224a-4c1e-a407-bf32fb45ea7e",
   "id": 1,
   "pivot": "100,200",
   "inputSettings": [
@@ -600,6 +648,13 @@ Beyond schema validation, implementations SHOULD verify:
 3. **Valid parameter names**: Connection `paramName` values exist on referenced components
 4. **Group membership**: All group `members` reference existing component IDs
 
+When placement or deserialization partially fails, implementations SHOULD
+report per-item failures — identifying which connection or component failed and
+which endpoint, parameter, or reference could not be resolved — rather than
+returning only aggregate accepted/rejected counts. A connection whose `from`
+resolves but whose `to` does not is diagnosable only if the failing endpoint is
+named in the error.
+
 ### 8.3 Grasshopper Validation
 
 When deserializing, implementations MAY additionally verify:
@@ -648,7 +703,6 @@ When placing a paginated document on a canvas, implementations SHOULD preserve i
   "components": [
     {
       "name": "Number Slider",
-      "instanceGuid": "11111111-1111-1111-1111-111111111111",
       "id": 1,
       "pivot": "100,100",
       "componentState": {
@@ -671,7 +725,6 @@ When placing a paginated document on a canvas, implementations SHOULD preserve i
   "components": [
     {
       "name": "Number Slider",
-      "instanceGuid": "11111111-1111-1111-1111-111111111111",
       "id": 1,
       "pivot": "100,100",
       "componentState": {
@@ -684,27 +737,23 @@ When placing a paginated document on a canvas, implementations SHOULD preserve i
     },
     {
       "name": "Number Slider",
-      "instanceGuid": "22222222-2222-2222-2222-222222222222",
       "id": 2,
       "pivot": "100,150",
       "componentState": {
         "extensions": {
           "gh.numberslider": {
-            "value": "3<0,10>"
+            "value": "3<0~10>"
           }
         }
       }
     },
     {
       "name": "Addition",
-      "componentGuid": "a0d62394-a118-422d-abb3-6af115c75b25",
-      "instanceGuid": "33333333-3333-3333-3333-333333333333",
       "id": 3,
       "pivot": "300,125"
     },
     {
       "name": "Panel",
-      "instanceGuid": "44444444-4444-4444-4444-444444444444",
       "id": 4,
       "pivot": "500,125"
     }
@@ -730,7 +779,6 @@ When placing a paginated document on a canvas, implementations SHOULD preserve i
   "components": [
     {
       "name": "Number Slider",
-      "instanceGuid": "11111111-1111-1111-1111-111111111111",
       "id": 1,
       "pivot": "100,100",
       "componentState": {
@@ -743,7 +791,6 @@ When placing a paginated document on a canvas, implementations SHOULD preserve i
     },
     {
       "name": "Number Slider",
-      "instanceGuid": "22222222-2222-2222-2222-222222222222",
       "id": 2,
       "pivot": "100,150",
       "componentState": {
@@ -756,7 +803,6 @@ When placing a paginated document on a canvas, implementations SHOULD preserve i
     },
     {
       "name": "Addition",
-      "instanceGuid": "33333333-3333-3333-3333-333333333333",
       "id": 3,
       "pivot": "300,125"
     }
@@ -767,7 +813,7 @@ When placing a paginated document on a canvas, implementations SHOULD preserve i
   ],
   "groups": [
     {
-      "instanceGuid": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "id": 1,
       "name": "Inputs",
       "color": "argb:255,200,220,255",
       "members": [1, 2]

@@ -27,6 +27,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.4.1" />
+    <PackageReference Include="System.Net.Http" Version="4.3.4" />
     <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
     <PackageReference Include="xunit" Version="2.4.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5">
@@ -42,7 +43,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SmartHopper.ProviderSdk\SmartHopper.ProviderSdk.csproj" />
+    <ProjectReference Include="..\SmartHopper.Providers.Anthropic\SmartHopper.Providers.Anthropic.csproj" />
     <ProjectReference Include="..\SmartHopper.Providers.DeepSeek\SmartHopper.Providers.DeepSeek.csproj" />
+    <ProjectReference Include="..\SmartHopper.Providers.Gemini\SmartHopper.Providers.Gemini.csproj" />
     <ProjectReference Include="..\SmartHopper.Providers.OpenAI\SmartHopper.Providers.OpenAI.csproj" />
     <ProjectReference Include="..\SmartHopper.Providers.OpenRouter\SmartHopper.Providers.OpenRouter.csproj" />
   </ItemGroup>

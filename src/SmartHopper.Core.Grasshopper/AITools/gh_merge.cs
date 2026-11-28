@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using GhJSON.Core;
+using GhJSON.Core.SchemaModels;
 using GhJSON.Core.Serialization;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -28,6 +29,7 @@ using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -59,7 +61,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "canvas", "components", "merge", "read-only", "ghjson" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""Merged GhJSON document."" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true),
+                activityLabel: "merging content onto canvas",
+                resultLabel: "merged content onto canvas");
         }
 
         private async Task<AIReturn> GhMergeToolAsync(AIToolCall toolCall)
@@ -69,6 +73,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Request = toolCall,
             };
 
+            var ghjsonReported = false;
             try
             {
                 // Local tool: skip metrics validation (provider/model/finish_reason not required)
@@ -87,7 +92,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                var targetDoc = GhJson.FromJson(targetJson);
+                GhJsonDocument targetDoc;
+                try
+                {
+                    targetDoc = GhJson.FromJson(targetJson);
+                }
+                catch (Exception parseEx)
+                {
+                    ghjsonReported = true;
+                    throw;
+                }
+
                 targetDoc = GhJson.Fix(targetDoc).Document;
 
                 // Validate and parse source using GhJson facade
@@ -97,17 +112,27 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                var sourceDoc = GhJson.FromJson(sourceJson);
+                GhJsonDocument sourceDoc;
+                try
+                {
+                    sourceDoc = GhJson.FromJson(sourceJson);
+                }
+                catch (Exception parseEx)
+                {
+                    ghjsonReported = true;
+                    throw;
+                }
+
                 sourceDoc = GhJson.Fix(sourceDoc).Document;
 
                 // Merge documents using GhJson façade
-                Debug.WriteLine("[gh_merge] Merging documents...");
+                Logger.For<gh_merge>().Trace("[gh_merge] Merging documents...");
                 var mergeResult = GhJson.Merge(targetDoc, sourceDoc);
 
                 // Serialize merged document back to JSON using GhJson facade
                 var mergedJson = GhJson.ToJson(mergeResult.Document, new WriteOptions { Indented = false });
 
-                Debug.WriteLine($"[gh_merge] Merge complete: +{mergeResult.ComponentsAdded} components, +{mergeResult.ConnectionsAdded} connections, +{mergeResult.GroupsAdded} groups");
+                Logger.For<gh_merge>().Trace($"[gh_merge] Merge complete: +{mergeResult.ComponentsAdded} components, +{mergeResult.ConnectionsAdded} connections, +{mergeResult.GroupsAdded} groups");
 
                 var toolResult = new JObject
                 {
@@ -129,7 +154,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[gh_merge] Error: {ex.Message}");
+                Logger.For<gh_merge>().Exception(ex, $"[gh_merge] Error: {ex.Message}");
+                if (!ghjsonReported)
+                {
+                }
+
                 output.CreateError(ex.Message);
                 return output;
             }

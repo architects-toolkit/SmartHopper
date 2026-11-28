@@ -232,17 +232,15 @@ namespace SmartHopper.Infrastructure.AICall.Tools
             catch (HttpRequestException ex)
             {
                 // Network/DNS issues from tools that make HTTP calls
-                var raw = ex.InnerException?.Message ?? ex.Message;
                 var errorResult = new AIReturn();
-                errorResult.CreateNetworkError(raw, this);
+                errorResult.CreateNetworkError(ex, this);
                 return errorResult;
             }
             catch (Exception ex)
             {
                 // Preserve raw tool error
-                var raw = ex.InnerException?.Message ?? ex.Message;
                 var errorResult = new AIReturn();
-                errorResult.CreateToolError(raw, this);
+                errorResult.CreateToolError(ex, this);
                 return errorResult;
             }
         }
@@ -261,6 +259,20 @@ namespace SmartHopper.Infrastructure.AICall.Tools
             if (model != null)
             {
                 this.Model = model;
+            }
+
+            // Convention across surfaces: a "provider"/"model" argument on the tool
+            // call overrides the executing provider/model. Explicit parameters win;
+            // arguments only fill gaps so every caller gets the same behavior.
+            var args = toolCall?.GetArgumentsOrEmpty();
+            if (string.IsNullOrWhiteSpace(this.Provider) && args?["provider"]?.ToString() is { Length: > 0 } providerArg)
+            {
+                this.Provider = providerArg;
+            }
+
+            if (string.IsNullOrWhiteSpace(this.Model) && args?["model"]?.ToString() is { Length: > 0 } modelArg)
+            {
+                this.Model = modelArg;
             }
         }
 

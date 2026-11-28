@@ -139,6 +139,7 @@ jobs:
           patch: ${{ steps.release-info.outputs.patch }}
           suffix: ${{ steps.release-info.outputs.suffix }}
           mistral-api-key: ${{ secrets.MISTRAL_API_KEY }}
+          model: ${{ vars.MISTRAL_MODEL || 'mistral-large-4-0' }}
 
       - name: Create draft GitHub Release
         uses: softprops/action-gh-release@v3

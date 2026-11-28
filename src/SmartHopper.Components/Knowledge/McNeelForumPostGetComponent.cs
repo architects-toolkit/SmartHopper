@@ -35,36 +35,35 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Knowledge
 {
     public class McNeelForumPostGetComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("7C1B9A33-0177-4A60-9C08-9F8A1E4F2002");
 
-        protected override Bitmap Icon => Resources.mcneelpostget;
+        protected override Bitmap Icon => Resources.McNeelForumPostGet;
 
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.primary | GH_Exposure.obscure;
 
         public McNeelForumPostGetComponent()
             : base(
-                  "McNeelForum Post Get",
+                  "McNeel Forum Post Get",
                   "McNeelPostGet",
-                  "Retrieve a full McNeel Discourse forum post by its numeric ID.",
+                  "Fetch the full content of a post from the McNeel Discourse forum (discourse.mcneel.com) by its numeric ID.",
                   "SmartHopper",
-                  "Knowledge")
+                  "E. Forums")
         {
-            // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
-            this.RunOnlyOnInputChanges = false;
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddIntegerParameter("Id", "I", "REQUIRED ID or list of IDs of the forum post(s) to fetch.", GH_ParamAccess.tree);
+            pManager.AddIntegerParameter("Id", "I", "Numeric ID(s) of the McNeel forum post(s) to fetch.", GH_ParamAccess.tree);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("McNeelForum Post", "McP", "JSON object representing the full forum post as returned by the tool.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("McNeel Forum Post", "McP", "Full forum post data in JSON format (connect to Deconstruct Discourse Post or McNeel Forum Post Open).", GH_ParamAccess.tree);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
@@ -192,14 +191,14 @@ namespace SmartHopper.Components.Knowledge
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIMcNeelForumGetPostWorker] Error: {ex.Message}");
+                    Logger.For<McNeelForumGetPostWorker>().Exception(ex, $"[AIMcNeelForumGetPostWorker] Error: {ex.Message}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                this.parent.SetPersistentOutput("McNeelForum Post", this.resultPosts ?? new GH_Structure<GH_String>(), DA);
+                this.parent.SetPersistentOutput("McNeel Forum Post", this.resultPosts ?? new GH_Structure<GH_String>(), DA);
 
                 var hasAnyPost = this.resultPosts != null && this.resultPosts.DataCount > 0;
                 message = hasAnyPost ? "Post(s) retrieved" : "No post retrieved";

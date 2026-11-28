@@ -29,6 +29,7 @@ using Grasshopper.Kernel.Types;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Test.DataProcessor
 {
     /// <summary>
@@ -52,7 +53,6 @@ namespace SmartHopper.Components.Test.DataProcessor
                 "SmartHopper Tests",
                 "Testing Data")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager) { }
@@ -116,7 +116,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                     };
 
                     var (dataCount, iterations) = DataTreeProcessor.CalculateProcessingMetrics(trees, options);
-                    Debug.WriteLine($"[BranchToBranch] Iterations: {iterations}, DataCount: {dataCount}");
+                    Logger.For<Worker>().Trace($"[BranchToBranch] Iterations: {iterations}, DataCount: {dataCount}");
 
                     // BranchToBranch: function receives complete branch lists, one branch at a time
                     async Task<Dictionary<string, List<GH_Integer>>> Func(Dictionary<string, List<GH_Integer>> branches)

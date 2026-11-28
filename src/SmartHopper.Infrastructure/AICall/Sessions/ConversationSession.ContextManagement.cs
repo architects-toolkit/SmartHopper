@@ -24,12 +24,15 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
+    using Newtonsoft.Json;
+    using Newtonsoft.Json.Linq;
     using SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns;
     using SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns.BuiltIn;
     using SmartHopper.ProviderSdk.AICall.Core.Base;
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     using SmartHopper.ProviderSdk.AICall.Core.Returns;
     using SmartHopper.ProviderSdk.AIModels;
+    using SmartHopper.ProviderSdk.Logging;
     /// <summary>
     /// ConversationSession partial class containing context management and auto-summarization logic.
     /// </summary>
@@ -37,8 +40,33 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     {
         /// <summary>
         /// Context usage threshold (0.0 to 1.0) at which automatic summarization is triggered.
+        /// Kept at 0.95 — late compaction preserves raw context (and avoids
+        /// summarization-call token spend) until the window is nearly full.
         /// </summary>
-        private const double ContextSummarizeThreshold = 0.80;
+        private const double ContextSummarizeThreshold = 0.95;
+
+        /// <summary>
+        /// Read-only snapshot tools whose earlier results go stale once a newer call
+        /// with the same arguments completes: canvas/document reads return
+        /// point-in-time state, forum searches go out of date, and registry reads
+        /// reflect the provider/model configuration at call time. Keyed on
+        /// tool-name-plus-arguments so distinct reads always survive.
+        /// </summary>
+        private static readonly HashSet<string> ContextEditableTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "gh_get", "gh_get_selected", "gh_get_by_guid", "gh_get_errors",
+            "gh_document_list", "gh_component_preview", "canvas_view",
+            "gh_list_categories", "gh_list_components",
+            "search_forum", "fetch_forum_topic",
+            "search_rhino_forum", "search_ladybug_forum",
+            "providers_models", "providers_list",
+        };
+
+        /// <summary>
+        /// Tool results smaller than this are left alone — a stub would not save
+        /// meaningful tokens and only adds noise.
+        /// </summary>
+        private const int ContextEditMinResultLength = 400;
 
         /// <summary>
         /// Tracks whether a summarization has already been attempted for the current turn.
@@ -76,7 +104,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             if (this.ShouldSummarizeContext())
             {
                 var usage = this.Request?.Body?.Metrics?.ContextUsagePercent;
-                Debug.WriteLine($"[ConversationSession] Context usage at {usage:P1}, triggering pre-emptive summarization");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession] Context usage at {usage:P1}, triggering pre-emptive summarization");
                 await this.TrySummarizeContextAsync(ct).ConfigureAwait(false);
             }
         }
@@ -91,7 +119,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         {
             if (this._summarizationAttempted)
             {
-                Debug.WriteLine("[ConversationSession.ContextManagement] Summarization already attempted this turn, skipping");
+                Logger.For<ConversationSession>().Warning("[ConversationSession.ContextManagement] Summarization already attempted this turn, skipping");
                 return false;
             }
 
@@ -109,7 +137,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     ? AIModelCapabilityRegistry.Instance.GetCapabilities(provider, model)?.ContextLimit
                     : null;
 
-                Debug.WriteLine($"[ConversationSession.ContextManagement] Starting context summarization: tokens={currentTokens}/{contextLimit}, usage={usage:P1}");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession.ContextManagement] Starting context summarization: tokens={currentTokens}/{contextLimit}, usage={usage:P1}");
 
                 // Get the current conversation history
                 var interactions = this.Request?.Body?.Interactions?.ToList() ?? new List<IAIInteraction>();
@@ -119,7 +147,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                 if (lastUserMessage == null)
                 {
-                    Debug.WriteLine("[ConversationSession.ContextManagement] No user message found in history, cannot summarize");
+                    Logger.For<ConversationSession>().Warning("[ConversationSession.ContextManagement] No user message found in history, cannot summarize");
                     return false;
                 }
 
@@ -133,7 +161,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                 if (conversationToSummarize.Count < 2)
                 {
-                    Debug.WriteLine("[ConversationSession.ContextManagement] Not enough conversation history to summarize");
+                    Logger.For<ConversationSession>().Trace("[ConversationSession.ContextManagement] Not enough conversation history to summarize");
                     return false;
                 }
 
@@ -158,28 +186,109 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                 if (summaryResult?.Status != AICallStatus.Finished)
                 {
-                    Debug.WriteLine($"[ConversationSession.ContextManagement] Summarization failed: {summaryResult?.Messages?.FirstOrDefault()?.Message}");
+                    Logger.For<ConversationSession>().Warning($"[ConversationSession.ContextManagement] Summarization failed: {summaryResult?.Messages?.FirstOrDefault()?.Message}");
                     return false;
                 }
 
                 // ReplaceAbove has already updated the history with system + summary
-                // Now manually append the last user message
-                var builder = AIBodyBuilder.FromImmutable(this.Request.Body)
-                    .Add(lastUserMessage, markAsNew: false);
+                // Now manually append the last user message — under the append
+                // gate so a concurrent injected interaction is not dropped.
+                lock (this._historyAppendGate)
+                {
+                    var builder = AIBodyBuilder.FromImmutable(this.Request.Body)
+                        .Add(lastUserMessage, markAsNew: false);
 
-                this.Request.Body = builder.Build();
+                    this.Request.Body = builder.Build();
+                }
+
                 this.UpdateLastReturn();
 
                 var newTokens = this.Request?.Body?.GetEffectiveTokenCount() ?? 0;
                 var newUsage = this.Request?.Body?.Metrics?.ContextUsagePercent;
-                Debug.WriteLine($"[ConversationSession.ContextManagement] Summarization complete: {currentTokens} -> {newTokens} tokens ({usage:P1} -> {newUsage:P1})");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession.ContextManagement] Summarization complete: {currentTokens} -> {newTokens} tokens ({usage:P1} -> {newUsage:P1})");
 
                 return true;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ConversationSession.ContextManagement] Error during summarization: {ex.Message}");
+                Logger.For<ConversationSession>().Exception(ex, $"[ConversationSession.ContextManagement] Error during summarization: {ex.Message}");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Context editing: stubs older <see cref="AIInteractionToolResult"/> bodies that
+        /// have been superseded by a newer result of the same snapshot tool with the
+        /// same arguments. The newest occurrence is always kept, so the model retains
+        /// current state while stale dumps stop consuming tokens — they get a short
+        /// re-fetch pointer instead. Runs before every provider call and mutates the
+        /// session body permanently (that is the point of context editing); the stub
+        /// itself stays under <see cref="ContextEditMinResultLength"/> so it is never
+        /// re-stubbed.
+        /// </summary>
+        private void ApplyContextEditing()
+        {
+            static bool IsEditable(IAIInteraction i) =>
+                i is AIInteractionToolResult r && ContextEditableTools.Contains(r.Name ?? string.Empty);
+
+            static string KeyOf(AIInteractionToolResult r) =>
+                $"{r.Name}\n{r.Arguments?.ToString(Formatting.None) ?? string.Empty}";
+
+            // Snapshot and rewrite must be atomic with history appends — an
+            // interaction injected mid-edit would otherwise be dropped when the
+            // pre-edit snapshot is written back.
+            lock (this._historyAppendGate)
+            {
+                var body = this.Request?.Body;
+                var interactions = body?.Interactions;
+                if (interactions == null || interactions.Count < 4)
+                {
+                    return;
+                }
+
+                // Index of the newest result per (tool, arguments).
+                var newest = new Dictionary<string, int>(StringComparer.Ordinal);
+                for (var i = 0; i < interactions.Count; i++)
+                {
+                    if (IsEditable(interactions[i]))
+                    {
+                        newest[KeyOf((AIInteractionToolResult)interactions[i])] = i;
+                    }
+                }
+
+                List<IAIInteraction>? edited = null;
+                var stubbed = 0;
+                for (var i = 0; i < interactions.Count; i++)
+                {
+                    if (!IsEditable(interactions[i]) || newest[KeyOf((AIInteractionToolResult)interactions[i])] == i)
+                    {
+                        continue;
+                    }
+
+                    var result = (AIInteractionToolResult)interactions[i];
+                    var size = result.Result?.ToString(Formatting.None)?.Length ?? 0;
+                    if (size < ContextEditMinResultLength)
+                    {
+                        continue;
+                    }
+
+                    edited ??= new List<IAIInteraction>(interactions);
+                    edited[i] = result with
+                    {
+                        Result = new JObject
+                        {
+                            ["superseded"] = true,
+                            ["hint"] = $"A newer {result.Name} result with the same arguments exists later in this conversation — re-run the tool for current values.",
+                        },
+                    };
+                    stubbed++;
+                }
+
+                if (edited != null)
+                {
+                    this.Request.Body = body with { Interactions = edited };
+                    Logger.For<ConversationSession>().Trace($"[ConversationSession.ContextManagement] Context editing stubbed {stubbed} superseded tool result(s)");
+                }
             }
         }
 
@@ -257,7 +366,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ConversationSession.Debug] Error appending summarized marker: {ex.Message}");
+                Logger.For<ConversationSession>().Exception(ex, $"[ConversationSession.Debug] Error appending summarized marker: {ex.Message}");
             }
         }
 

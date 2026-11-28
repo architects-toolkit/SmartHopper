@@ -29,6 +29,7 @@ using SmartHopper.ProviderSdk.AICall.Batch;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Settings;
 
@@ -188,6 +189,7 @@ namespace SmartHopper.Components.Test.Providers
                         Content = "Say 'batch test' in two words.",
                     });
                     call.Body = builder.Build();
+                    call.Initialize("Gemini", this._parent.GetModel(), call.Body, "test-gemini-cancel", AICapability.Text2Text);
 
                     var customId = AIBatchSubmission.GenerateCustomId("test-cancel", 0);
                     var items = new List<(string CustomId, AIRequestCall Request)>
@@ -232,6 +234,7 @@ namespace SmartHopper.Components.Test.Providers
                         Content = "Say 'batch test' in two words.",
                     });
                     call.Body = builder.Build();
+                    call.Initialize("Gemini", this._parent.GetModel(), call.Body, "test-gemini-cancel", AICapability.Text2Text);
 
                     var customId = AIBatchSubmission.GenerateCustomId("test-cancel", 0);
                     var items = new List<(string CustomId, AIRequestCall Request)>
@@ -319,6 +322,7 @@ namespace SmartHopper.Components.Test.Providers
                     });
                     builder.Add(new AIInteractionImage
                     {
+                        Agent = AIAgent.User,
                         ImageData = base64Image,
                     });
                     call.Body = builder.Build();

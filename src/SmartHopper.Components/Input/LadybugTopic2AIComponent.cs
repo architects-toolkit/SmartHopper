@@ -38,6 +38,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Input
 {
     /// <summary>
@@ -50,15 +51,15 @@ namespace SmartHopper.Components.Input
 
         public override Guid ComponentGuid => new Guid("5DBD3491-EE30-40D3-9699-219500A0E4D0");
 
-        protected override Bitmap Icon => null;
+        protected override Bitmap Icon => Resources.LadybugTopic2AI;
 
-        public override GH_Exposure Exposure => GH_Exposure.septenary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary | GH_Exposure.obscure;
 
         public LadybugTopic2AIComponent()
             : base(
                 "Ladybug Topic to AI",
                 "LadybugTopic2AI",
-                "Retrieves a Ladybug forum topic by ID from discourse.ladybug.tools and wraps it into an AIInputPayload.",
+                "Fetch a topic (thread) by ID from the Ladybug Tools forum (discourse.ladybug.tools) and package its posts to wire into any AI output component.",
                 "SmartHopper",
                 "B. Input")
         {
@@ -66,14 +67,14 @@ namespace SmartHopper.Components.Input
 
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddIntegerParameter("Topic ID", "T", "ID(s) of the forum topic(s) to retrieve from discourse.ladybug.tools.", GH_ParamAccess.tree);
-            pManager.AddIntegerParameter("Max Posts", "M", "Optional maximum number of posts to retrieve (0 = all).", GH_ParamAccess.tree, 0);
+            pManager.AddIntegerParameter("Topic ID", "T", "Numeric ID(s) of the Ladybug Tools forum topic(s) to fetch.", GH_ParamAccess.tree);
+            pManager.AddIntegerParameter("Max Posts", "M", "Maximum number of posts to include from each topic (0 = all posts).", GH_ParamAccess.tree, 0);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddParameter(new AIInputPayloadParameter(), "Input >", ">", "AIInputPayload(s) containing the retrieved topic content.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Topic JSON", "J", "Retrieved topic content as JSON.", GH_ParamAccess.tree);
+            pManager.AddParameter(new AIInputPayloadParameter(), "Input >", ">", "Packaged forum topic content ready to wire into any AI output component's 'Input >' parameter.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Topic JSON", "J", "Fetched forum topic data in JSON format.", GH_ParamAccess.tree);
         }
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
@@ -158,7 +159,7 @@ namespace SmartHopper.Components.Input
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[LadybugTopic2AIWorker] Error: {ex.Message}");
+                    Logger.For<LadybugTopic2AIWorker>().Exception(ex, $"[LadybugTopic2AIWorker] Error: {ex.Message}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, $"Error retrieving topics: {ex.Message}");
                 }
             }

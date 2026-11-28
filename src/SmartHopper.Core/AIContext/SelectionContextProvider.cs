@@ -30,6 +30,7 @@ using Newtonsoft.Json;
 using Rhino;
 using SmartHopper.Infrastructure.AIContext;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.AIContext
 {
     /// <summary>
@@ -153,7 +154,7 @@ namespace SmartHopper.Core.AIContext
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[SelectionContextProvider] Error: {ex.Message}");
+                Logger.For<SelectionContextProvider>().Exception(ex, $"[SelectionContextProvider] Error: {ex.Message}");
                 return GetFallback();
             }
         }
@@ -333,7 +334,7 @@ namespace SmartHopper.Core.AIContext
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[SelectionContextProvider] BuildOutputPreview error: {ex.Message}");
+                Logger.For<SelectionContextProvider>().Exception(ex, $"[SelectionContextProvider] BuildOutputPreview error: {ex.Message}");
                 return string.Empty;
             }
         }

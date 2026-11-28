@@ -23,7 +23,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
-using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.ProviderSdk.AICall.Batch;
@@ -32,6 +31,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Components.Test.Providers
@@ -117,23 +117,18 @@ namespace SmartHopper.Components.Test.Providers
                     var builder = AIBodyBuilder.Create();
                     builder.Add(new AIInteractionText
                     {
-                        Agent = AIAgent.Context,
+                        Agent = AIAgent.User,
                         Content = "Say 'batch test' in two words."
                     });
                     var body = builder.Build();
 
                     var model = this._parent.GetModel();
-                    var extras = new Dictionary<string, JToken> { { "service_tier", "batch" } };
 
                     // Batch Job 1: Responses API (default endpoint)
                     try
                     {
-                        var responsesCall = new AIRequestCall
-                        {
-                            Body = body,
-                            Endpoint = "/responses",
-                            Parameters = new AIRequestParameters { Model = model, Extras = extras },
-                        };
+                        var responsesCall = new AIRequestCall();
+                        responsesCall.Initialize("OpenAI", model, body, "/responses", AICapability.Text2Text);
 
                         var customId1 = AIBatchSubmission.GenerateCustomId("test-batch-responses", 0);
                         var items1 = new List<(string CustomId, AIRequestCall Request)> { (customId1, responsesCall) };
@@ -180,12 +175,8 @@ namespace SmartHopper.Components.Test.Providers
                     // Batch Job 2: Chat Completions API (explicit endpoint override)
                     try
                     {
-                        var chatCompCall = new AIRequestCall
-                        {
-                            Body = body,
-                            Endpoint = "/chat/completions",
-                            Parameters = new AIRequestParameters { Model = model, Extras = extras },
-                        };
+                        var chatCompCall = new AIRequestCall();
+                        chatCompCall.Initialize("OpenAI", model, body, "/chat/completions", AICapability.Text2Text);
 
                         var customId2 = AIBatchSubmission.GenerateCustomId("test-batch-chatcomp", 0);
                         var items2 = new List<(string CustomId, AIRequestCall Request)> { (customId2, chatCompCall) };

@@ -262,6 +262,93 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Providers
             Assert.Equal(SHRuntimeMessageSeverity.Error, error.Severity);
         }
 
+        [Fact(DisplayName = "MistralAI_StringErrorBody_EmitsProviderMessage")]
+        public void MistralAI_StringErrorBody_EmitsProviderMessage()
+        {
+            // Mistral emits the error body as a JSON-encoded STRING whose message
+            // sits at the object root: {"object":"error","message":…}.
+            var errorBody = @"{""object"":""error"",""message"":""max_tokens is too large: 300000. This model supports at most 262144 completion tokens, whereas you provided 300000."",""type"":""invalid_request_max_tokens"",""param"":null,""code"":""3058"",""raw_status_code"":400}";
+            var jsonl = MakeStringBodyLine("sh-mis-004", 400, errorBody);
+            var status = MistralAIProvider.Instance.ParseBatchResultsFiles(new[] { jsonl });
+
+            Assert.False(status.Results?.ContainsKey("sh-mis-004") ?? false);
+            var error = status.Messages?.SingleOrDefault(m => m.Code == SHMessageCode.BatchItemError);
+            Assert.NotNull(error);
+            Assert.Equal(SHRuntimeMessageSeverity.Error, error.Severity);
+            Assert.Equal(SHRuntimeMessageOrigin.Provider, error.Origin);
+            Assert.Contains("sh-mis-004", error.Message);
+            Assert.Contains("max_tokens is too large: 300000", error.Message);
+            Assert.DoesNotContain("HTTP 400", error.Message);
+        }
+
+        [Fact(DisplayName = "MistralAI_StringSuccessBody_ParsesResult")]
+        public void MistralAI_StringSuccessBody_ParsesResult()
+        {
+            var jsonl = MakeStringBodyLine("sh-mis-005", 200, MakeOpenAIChatBody("hello", "stop"));
+            var status = MistralAIProvider.Instance.ParseBatchResultsFiles(new[] { jsonl });
+
+            Assert.True(status.Results?.ContainsKey("sh-mis-005"));
+            var finishWarnings = (status.Messages ?? new List<SHRuntimeMessage>())
+                .Where(m => m.Code == SHMessageCode.BatchItemFinishReason)
+                .ToList();
+            Assert.Empty(finishWarnings);
+        }
+
+        // ────────────────────────────────────────────────────
+        // Shared parser (AIBatchResultParser) – string bodies
+        // ────────────────────────────────────────────────────
+
+        [Fact(DisplayName = "SharedParser_StringErrorBody_EmitsProviderMessage")]
+        public void SharedParser_StringErrorBody_EmitsProviderMessage()
+        {
+            var errorBody = @"{""object"":""error"",""message"":""context length exceeded"",""type"":""invalid_request_error""}";
+            var line = MakeStringBodyLine("sh-shared-001", 400, errorBody);
+            var status = AIBatchResultParser.ParseResultContents(new[] { "[" + line + "]" }, "batch-1");
+
+            Assert.False(status.Results?.ContainsKey("sh-shared-001") ?? false);
+            var error = status.Messages?.SingleOrDefault(m => m.Code == SHMessageCode.BatchItemError);
+            Assert.NotNull(error);
+            Assert.Equal(SHRuntimeMessageSeverity.Error, error.Severity);
+            Assert.Contains("sh-shared-001", error.Message);
+            Assert.Contains("context length exceeded", error.Message);
+        }
+
+        [Fact(DisplayName = "SharedParser_NonJsonStringBody_UsesRawText")]
+        public void SharedParser_NonJsonStringBody_UsesRawText()
+        {
+            var line = @"{""custom_id"":""sh-shared-002"",""response"":{""status_code"":503,""body"":""service unavailable""},""error"":null}";
+            var status = AIBatchResultParser.ParseResultContents(new[] { "[" + line + "]" }, "batch-1");
+
+            var error = status.Messages?.SingleOrDefault(m => m.Code == SHMessageCode.BatchItemError);
+            Assert.NotNull(error);
+            Assert.Contains("service unavailable", error.Message);
+        }
+
+        [Fact(DisplayName = "SharedParser_ScalarErrorField_EmitsError")]
+        public void SharedParser_ScalarErrorField_EmitsError()
+        {
+            var line = @"{""custom_id"":""sh-shared-003"",""response"":{""status_code"":0},""error"":""rate limited""}";
+            var status = AIBatchResultParser.ParseResultContents(new[] { "[" + line + "]" }, "batch-1");
+
+            var error = status.Messages?.SingleOrDefault(m => m.Code == SHMessageCode.BatchItemError);
+            Assert.NotNull(error);
+            Assert.Contains("rate limited", error.Message);
+        }
+
+        [Fact(DisplayName = "OpenAI_StringErrorBody_EmitsProviderMessage")]
+        public void OpenAI_StringErrorBody_EmitsProviderMessage()
+        {
+            var errorBody = @"{""object"":""error"",""message"":""model overloaded"",""type"":""server_error""}";
+            var jsonl = MakeStringBodyLine("sh-oai-010", 500, errorBody);
+            var status = OpenAIProvider.Instance.ParseBatchResultsFiles(new[] { jsonl });
+
+            Assert.False(status.Results?.ContainsKey("sh-oai-010") ?? false);
+            var error = status.Messages?.SingleOrDefault(m => m.Code == SHMessageCode.BatchItemError);
+            Assert.NotNull(error);
+            Assert.Contains("sh-oai-010", error.Message);
+            Assert.Contains("model overloaded", error.Message);
+        }
+
         // ────────────────────────────────────────────────────
         // Gemini – Operation JSON
         // ────────────────────────────────────────────────────
@@ -379,6 +466,16 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Providers
             return $@"{{""custom_id"":""{customId}"",""response"":{{""status_code"":{statusCode},""body"":{bodyJson}}},""error"":null}}";
         }
 
+        /// <summary>Builds a JSONL line whose <c>response.body</c> is a JSON-encoded string (Mistral error shape).</summary>
+        private static string MakeStringBodyLine(string customId, int statusCode, string bodyJson)
+        {
+            var escaped = bodyJson
+                .Replace("\\", "\\\\", System.StringComparison.Ordinal)
+                .Replace("\"", "\\\"", System.StringComparison.Ordinal)
+                .Replace("\n", "\\n", System.StringComparison.Ordinal);
+            return $@"{{""custom_id"":""{customId}"",""response"":{{""status_code"":{statusCode},""body"":""{escaped}""}},""error"":null}}";
+        }
+
         /// <summary>Builds an OpenAI Chat Completions response body with the given finish_reason.</summary>
         private static string MakeOpenAIChatBody(string content, string finishReason)
         {
@@ -404,22 +501,27 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Providers
             return $@"{{""custom_id"":""{customId}"",""result"":{{""type"":""{resultType}""}}}}";
         }
 
-        /// <summary>Builds a Gemini Operation JSON with one or more successful items, each with a finishReason.</summary>
+        /// <summary>
+        /// Builds a Gemini Operation JSON in the AI Studio batch contract: results live at
+        /// <c>response.inlinedResponses.inlinedResponses[]</c>, the item key is
+        /// <c>metadata.key</c>, and each successful item wraps its GenerateContentResponse
+        /// in <c>response</c>.
+        /// </summary>
         private static string MakeGeminiOperation((string customId, string finishReason)[] items)
         {
             var responses = items.Select(item =>
             {
                 var resultJson = $@"{{""candidates"":[{{""content"":{{""role"":""model"",""parts"":[{{""text"":""hello""}}]}},""finishReason"":""{item.finishReason}""}}]}}";
-                return $@"{{""metadata"":{{""custom_id"":""{item.customId}""}},""result"":{resultJson}}}";
+                return $@"{{""metadata"":{{""key"":""{item.customId}""}},""response"":{resultJson}}}";
             });
             var responsesArray = string.Join(",", responses);
-            return $@"{{""name"":""operations/batch-abc"",""done"":true,""result"":{{""output"":{{""responses"":[{responsesArray}]}}}}}}";
+            return $@"{{""name"":""batches/batch-abc"",""done"":true,""response"":{{""inlinedResponses"":{{""inlinedResponses"":[{responsesArray}]}}}}}}";
         }
 
         /// <summary>Builds a Gemini Operation JSON with a single item-level error.</summary>
         private static string MakeGeminiOperationWithError(string customId, string errorMessage)
         {
-            return $@"{{""name"":""operations/batch-abc"",""done"":true,""result"":{{""output"":{{""responses"":[{{""metadata"":{{""custom_id"":""{customId}""}},""error"":{{""message"":""{errorMessage}"",""code"":403}}}}]}}}}}}";
+            return $@"{{""name"":""batches/batch-abc"",""done"":true,""response"":{{""inlinedResponses"":{{""inlinedResponses"":[{{""metadata"":{{""key"":""{customId}""}},""error"":{{""message"":""{errorMessage}"",""code"":403}}}}]}}}}}}";
         }
     }
 }

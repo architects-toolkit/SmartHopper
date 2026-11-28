@@ -29,6 +29,7 @@ using System.Threading.Tasks;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.UI.Chat
 {
     /// <summary>
@@ -39,7 +40,7 @@ namespace SmartHopper.Core.UI.Chat
         [Conditional("DEBUG")]
         private static void DebugLog(string message)
         {
-            Debug.WriteLine(message);
+            Logger.Trace(typeof(WebChatUtils).FullName, message);
         }
 
         /// <summary>
@@ -263,7 +264,7 @@ namespace SmartHopper.Core.UI.Chat
         /// </summary>
         /// <param name="providerName">AI provider name.</param>
         /// <param name="modelName">Model name.</param>
-        /// <param name="endpoint">Custom endpoint identifier.</param>
+        /// <param name="origin">Semantic origin label for the request (e.g. "canvas-chat").</param>
         /// <param name="systemPrompt">Optional system prompt.</param>
         /// <param name="toolFilter">Tool filter for capabilities.</param>
         /// <param name="componentId">The unique component instance ID.</param>
@@ -272,7 +273,7 @@ namespace SmartHopper.Core.UI.Chat
         public static void EnsureDialogOpen(
             string providerName,
             string modelName,
-            string endpoint,
+            string origin,
             string systemPrompt,
             string toolFilter,
             Guid componentId,
@@ -285,7 +286,7 @@ namespace SmartHopper.Core.UI.Chat
             }
 
             // Build request like WebChatWorker does
-            var request = CreateWebChatRequest(providerName, modelName, endpoint, systemPrompt, toolFilter);
+            var request = CreateWebChatRequest(providerName, modelName, origin, systemPrompt, toolFilter);
 
             try
             {
@@ -324,7 +325,7 @@ namespace SmartHopper.Core.UI.Chat
         /// </summary>
         /// <param name="providerName">The name of the AI provider to use.</param>
         /// <param name="modelName">The model to use for AI processing.</param>
-        /// <param name="endpoint">Optional custom endpoint for the AI provider.</param>
+        /// <param name="origin">Semantic origin label for the request (e.g. "canvas-chat").</param>
         /// <param name="systemPrompt">Optional system prompt to provide to the AI assistant.</param>
         /// <param name="toolFilter">The tool filter to provide to the AI assistant.</param>
         /// <param name="componentId">The unique ID of the component instance.</param>
@@ -335,7 +336,7 @@ namespace SmartHopper.Core.UI.Chat
         public static WebChatWorker CreateWebChatWorker(
             string providerName,
             string modelName,
-            string endpoint,
+            string origin,
             string systemPrompt,
             string toolFilter,
             Guid componentId,
@@ -351,7 +352,7 @@ namespace SmartHopper.Core.UI.Chat
             return new WebChatWorker(
                 providerName,
                 modelName,
-                endpoint,
+                origin,
                 systemPrompt,
                 toolFilter,
                 progressReporter,

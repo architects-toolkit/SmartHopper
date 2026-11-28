@@ -28,6 +28,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Core.ComponentBase
@@ -64,11 +65,11 @@ namespace SmartHopper.Core.ComponentBase
                     providerName = SmartHopperSettings.Instance.DefaultAIProvider;
                 }
 
-                Debug.WriteLine($"[UpdateBadgeCache] START: provider={providerName}, component={this.Name}");
+                Logger.For<AIStatefulAsyncComponentBase>().Trace($"[UpdateBadgeCache] START: provider={providerName}, component={this.Name}");
 
                 // Resolve model the user currently configured (for validation/replacement decisions)
                 string configuredModel = this.GetModel();
-                Debug.WriteLine($"[UpdateBadgeCache] configuredModel={configuredModel}, capability={this.RequiredCapability}");
+                Logger.For<AIStatefulAsyncComponentBase>().Trace($"[UpdateBadgeCache] configuredModel={configuredModel}, capability={this.RequiredCapability}");
 
                 // If provider is missing, we cannot resolve anything
                 if (string.IsNullOrWhiteSpace(providerName))
@@ -83,27 +84,28 @@ namespace SmartHopper.Core.ComponentBase
                 }
 
                 // Build a minimal request to leverage centralized validation/model selection
-                // Use a dummy endpoint and a single system interaction to satisfy validators
+                // Use a dummy endpoint and a single user interaction to satisfy validators
+                // (generation requests require conversation content).
                 var interactions = new List<IAIInteraction>
                 {
-                    new AIInteractionText { Agent = AIAgent.System, Content = "badge-check" },
+                    new AIInteractionText { Agent = AIAgent.User, Content = "badge-check" },
                 };
 
                 var req = new SmartHopper.ProviderSdk.AICall.Core.Requests.AIRequestCall();
-                req.Initialize(providerName, configuredModel ?? string.Empty, interactions, endpoint: "badge_check", capability: this.RequiredCapability, toolFilter: null);
+                req.Initialize(providerName, configuredModel ?? string.Empty, interactions, origin: "badge_check", capability: this.RequiredCapability, toolFilter: null);
 
                 // This triggers provider-scoped selection/fallback based on capability
                 string resolvedModel = req.Model;
-                Debug.WriteLine($"[UpdateBadgeCache] resolvedModel={resolvedModel}");
+                Logger.For<AIStatefulAsyncComponentBase>().Trace($"[UpdateBadgeCache] resolvedModel={resolvedModel}");
 
                 // Gather validation messages (may include provider/model issues)
                 var (isValid, validationMessages) = req.IsValid();
-                Debug.WriteLine($"[UpdateBadgeCache] isValid={isValid}, messageCount={validationMessages?.Count ?? 0}");
+                Logger.For<AIStatefulAsyncComponentBase>().Trace($"[UpdateBadgeCache] isValid={isValid}, messageCount={validationMessages?.Count ?? 0}");
                 if (validationMessages != null)
                 {
                     foreach (var msg in validationMessages)
                     {
-                        Debug.WriteLine($"[UpdateBadgeCache]   - {msg.Severity} {msg.Code}: {msg.Message}");
+                        Logger.For<AIStatefulAsyncComponentBase>().Trace($"[UpdateBadgeCache]   - {msg.Severity} {msg.Code}: {msg.Message}");
                     }
                 }
 
@@ -133,7 +135,7 @@ namespace SmartHopper.Core.ComponentBase
                                             && !string.IsNullOrWhiteSpace(resolvedModel)
                                             && !string.Equals(configuredModel, resolvedModel, StringComparison.Ordinal))
                                            || hasCapabilityMismatch);
-                Debug.WriteLine($"[UpdateBadgeCache] badgeReplacedModel={this.badgeReplacedModel}");
+                Logger.For<AIStatefulAsyncComponentBase>().Trace($"[UpdateBadgeCache] badgeReplacedModel={this.badgeReplacedModel}");
 
                 // Invalid when missing/unknown provider, unknown model, no capable model, capability mismatch, or empty configured model
                 this.badgeInvalidModel = string.IsNullOrWhiteSpace(configuredModel)
@@ -142,7 +144,7 @@ namespace SmartHopper.Core.ComponentBase
                                          || hasNoCapableModel
                                          || hasCapabilityMismatch
                                          || this.badgeReplacedModel;
-                Debug.WriteLine($"[UpdateBadgeCache] badgeInvalidModel={this.badgeInvalidModel}");
+                Logger.For<AIStatefulAsyncComponentBase>().Trace($"[UpdateBadgeCache] badgeInvalidModel={this.badgeInvalidModel}");
 
                 // Read metadata from the resolved model to set Verified/Deprecated/NotRecommended when available
                 var resolvedCaps = string.IsNullOrWhiteSpace(resolvedModel) ? null : AIModelCapabilityRegistry.Instance.GetCapabilities(providerName, resolvedModel);
@@ -164,19 +166,19 @@ namespace SmartHopper.Core.ComponentBase
                     var toolNames = this.UsingAiTools;
                     this.badgeNotRecommended = toolNames != null && toolNames.Count > 0 &&
                                                resolvedCaps.IsDiscouragedForAnyTool(toolNames);
-                    Debug.WriteLine($"[UpdateBadgeCache] notRecommended={this.badgeNotRecommended}, usingTools={string.Join(", ", toolNames ?? Array.Empty<string>())}");
+                    Logger.For<AIStatefulAsyncComponentBase>().Trace($"[UpdateBadgeCache] notRecommended={this.badgeNotRecommended}, usingTools={string.Join(", ", toolNames ?? Array.Empty<string>())}");
 
                     this.badgeCacheValid = true;
                 }
 
-                Debug.WriteLine($"[UpdateBadgeCache] END: verified={this.badgeVerified}, deprecated={this.badgeDeprecated}, invalid={this.badgeInvalidModel}, replaced={this.badgeReplacedModel}, notRecommended={this.badgeNotRecommended}, cacheValid={this.badgeCacheValid}");
+                Logger.For<AIStatefulAsyncComponentBase>().Warning($"[UpdateBadgeCache] END: verified={this.badgeVerified}, deprecated={this.badgeDeprecated}, invalid={this.badgeInvalidModel}, replaced={this.badgeReplacedModel}, notRecommended={this.badgeNotRecommended}, cacheValid={this.badgeCacheValid}");
 
                 return;
             }
             catch (Exception ex)
             {
                 // On any failure, mark cache invalid to avoid rendering
-                Debug.WriteLine($"[UpdateBadgeCache] EXCEPTION: {ex.Message}");
+                Logger.For<AIStatefulAsyncComponentBase>().Exception(ex, $"[UpdateBadgeCache] EXCEPTION: {ex.Message}");
                 this.badgeVerified = false;
                 this.badgeDeprecated = false;
                 this.badgeInvalidModel = false;
@@ -220,7 +222,7 @@ namespace SmartHopper.Core.ComponentBase
 
         /// <summary>
         /// Gets the current state message with progress information.
-        /// During batch data-tree collection shows "Preparing X/X..."; while polling shows live "Processing batch (Y/X)...".
+        /// During batch data-tree collection shows "Preparing X/X..."; while polling shows live "Batch Y/X...".
         /// </summary>
         /// <returns>A formatted state message string.</returns>
         public override string GetStateMessage()
@@ -235,7 +237,7 @@ namespace SmartHopper.Core.ComponentBase
             if (this._batchState.Submission != null)
             {
                 var total = this._batchState.Submission.CustomIds?.Count ?? 0;
-                return $"Processing batch ({this._batchState.ProgressCompleted}/{total})...";
+                return $"Batch {this._batchState.ProgressCompleted}/{total}...";
             }
 
             // Batch mode active but not yet submitted: data-tree is collecting items

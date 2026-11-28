@@ -20,6 +20,7 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using Newtonsoft.Json.Linq;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.ProviderSdk.Catalogue
 {
     /// <summary>
@@ -170,7 +171,7 @@ namespace SmartHopper.ProviderSdk.Catalogue
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[ModelCatalogueCache] cache write failed: {ex.Message}");
+                Logger.Exception(nameof(ModelCatalogueCache), ex, "cache write failed");
             }
         }
 
@@ -215,7 +216,7 @@ namespace SmartHopper.ProviderSdk.Catalogue
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[ModelCatalogueCache] floor write failed: {ex.Message}");
+                Logger.Exception(nameof(ModelCatalogueCache), ex, "floor write failed");
             }
         }
 

@@ -28,6 +28,7 @@ using GhJSON.Grasshopper;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
@@ -36,6 +37,7 @@ using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -111,7 +113,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""reasoning"": { ""type"": ""string"" }, ""suggestedConnections"": { ""type"": ""array"" }, ""connectionResult"": { ""type"": ""object"" } } }",
                 requiredCapabilities: AICapability.TextInput | AICapability.TextOutput,
                 annotations: new AIToolAnnotations(destructiveHint: false),
-                surfaces: SmartHopper.ProviderSdk.Hosting.AIToolSurface.Chat | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Direct | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Mcp);
+                surfaces: SmartHopper.ProviderSdk.Hosting.AIToolSurface.Chat | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Direct | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Mcp,
+                activityLabel: "suggesting smart connections",
+                resultLabel: "suggested smart connections");
         }
 
         /// <summary>
@@ -142,7 +146,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 var guids = guidsArray.Select(g => g.ToString()).ToList();
-                Debug.WriteLine($"[gh_smart_connect] Starting with {guids.Count} GUIDs, purpose: {purpose}");
+                Logger.For<gh_smart_connect>().Trace($"[gh_smart_connect] Starting with {guids.Count} GUIDs, purpose: {purpose}");
 
                 // Step 1: Retrieve GhJSON directly via ghjson-dotnet facade
                 var ghjson = await RetrieveGhJsonAsync(guids).ConfigureAwait(false);
@@ -152,14 +156,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                Debug.WriteLine($"[gh_smart_connect] Retrieved GhJSON ({ghjson.Length} chars)");
+                Logger.For<gh_smart_connect>().Trace($"[gh_smart_connect] Retrieved GhJSON ({ghjson.Length} chars)");
 
                 // Step 2: Ask AI for connection suggestions
                 var (connectionsJson, reasoning, aiMetrics, aiMessages) = await this.GetAiSuggestionsAsync(
                     toolCall.Provider,
                     toolCall.Model,
                     ghjson,
-                    purpose).ConfigureAwait(false);
+                    purpose,
+                    toolCall.Parameters).ConfigureAwait(false);
 
                 if (connectionsJson == null)
                 {
@@ -167,7 +172,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                Debug.WriteLine($"[gh_smart_connect] AI suggested {connectionsJson.Count} connection(s)");
+                Logger.For<gh_smart_connect>().Trace($"[gh_smart_connect] AI suggested {connectionsJson.Count} connection(s)");
 
                 var connectInteraction = new AIInteractionToolCall
                 {
@@ -218,7 +223,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[gh_smart_connect] Error: {ex.Message}");
+                Logger.For<gh_smart_connect>().Exception(ex, $"[gh_smart_connect] Error: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }
@@ -240,7 +245,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (guidList.Count == 0)
                 {
-                    Debug.WriteLine("[gh_smart_connect] No valid GUIDs provided");
+                    Logger.For<gh_smart_connect>().Error("[gh_smart_connect] No valid GUIDs provided");
                     return Task.FromResult<string>(null);
                 }
 
@@ -250,7 +255,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[gh_smart_connect] Error retrieving GhJSON: {ex.Message}");
+                Logger.For<gh_smart_connect>().Exception(ex, $"[gh_smart_connect] Error retrieving GhJSON: {ex.Message}");
                 return Task.FromResult<string>(null);
             }
         }
@@ -267,7 +272,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
             string provider,
             string model,
             string ghjson,
-            string purpose)
+            string purpose,
+            AIRequestParameters parameters)
         {
             try
             {
@@ -285,19 +291,25 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     provider: provider,
                     model: model,
                     body: requestBody,
-                    endpoint: this.toolName,
+                    origin: this.toolName,
                     capability: AICapability.TextInput | AICapability.TextOutput);
+
+                // Forward per-request parameters (extras, sampling, timeout) to the provider call
+                if (parameters != null)
+                {
+                    request.Parameters = parameters;
+                }
 
                 var aiResult = await request.Exec().ConfigureAwait(false);
 
                 if (aiResult == null || !aiResult.Success)
                 {
-                    Debug.WriteLine("[gh_smart_connect] AI request failed");
+                    Logger.For<gh_smart_connect>().Error("[gh_smart_connect] AI request failed");
                     return (null, null, aiResult?.Metrics, aiResult?.Messages);
                 }
 
                 var responseText = aiResult.Body?.GetLastText() ?? string.Empty;
-                Debug.WriteLine($"[gh_smart_connect] AI response: {responseText}");
+                Logger.For<gh_smart_connect>().Trace($"[gh_smart_connect] AI response: {responseText}");
 
                 // Parse JSON from AI response (may be wrapped in markdown fences)
                 var parsed = ParseAiResponse(responseText);
@@ -306,7 +318,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[gh_smart_connect] Error calling AI: {ex.Message}");
+                Logger.For<gh_smart_connect>().Exception(ex, $"[gh_smart_connect] Error calling AI: {ex.Message}");
                 return (null, null, null, null);
             }
         }
@@ -330,7 +342,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var match = JsonObjectRegex().Match(responseText);
                 if (!match.Success)
                 {
-                    Debug.WriteLine("[gh_smart_connect] No JSON object found in AI response");
+                    Logger.For<gh_smart_connect>().Error("[gh_smart_connect] No JSON object found in AI response");
                     return (null, null);
                 }
 
@@ -342,7 +354,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[gh_smart_connect] Error parsing AI response: {ex.Message}");
+                Logger.For<gh_smart_connect>().Exception(ex, $"[gh_smart_connect] Error parsing AI response: {ex.Message}");
                 return (null, null);
             }
         }

@@ -43,7 +43,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Retrieve the list of available models for a given AI provider. Uses live provider APIs when possible and falls back to the static model list.",
+                description: "Retrieve the list of available models for a given AI provider. Uses live provider APIs when supported (source='api') and otherwise serves the provider's registered model list (source='registry').",
                 category: "AIProviders",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -58,7 +58,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 enabled: true,
                 tags: new[] { "providers", "models", "api", "read-only" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""provider"": { ""type"": ""string"" }, ""models"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""source"": { ""type"": ""string"" }, ""warning"": { ""type"": ""string"" } } }",
-                annotations: new AIToolAnnotations(openWorldHint: true, readOnlyHint: true, destructiveHint: false));
+                annotations: new AIToolAnnotations(openWorldHint: true, readOnlyHint: true, destructiveHint: false),
+                activityLabel: "listing provider models",
+                resultLabel: "listed provider models");
         }
 
         private async Task<AIReturn> ProvidersModelsAsync(AIToolCall toolCall)
@@ -101,21 +103,29 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string source = null;
                 string warning = null;
 
-                try
+                var apiFailed = false;
+                if (provider.Models.SupportsApiModels)
                 {
-                    var apiModels = await provider.Models.RetrieveApiModels().ConfigureAwait(false);
-                    if (apiModels != null && apiModels.Count > 0)
+                    try
                     {
-                        models = apiModels
-                            .Distinct(StringComparer.OrdinalIgnoreCase)
-                            .OrderBy(m => m, StringComparer.OrdinalIgnoreCase)
-                            .ToList();
-                        source = "api";
+                        var apiModels = await provider.Models.RetrieveApiModels().ConfigureAwait(false);
+                        if (apiModels != null && apiModels.Count > 0)
+                        {
+                            models = apiModels
+                                .Distinct(StringComparer.OrdinalIgnoreCase)
+                                .OrderBy(m => m, StringComparer.OrdinalIgnoreCase)
+                                .ToList();
+                            source = "api";
+                        }
+                        else
+                        {
+                            apiFailed = true;
+                        }
                     }
-                }
-                catch
-                {
-                    // Fall through to the static model list.
+                    catch
+                    {
+                        apiFailed = true;
+                    }
                 }
 
                 if (models == null)
@@ -135,8 +145,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         .Select(m => m.Model)
                         .ToList();
 
-                    source = "static";
-                    warning = "Provider API models unavailable. Using fallback static model list.";
+                    // The registered list is the canonical source for providers
+                    // without a live models API — only flag a warning when a
+                    // supported API call genuinely failed.
+                    source = "registry";
+                    if (apiFailed)
+                    {
+                        warning = "Provider API models unavailable. Using the registered model list.";
+                    }
                 }
 
                 var result = new JObject()

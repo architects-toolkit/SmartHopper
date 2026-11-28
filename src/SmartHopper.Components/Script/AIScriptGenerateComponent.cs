@@ -35,6 +35,7 @@ using SmartHopper.Infrastructure.AICall.Utilities;
 using SmartHopper.ProviderSdk.AICall.Utilities;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Script
 {
     /// <summary>
@@ -50,7 +51,7 @@ namespace SmartHopper.Components.Script
         public override Guid ComponentGuid => new Guid("B9E66C95-2A7D-46AB-9E37-7C28F8202F4A");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.scriptgenerate;
+        protected override Bitmap Icon => Resources.AIScriptGenerate;
 
         /// <inheritdoc/>
         public override GH_Exposure Exposure => GH_Exposure.primary;
@@ -84,25 +85,24 @@ namespace SmartHopper.Components.Script
             : base(
                   "AI Script Generate",
                   "AIScriptGen",
-                  "Create or edit Grasshopper script components from natural language instructions. Outputs GhJSON that can be placed on canvas using GH Put.\nIn create mode: processes each prompt as a separate branch.\nIn edit mode: matches prompts to selected components in order.",
+                  "Create new Grasshopper script components (Python, C#, VB.NET, or IronPython) from natural-language instructions, or edit existing ones selected on the canvas.\nOutputs a GhJSON document ready to place or update on the canvas with Place GhJSON (GhPut).",
                   "SmartHopper",
-                  "Script")
+                  "J. Script")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Prompt", "P", "REQUIRED instructions describing how to create or edit the script. In edit mode, prompts are matched to selected components in order.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Prompt", "P", "Instructions describing what the script should do, its inputs and outputs, and the preferred language (Python, C#, VB.NET, or IronPython). When components are selected on the canvas, prompts are matched to the selected script components in order.", GH_ParamAccess.list);
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("GhJSON", "J", "GhJSON representation of the script component. Use GH Put to place on canvas. One branch per input.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Summary", "Sm", "Brief summary of the generated script and design decisions. One branch per input.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Information", "I", "Informational message from the operation. One branch per input.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("GhJSON", "J", "GhJSON representation of the generated or updated script component (connect to Place GhJSON to add or update it on the canvas).", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Summary", "Sm", "Summary of the generated script and its parameter layout.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Information", "I", "Status and diagnostic messages from the script generator.", GH_ParamAccess.tree);
         }
 
         /// <inheritdoc/>
@@ -214,14 +214,14 @@ namespace SmartHopper.Components.Script
                         if (this.isEditMode)
                         {
                             var guid = this.normalizedGuids[i]?.Value ?? string.Empty;
-                            Debug.WriteLine($"[AIScriptGenerateWorker] Edit mode: processing {i + 1}/{this.iterationCount} (guid={guid})");
+                            Logger.For<AIScriptGenerateWorker>().Trace($"[AIScriptGenerateWorker] Edit mode: processing {i + 1}/{this.iterationCount} (guid={guid})");
 
                             var result = await this.EditExistingScriptAsync(guid, prompt, token).ConfigureAwait(false);
                             this.StoreResult(path, result, isEdit: true);
                         }
                         else
                         {
-                            Debug.WriteLine($"[AIScriptGenerateWorker] Create mode: processing prompt {i + 1}/{this.iterationCount}");
+                            Logger.For<AIScriptGenerateWorker>().Trace($"[AIScriptGenerateWorker] Create mode: processing prompt {i + 1}/{this.iterationCount}");
 
                             var result = await this.GenerateNewScriptAsync(prompt, token).ConfigureAwait(false);
                             this.StoreResult(path, result, isEdit: false);
@@ -230,7 +230,7 @@ namespace SmartHopper.Components.Script
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIScriptGenerateWorker] Error: {ex.Message}");
+                    Logger.For<AIScriptGenerateWorker>().Exception(ex, $"[AIScriptGenerateWorker] Error: {ex.Message}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
@@ -247,7 +247,7 @@ namespace SmartHopper.Components.Script
                 }
 
                 // Extract and collect messages from tool result (errors, warnings, etc.)
-                var toolMessages = RuntimeMessageUtility.ExtractMessages(toolResult);
+                var toolMessages = toolResult.ExtractMessages();
                 foreach (var m in toolMessages) this.CollectMessage(m);
 
                 var hasErrors = toolMessages.Any(m => m.Severity == SHRuntimeMessageSeverity.Error);
@@ -286,7 +286,7 @@ namespace SmartHopper.Components.Script
             /// </summary>
             private async Task<ToolCallResult> GenerateNewScriptAsync(string prompt, CancellationToken token)
             {
-                Debug.WriteLine("[AIScriptGenerateWorker] Create mode: calling script_generate");
+                Logger.For<AIScriptGenerateWorker>().Trace("[AIScriptGenerateWorker] Create mode: calling script_generate");
 
                 var parameters = new JObject
                 {
@@ -302,13 +302,12 @@ namespace SmartHopper.Components.Script
             /// </summary>
             private async Task<ToolCallResult> EditExistingScriptAsync(string guid, string prompt, CancellationToken token)
             {
-                Debug.WriteLine($"[AIScriptGenerateWorker] Edit mode: getting GhJSON for {guid}");
+                Logger.For<AIScriptGenerateWorker>().Trace($"[AIScriptGenerateWorker] Edit mode: getting GhJSON for {guid}");
 
                 // Step 1: Get existing component GhJSON using gh_get with instanceGuids
                 var getParams = new JObject
                 {
                     ["instanceGuids"] = new JArray(guid),
-                    ["contextFilter"] = "-*",
                 };
 
                 var getResult = await this.parent.CallAIToolAsync("gh_get", getParams, token).ConfigureAwait(false);
@@ -325,7 +324,7 @@ namespace SmartHopper.Components.Script
                     return ToolCallResult.FromError($"Could not retrieve GhJSON for component {guid}");
                 }
 
-                Debug.WriteLine($"[AIScriptGenerateWorker] Retrieved GhJSON, length: {existingGhJson.Length}");
+                Logger.For<AIScriptGenerateWorker>().Trace($"[AIScriptGenerateWorker] Retrieved GhJSON, length: {existingGhJson.Length}");
 
                 // Step 2: Edit the script using script_edit
                 var editParams = new JObject

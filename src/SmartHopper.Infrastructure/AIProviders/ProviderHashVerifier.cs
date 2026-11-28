@@ -29,6 +29,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using SmartHopper.Infrastructure.Utils;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Utils;
 namespace SmartHopper.Infrastructure.AIProviders
 {
@@ -74,10 +75,19 @@ namespace SmartHopper.Infrastructure.AIProviders
         private const string HashBaseUrl = "https://architects-toolkit.github.io/SmartHopper/hashes";
         private static readonly HttpClient HttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
 
-        // Cache for hash manifests to avoid repeated network requests (thread-safe)
+        // Cache for hash manifests to avoid repeated network requests (thread-safe).
+        // A null manifest entry is a negative cache hit (fetch attempted and failed).
         private static readonly ConcurrentDictionary<string, (DateTime fetched, Dictionary<string, string> manifest)> ManifestCache = new ConcurrentDictionary<string, (DateTime, Dictionary<string, string>)>();
 
+        // Single shared in-flight fetch per version so concurrent provider loads
+        // never issue duplicate requests for the same manifest.
+        private static readonly ConcurrentDictionary<string, Task<Dictionary<string, string>>> InFlightManifestFetches = new ConcurrentDictionary<string, Task<Dictionary<string, string>>>();
+
         private static readonly TimeSpan CacheExpiration = TimeSpan.FromMinutes(15);
+
+        // Failed fetches are retried sooner than successful ones expire, but still
+        // bounded so a missing/unpublished manifest cannot spam requests per provider.
+        private static readonly TimeSpan NegativeCacheExpiration = TimeSpan.FromMinutes(5);
 
         /// <summary>
         /// Calculates SHA-256 hash of a file.
@@ -126,7 +136,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             foreach (var key in expiredKeys)
             {
                 ManifestCache.TryRemove(key, out _);
-                Debug.WriteLine($"[ProviderHashVerifier] Cleaned up expired cache entry for version {key}");
+                Logger.For<ProviderHashVerifier>().Trace($"[ProviderHashVerifier] Cleaned up expired cache entry for version {key}");
             }
         }
 
@@ -146,12 +156,23 @@ namespace SmartHopper.Infrastructure.AIProviders
                 CleanupExpiredCacheEntries();
             }
 
-            // Check cache first (fast path) - thread-safe lookup
+            // Check cache first (fast path) - thread-safe lookup. Null-manifest
+            // entries are negative hits with a shorter TTL so a missing manifest
+            // (e.g. unpublished dev build) does not trigger a fetch per provider.
             if (ManifestCache.TryGetValue(version, out var cached))
             {
-                if (DateTime.UtcNow - cached.fetched < CacheExpiration)
+                var ttl = cached.manifest != null ? CacheExpiration : NegativeCacheExpiration;
+                if (DateTime.UtcNow - cached.fetched < ttl)
                 {
-                    Debug.WriteLine($"[ProviderHashVerifier] ReadHashManifest: Using cached manifest for version {version}");
+                    if (cached.manifest != null)
+                    {
+                        Logger.For<ProviderHashVerifier>().Trace($"[ProviderHashVerifier] ReadHashManifest: Using cached manifest for version {version}");
+                    }
+                    else
+                    {
+                        Logger.For<ProviderHashVerifier>().Trace($"[ProviderHashVerifier] ReadHashManifest: Using cached miss for version {version}");
+                    }
+
                     return cached.manifest;
                 }
 
@@ -162,21 +183,42 @@ namespace SmartHopper.Infrastructure.AIProviders
             // Not in cache or expired - check network and fetch
             if (!IsNetworkAvailable())
             {
-                Debug.WriteLine($"[ProviderHashVerifier] ReadHashManifest: Network unavailable, no cached manifest for version {version}");
+                Logger.For<ProviderHashVerifier>().Trace($"[ProviderHashVerifier] ReadHashManifest: Network unavailable, no cached manifest for version {version}");
                 return null;
             }
 
-            var manifest = await FetchPublicHashesFromInternetAsync(version).ConfigureAwait(false);
+            // One shared in-flight fetch per version: every concurrent caller awaits
+            // the same task instead of each issuing its own request.
+            var fetchTask = InFlightManifestFetches.GetOrAdd(version, FetchAndLogAsync);
+            Dictionary<string, string> manifest;
+            try
+            {
+                manifest = await fetchTask.ConfigureAwait(false);
+            }
+            finally
+            {
+                InFlightManifestFetches.TryRemove(version, out _);
+            }
 
+            // Cache the result (including failures) for future use (thread-safe)
+            ManifestCache[version] = (DateTime.UtcNow, manifest);
+            return manifest;
+        }
+
+        /// <summary>
+        /// Runs the manifest fetch once per version and logs the outcome. Both
+        /// success and failure results are cached by the caller.
+        /// </summary>
+        private static async Task<Dictionary<string, string>> FetchAndLogAsync(string version)
+        {
+            var manifest = await FetchPublicHashesFromInternetAsync(version).ConfigureAwait(false);
             if (manifest != null)
             {
-                // Cache the result for future use (thread-safe)
-                ManifestCache[version] = (DateTime.UtcNow, manifest);
-                Debug.WriteLine($"[ProviderHashVerifier] ReadHashManifest: Fetched and cached manifest for version {version}");
+                Logger.For<ProviderHashVerifier>().Trace($"[ProviderHashVerifier] ReadHashManifest: Fetched and cached manifest for version {version}");
             }
             else
             {
-                Debug.WriteLine($"[ProviderHashVerifier] ReadHashManifest: Failed to fetch manifest for version {version}");
+                Logger.For<ProviderHashVerifier>().Warning($"[ProviderHashVerifier] ReadHashManifest: Failed to fetch manifest for version {version}");
             }
 
             return manifest;
@@ -194,18 +236,18 @@ namespace SmartHopper.Infrastructure.AIProviders
 
             try
             {
-                Debug.WriteLine($"[ProviderHashVerifier] Fetching hashes from: {url}");
+                Logger.For<ProviderHashVerifier>().Trace($"[ProviderHashVerifier] Fetching hashes from: {url}");
                 var response = await HttpClient.GetAsync(url).ConfigureAwait(false);
 
                 if (response.StatusCode == HttpStatusCode.NotFound)
                 {
-                    Debug.WriteLine($"[ProviderHashVerifier] Hash manifest not found at {url} (404)");
+                    Logger.For<ProviderHashVerifier>().Trace($"[ProviderHashVerifier] Hash manifest not found at {url} (404)");
                     return null;
                 }
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    Debug.WriteLine($"[ProviderHashVerifier] Failed to fetch from {url}: {(int)response.StatusCode} {response.ReasonPhrase}");
+                    Logger.For<ProviderHashVerifier>().Warning($"[ProviderHashVerifier] Failed to fetch from {url}: {(int)response.StatusCode} {response.ReasonPhrase}");
                     return null;
                 }
 
@@ -218,17 +260,17 @@ namespace SmartHopper.Infrastructure.AIProviders
                     return JsonConvert.DeserializeObject<Dictionary<string, string>>(providersJson);
                 }
 
-                Debug.WriteLine($"[ProviderHashVerifier] Hash manifest at {url} does not contain a 'providers' section");
+                Logger.For<ProviderHashVerifier>().Trace($"[ProviderHashVerifier] Hash manifest at {url} does not contain a 'providers' section");
                 return null;
             }
             catch (HttpRequestException ex)
             {
-                Debug.WriteLine($"[ProviderHashVerifier] Failed to fetch from {url}: {ex.Message}");
+                Logger.For<ProviderHashVerifier>().Exception(ex, $"[ProviderHashVerifier] Failed to fetch from {url}: {ex.Message}");
                 return null;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ProviderHashVerifier] Error fetching public hashes: {ex.Message}");
+                Logger.For<ProviderHashVerifier>().Exception(ex, $"[ProviderHashVerifier] Error fetching public hashes: {ex.Message}");
                 return null;
             }
         }
@@ -248,7 +290,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             {
                 // Calculate local hash
                 result.LocalHash = CalculateFileHash(dllPath);
-                Debug.WriteLine($"[ProviderHashVerifier] Local hash for {Path.GetFileName(dllPath)}: {result.LocalHash}");
+                Logger.For<ProviderHashVerifier>().Trace($"[ProviderHashVerifier] Local hash for {Path.GetFileName(dllPath)}: {result.LocalHash}");
 
                 // Fetch public hashes
                 var publicHashes = await ReadHashManifest(version).ConfigureAwait(false);
@@ -257,7 +299,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 {
                     result.Status = ProviderVerificationStatus.Unavailable;
                     result.ErrorMessage = $"Failed to retrieve the public hash manifest for version {version}. This may be due to network connectivity issues, or the hash manifest for this version has not been published yet.";
-                    Debug.WriteLine($"[ProviderHashVerifier] Public hashes unavailable for version {version}");
+                    Logger.For<ProviderHashVerifier>().Warning($"[ProviderHashVerifier] Public hashes unavailable for version {version}");
                     return result;
                 }
 
@@ -272,7 +314,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     {
                         result.Status = ProviderVerificationStatus.NotFound;
                         result.ErrorMessage = $"Hash not found in public manifest for {dllName} ({platform})";
-                        Debug.WriteLine($"[ProviderHashVerifier] Hash not found for {hashKey}");
+                        Logger.For<ProviderHashVerifier>().Warning($"[ProviderHashVerifier] Hash not found for {hashKey}");
                         return result;
                     }
                 }
@@ -284,20 +326,20 @@ namespace SmartHopper.Infrastructure.AIProviders
                 {
                     result.Success = true;
                     result.Status = ProviderVerificationStatus.Match;
-                    Debug.WriteLine($"[ProviderHashVerifier] Hash match for {dllName}");
+                    Logger.For<ProviderHashVerifier>().Trace($"[ProviderHashVerifier] Hash match for {dllName}");
                 }
                 else
                 {
                     result.Status = ProviderVerificationStatus.Mismatch;
                     result.ErrorMessage = $"SHA-256 hash mismatch detected for {dllName}. Expected: {publicHash}, Actual: {result.LocalHash}";
-                    Debug.WriteLine($"[ProviderHashVerifier] Hash mismatch for {dllName}");
+                    Logger.For<ProviderHashVerifier>().Trace($"[ProviderHashVerifier] Hash mismatch for {dllName}");
                 }
             }
             catch (Exception ex)
             {
                 result.Status = ProviderVerificationStatus.Unavailable;
                 result.ErrorMessage = $"Error during hash verification: {ex.Message}";
-                Debug.WriteLine($"[ProviderHashVerifier] Verification error: {ex.Message}");
+                Logger.For<ProviderHashVerifier>().Exception(ex, $"[ProviderHashVerifier] Verification error: {ex.Message}");
             }
 
             return result;
@@ -318,7 +360,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             {
                 if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
                 {
-                    Debug.WriteLine($"[ProviderHashVerifier] Provider directory is invalid: '{directory ?? "<null>"}'");
+                    Logger.For<ProviderHashVerifier>().Error($"[ProviderHashVerifier] Provider directory is invalid: '{directory ?? "<null>"}'");
                     return results;
                 }
 
@@ -337,7 +379,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ProviderHashVerifier] Error verifying all providers: {ex.Message}");
+                Logger.For<ProviderHashVerifier>().Exception(ex, $"[ProviderHashVerifier] Error verifying all providers: {ex.Message}");
             }
 
             return results;

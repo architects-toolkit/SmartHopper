@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using Newtonsoft.Json.Linq;
+using SmartHopper.ProviderSdk.Logging;
 using RhinoDocObjects = global::Rhino.DocObjects;
 using RhinoFileIO = global::Rhino.FileIO;
 using RhinoGeometry = global::Rhino.Geometry;
@@ -48,13 +49,13 @@ namespace SmartHopper.Core.Grasshopper.Utils.Rhino
         {
             if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
             {
-                Debug.WriteLine($"[File3dmReader] File not found: {filePath}");
+                Logger.Trace(typeof(File3dmReader).FullName, $"[File3dmReader] File not found: {filePath}");
                 return null;
             }
 
             if (!filePath.EndsWith(".3dm", StringComparison.OrdinalIgnoreCase))
             {
-                Debug.WriteLine("[File3dmReader] File must be a .3dm file.");
+                Logger.Trace(typeof(File3dmReader).FullName, "[File3dmReader] File must be a .3dm file.");
                 return null;
             }
 
@@ -63,7 +64,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Rhino
                 var file3dm = RhinoFileIO.File3dm.Read(filePath);
                 if (file3dm == null)
                 {
-                    Debug.WriteLine($"[File3dmReader] Failed to read 3DM file: {filePath}");
+                    Logger.Warning(typeof(File3dmReader).FullName, $"[File3dmReader] Failed to read 3DM file: {filePath}");
                     return null;
                 }
 
@@ -130,12 +131,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Rhino
 
                 file3dm.Dispose();
 
-                Debug.WriteLine($"[File3dmReader] Successfully analyzed {filePath}: {totalObjects} objects");
+                Logger.Trace(typeof(File3dmReader).FullName, $"[File3dmReader] Successfully analyzed {filePath}: {totalObjects} objects");
                 return result;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[File3dmReader] Error reading 3DM file: {ex.Message}");
+                Logger.Exception(typeof(File3dmReader).FullName, ex, $"[File3dmReader] Error reading 3DM file: {ex.Message}");
                 return null;
             }
         }

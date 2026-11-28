@@ -19,11 +19,14 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Infrastructure.AICall.Fallback;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
 namespace SmartHopper.Components.Output
@@ -37,7 +40,7 @@ namespace SmartHopper.Components.Output
         /// Initializes a new instance of the <see cref="AI2TextComponent"/> class.
         /// </summary>
         public AI2TextComponent()
-            : base("AI to Text", "AI→Text", "Generate text from AI input payloads", GH_Exposure.primary)
+            : base("AI to Text", "AI2Text", "Call the AI provider on the connected input(s) and return a plain-text response.", GH_Exposure.primary)
         {
         }
 
@@ -49,7 +52,7 @@ namespace SmartHopper.Components.Output
         /// <summary>
         /// Gets the component icon.
         /// </summary>
-        protected override Bitmap Icon => Resources.aitotext;
+        protected override Bitmap Icon => Resources.AI2Text;
 
         /// <summary>
         /// Gets the AI tools used by this component.
@@ -64,6 +67,29 @@ namespace SmartHopper.Components.Output
             return "You are a helpful assistant. Generate clear, concise text responses based on the user input.";
         }
 
+        /// <inheritdoc/>
+        protected override IModalityFallback GetPassthroughConversion(AIBody mergedBody)
+        {
+            // Strict STT: every input item is audio — each maps to one transcript.
+            var interactions = mergedBody?.Interactions;
+            if (interactions == null || interactions.Count == 0)
+            {
+                return null;
+            }
+
+            return interactions.All(interaction => interaction is AIInteractionAudio)
+                ? new AudioToTextFallback()
+                : null;
+        }
+
+        /// <inheritdoc/>
+        protected override IGH_Goo ConvertPassthroughItem(IAIInteraction item)
+        {
+            return item is AIInteractionText text && !string.IsNullOrWhiteSpace(text.Content)
+                ? (IGH_Goo)new GH_String(text.Content.Trim())
+                : null;
+        }
+
         /// <summary>
         /// Gets the output mappings.
         /// </summary>
@@ -75,7 +101,7 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "Text",
                     NickName = "T",
-                    Description = "Generated text output",
+                    Description = "AI-generated text response.",
                     ParamType = typeof(Param_String),
                     Access = GH_ParamAccess.tree,
                     Extractor = OutputMapping.Single(aiReturn =>

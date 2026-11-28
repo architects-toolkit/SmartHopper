@@ -34,6 +34,7 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Core.ComponentBase;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Test.Misc
 {
     public class TestAIStatefulTreePrimeCalculatorComponent : AIStatefulAsyncComponentBase
@@ -98,7 +99,7 @@ namespace SmartHopper.Components.Test.Misc
                     var branch = this._inputTree.get_Branch(path);
                     var resultBranch = new List<GH_Number>();
 
-                    Debug.WriteLine($"[TestStatefulTreePrimeCalculatorWorker] DoWorkAsync - Processing path {path}");
+                    Logger.For<TestAIStatefulTreePrimeCalculatorWorker>().Trace($"[TestStatefulTreePrimeCalculatorWorker] DoWorkAsync - Processing path {path}");
 
                     foreach (var item in branch)
                     {
@@ -110,7 +111,7 @@ namespace SmartHopper.Components.Test.Misc
                             long result = await this.CalculateNthPrime(n, token).ConfigureAwait(false);
                             resultBranch.Add(new GH_Number(result));
 
-                            Debug.WriteLine($"[TestStatefulTreePrimeCalculatorWorker] DoWorkAsync - Calculating nth prime for {n}: {result}");
+                            Logger.For<TestAIStatefulTreePrimeCalculatorWorker>().Trace($"[TestStatefulTreePrimeCalculatorWorker] DoWorkAsync - Calculating nth prime for {n}: {result}");
                         }
                     }
 

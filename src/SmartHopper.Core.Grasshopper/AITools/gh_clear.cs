@@ -65,7 +65,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.ClearCanvasAsync,
                 tags: new[] { "canvas", "components", "mutating", "delete", "destructive" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""deletedCount"": { ""type"": ""integer"" }, ""deleted"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""rejectedCount"": { ""type"": ""integer"" }, ""skippedLockedCount"": { ""type"": ""integer"" }, ""protectedGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""message"": { ""type"": ""string"" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: true));
+                annotations: new AIToolAnnotations(destructiveHint: true),
+                activityLabel: "clearing the canvas",
+                resultLabel: "cleared the canvas");
         }
 
         private async Task<AIReturn> ClearCanvasAsync(AIToolCall toolCall)

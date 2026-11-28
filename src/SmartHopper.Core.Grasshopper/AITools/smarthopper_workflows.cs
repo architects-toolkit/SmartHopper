@@ -73,7 +73,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             }
                         }
                     }
-                }");
+                }",
+                activityLabel: "reading workflow guides",
+                resultLabel: "read workflow guides");
         }
 
         private Task<AIReturn> ExecuteAsync(AIToolCall toolCall)

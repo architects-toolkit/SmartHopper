@@ -30,6 +30,7 @@ using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -64,7 +65,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "canvas", "components", "patch", "read-only", "ghjson" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""Resulting GhJSON after applying the patch."" }, ""success"": { ""type"": ""boolean"" }, ""hasConflicts"": { ""type"": ""boolean"" }, ""conflicts"": { ""type"": ""array"" }, ""componentsAdded"": { ""type"": ""integer"" }, ""componentsRemoved"": { ""type"": ""integer"" }, ""componentsModified"": { ""type"": ""integer"" }, ""connectionsAdded"": { ""type"": ""integer"" }, ""connectionsRemoved"": { ""type"": ""integer"" }, ""groupsAdded"": { ""type"": ""integer"" }, ""groupsRemoved"": { ""type"": ""integer"" }, ""groupsModified"": { ""type"": ""integer"" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true),
+                activityLabel: "applying patch to canvas",
+                resultLabel: "applied patch to canvas");
         }
 
         private async Task<AIReturn> GhPatchApplyToolAsync(AIToolCall toolCall)
@@ -105,7 +108,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                Debug.WriteLine("[gh_patch_apply] Applying patch...");
+                Logger.For<gh_patch_apply>().Trace("[gh_patch_apply] Applying patch...");
                 var applyResult = GhJson.ApplyPatch(baseJson, patchJson, options);
 
                 var resultJson = applyResult.Document != null
@@ -123,7 +126,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     });
                 }
 
-                Debug.WriteLine($"[gh_patch_apply] Apply complete: success={applyResult.Success}, conflicts={applyResult.Conflicts.Count}, +{applyResult.ComponentsAdded}/-{applyResult.ComponentsRemoved}/~{applyResult.ComponentsModified} components");
+                Logger.For<gh_patch_apply>().Trace($"[gh_patch_apply] Apply complete: success={applyResult.Success}, conflicts={applyResult.Conflicts.Count}, +{applyResult.ComponentsAdded}/-{applyResult.ComponentsRemoved}/~{applyResult.ComponentsModified} components");
 
                 var toolResult = new JObject
                 {
@@ -150,7 +153,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[gh_patch_apply] Error: {ex.Message}");
+                Logger.For<gh_patch_apply>().Exception(ex, $"[gh_patch_apply] Error: {ex.Message}");
                 output.CreateError(ex.Message);
                 return output;
             }

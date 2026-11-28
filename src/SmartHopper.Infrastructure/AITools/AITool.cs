@@ -163,6 +163,20 @@ namespace SmartHopper.Infrastructure.AITools
         public AIToolAnnotations Annotations { get; }
 
         /// <summary>
+        /// Gets the short activity sentence (fewer than seven words) shown in the chat UI
+        /// for collapsed tool-call bubbles — e.g. "retrieving components on the canvas".
+        /// A model-provided <c>aim</c> argument overrides it per call.
+        /// </summary>
+        public string? ActivityLabel { get; }
+
+        /// <summary>
+        /// Gets the short completed-state sentence (fewer than seven words) shown in the
+        /// chat card header once the tool result arrives — e.g. "retrieved components on
+        /// the canvas". A result <c>summary</c> or the call's <c>aim_done</c> overrides it.
+        /// </summary>
+        public string? ResultLabel { get; }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="AITool"/> class.
         /// Creates a new AI tool.
         /// </summary>
@@ -179,6 +193,8 @@ namespace SmartHopper.Infrastructure.AITools
         /// <param name="outputSchema">JSON schema describing the tool's result payload.</param>
         /// <param name="annotations">MCP-style annotations for the tool.</param>
         /// <param name="surfaces">Execution surfaces on which the tool is available.</param>
+        /// <param name="activityLabel">Short activity sentence (&lt;7 words) for the collapsed chat bubble.</param>
+        /// <param name="resultLabel">Short completed-state sentence (&lt;7 words) shown once the result arrives.</param>
         public AITool(
             string name,
             string description,
@@ -192,7 +208,9 @@ namespace SmartHopper.Infrastructure.AITools
             IReadOnlyList<string>? tags = null,
             string? outputSchema = null,
             AIToolAnnotations? annotations = null,
-            AIToolSurface surfaces = AIToolSurface.All)
+            AIToolSurface surfaces = AIToolSurface.All,
+            string? activityLabel = null,
+            string? resultLabel = null)
         {
             this.Name = name ?? throw new ArgumentNullException(nameof(name));
             this.Description = description ?? throw new ArgumentNullException(nameof(description));
@@ -205,6 +223,8 @@ namespace SmartHopper.Infrastructure.AITools
             this.Enabled = enabled;
             this.Surfaces = surfaces;
             this.Tags = tags ?? BuildDefaultTags(category, mutatesCanvas);
+            this.ActivityLabel = activityLabel;
+            this.ResultLabel = resultLabel;
             this.OutputSchema = outputSchema ?? "{ \"type\": \"object\" }";
             this.Annotations = annotations ?? new AIToolAnnotations(
                 readOnlyHint: !mutatesCanvas,
@@ -224,36 +244,68 @@ namespace SmartHopper.Infrastructure.AITools
         }
 
         /// <summary>
+        /// Lazily parsed <see cref="ParametersSchema"/>. The schema string is immutable
+        /// after construction, so the parsed object is computed once and shared by the
+        /// parameter-introspection methods instead of re-parsing on every tool call.
+        /// Null when the schema is empty or invalid.
+        /// </summary>
+        private JObject? SchemaObject => this._schemaObject ??= this.ParseSchema();
+
+        private JObject? _schemaObject;
+
+        private JObject? ParseSchema()
+        {
+            if (string.IsNullOrWhiteSpace(this.ParametersSchema))
+            {
+                return null;
+            }
+
+            try
+            {
+                return JObject.Parse(this.ParametersSchema);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Returns the names of the parameters declared as required in the tool's JSON schema.
         /// Returns an empty list when the schema is empty, invalid, or declares no required properties.
         /// </summary>
         /// <returns>The required parameter names.</returns>
         public IReadOnlyList<string> GetRequiredParameters()
         {
-            if (string.IsNullOrWhiteSpace(this.ParametersSchema))
+            var schemaObj = this.SchemaObject;
+            if (schemaObj == null)
             {
                 return new List<string>();
             }
 
-            try
-            {
-                var schemaObj = JObject.Parse(this.ParametersSchema);
-                var required = schemaObj?["required"] as JArray;
-                if (required == null || required.Count == 0)
-                {
-                    return new List<string>();
-                }
-
-                return required
-                    .Select(r => r?.ToString())
-                    .Where(s => !string.IsNullOrWhiteSpace(s))
-                    .Select(s => s!)
-                    .ToList();
-            }
-            catch
+            var required = schemaObj["required"] as JArray;
+            if (required == null || required.Count == 0)
             {
                 return new List<string>();
             }
+
+            return required
+                .Select(r => r?.ToString())
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Select(s => s!)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Returns the names of the top-level parameters declared in the tool's JSON schema
+        /// <c>properties</c> object. Returns an empty list when the schema is empty or invalid.
+        /// </summary>
+        /// <returns>The declared parameter names.</returns>
+        public IReadOnlyList<string> GetDeclaredParameters()
+        {
+            var properties = this.SchemaObject?["properties"] as JObject;
+            return properties?.Properties().Select(prop => prop.Name).ToList()
+                ?? new List<string>();
         }
 
         private static IReadOnlyList<string> BuildDefaultTags(string category, bool mutatesCanvas)

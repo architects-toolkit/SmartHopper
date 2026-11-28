@@ -32,8 +32,11 @@ using SmartHopper.Core.Grasshopper.AITools;
 using SmartHopper.Core.Models;
 using SmartHopper.Core.Parameters;
 using SmartHopper.Core.Types;
+using SmartHopper.DocumentProcessing;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Knowledge
 {
     /// <summary>
@@ -46,7 +49,7 @@ namespace SmartHopper.Components.Knowledge
         public override Guid ComponentGuid => new Guid("C0EF8C72-1233-4613-902C-2E07321BB2E3");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.filetomd;
+        protected override Bitmap Icon => Resources.File2Md;
 
         /// <inheritdoc/>
         public override GH_Exposure Exposure => GH_Exposure.primary;
@@ -58,26 +61,30 @@ namespace SmartHopper.Components.Knowledge
             : base(
                   "File To Markdown",
                   "File2Md",
-                  "Convert a local file (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown text and extract embedded images. No AI required. Use AIFile2Md for AI-powered image description.",
+                  "Convert a local file (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown, embedded image assets, and rendered page images locally — no AI provider required.\nUse AI File To Markdown when you want AI-generated image descriptions.",
                   "SmartHopper",
-                  "Knowledge")
+                  "F. Documents")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("File Path", "F", "Absolute path(s) to the file(s) to convert.", GH_ParamAccess.tree);
-            pManager.AddBooleanParameter("Remove Headers", "RH", "Attempt to remove headers and footers from PDF/DOCX. Default: true.", GH_ParamAccess.tree, true);
+            pManager.AddTextParameter("File Path", "F", "Local path(s) to the file(s) to convert.", GH_ParamAccess.tree);
+            pManager.AddBooleanParameter("Remove Headers", "RH", "When true (default), removes repeating page headers and footers from PDF and DOCX files.", GH_ParamAccess.tree, true);
+            pManager.AddTextParameter("Pages", "P", "Optional PDF page selection as a JSON array of unique 1-based page numbers (e.g. [1,3]). An empty string selects the whole document; an empty array is invalid.", GH_ParamAccess.tree, string.Empty);
+            pManager.AddTextParameter("Region", "R", "Optional PDF detail region as a JSON object {page, x, y, width, height} with normalized top-left coordinates inside a selected page.", GH_ParamAccess.tree, string.Empty);
+            pManager[pManager.ParamCount - 1].Optional = true;
+            pManager[pManager.ParamCount - 2].Optional = true;
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Markdown", "Md", "Markdown content of the file.", GH_ParamAccess.tree);
-            pManager.AddParameter(new VersatileImageParameter(), "Images", "Img", "Images extracted from the document (PDF/DOCX/PPTX). Each item is a VersatileImage carrying base64 data, MIME type, and source context. Connect to Image Viewer or AIImg2Text.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Format", "Fmt", "Detected original format (e.g., pdf, docx, html).", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Markdown", "Md", "Converted file content in Markdown format.", GH_ParamAccess.tree);
+            pManager.AddParameter(new VersatileImageParameter(), "Images", "Img", "Embedded image assets extracted from the document (connect to Image Viewer, Image to AI, or AI Image To Text).", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Format", "Fmt", "Detected source file format (e.g., pdf, docx, xlsx, html).", GH_ParamAccess.tree);
+            pManager.AddParameter(new VersatileImageParameter(), "Rendered Pages", "Pgs", "Rendered page images of the document in document order, including any requested region crops (PDF sources).", GH_ParamAccess.tree);
         }
 
         /// <inheritdoc/>
@@ -100,11 +107,14 @@ namespace SmartHopper.Components.Knowledge
             private readonly ProcessingOptions processingOptions;
             private GH_Structure<GH_String> filePathTree;
             private GH_Structure<GH_String> removeHeadersTree;
+            private GH_Structure<GH_String> pagesTree;
+            private GH_Structure<GH_String> regionTree;
             private bool hasWork;
 
             private GH_Structure<GH_String> resultMarkdown;
             private GH_Structure<GH_String> resultFormat;
             private GH_Structure<GH_VersatileImage> resultImages;
+            private GH_Structure<GH_VersatileImage> resultRenderedPages;
 
             public File2MdWorker(
                 File2MdComponent parent,
@@ -127,12 +137,16 @@ namespace SmartHopper.Components.Knowledge
 
                 this.removeHeadersTree = File2MdToolResult.ConvertBoolTreeToString(removeTree, "true");
 
+                DA.GetDataTree("Pages", out this.pagesTree);
+                DA.GetDataTree("Region", out this.regionTree);
+
                 this.hasWork = this.filePathTree != null && this.filePathTree.PathCount > 0 && this.filePathTree.DataCount > 0;
                 dataCount = this.hasWork ? this.filePathTree.DataCount : 0;
 
                 this.resultMarkdown = new GH_Structure<GH_String>();
                 this.resultFormat = new GH_Structure<GH_String>();
                 this.resultImages = new GH_Structure<GH_VersatileImage>();
+                this.resultRenderedPages = new GH_Structure<GH_VersatileImage>();
             }
 
             /// <inheritdoc/>
@@ -141,6 +155,7 @@ namespace SmartHopper.Components.Knowledge
                 this.resultMarkdown = new GH_Structure<GH_String>();
                 this.resultFormat = new GH_Structure<GH_String>();
                 this.resultImages = new GH_Structure<GH_VersatileImage>();
+                this.resultRenderedPages = new GH_Structure<GH_VersatileImage>();
 
                 if (!this.hasWork)
                 {
@@ -153,6 +168,8 @@ namespace SmartHopper.Components.Knowledge
                     {
                         { "File Path", this.filePathTree },
                         { "RemoveHeaders", this.removeHeadersTree },
+                        { "Pages", this.pagesTree ?? new GH_Structure<GH_String>() },
+                        { "Region", this.regionTree ?? new GH_Structure<GH_String>() },
                     };
 
                     var resultTrees = await this.parent.RunProcessingAsync<GH_String>(
@@ -164,6 +181,7 @@ namespace SmartHopper.Components.Knowledge
                                 { "Markdown", new List<IGH_Goo>() },
                                 { "Format", new List<IGH_Goo>() },
                                 { "Images", new List<IGH_Goo>() },
+                                { "Rendered Pages", new List<IGH_Goo>() },
                             };
 
                             if (!branchInputs.TryGetValue("File Path", out var pathBranch) || pathBranch == null)
@@ -172,10 +190,14 @@ namespace SmartHopper.Components.Knowledge
                             }
 
                             var removeBranch = branchInputs.TryGetValue("RemoveHeaders", out var rh) ? rh : new List<GH_String>();
+                            var pagesBranch = branchInputs.TryGetValue("Pages", out var pg) ? pg : new List<GH_String>();
+                            var regionBranch = branchInputs.TryGetValue("Region", out var rg) ? rg : new List<GH_String>();
 
-                            var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { pathBranch, removeBranch });
+                            var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { pathBranch, removeBranch, pagesBranch, regionBranch });
                             pathBranch = normalizedLists[0];
                             removeBranch = normalizedLists[1];
+                            pagesBranch = normalizedLists[2];
+                            regionBranch = normalizedLists[3];
 
                             for (int i = 0; i < pathBranch.Count; i++)
                             {
@@ -183,6 +205,38 @@ namespace SmartHopper.Components.Knowledge
 
                                 var ghPath = pathBranch[i];
                                 bool removeHeaders = bool.TryParse(removeBranch[i]?.Value, out var rhValue) ? rhValue : true;
+                                List<int> pages = null;
+                                DocumentRegionSelection region = null;
+                                var pagesRaw = pagesBranch[i]?.Value;
+                                var regionRaw = regionBranch[i]?.Value;
+                                var selectionFailed = false;
+                                try
+                                {
+                                    selectionFailed = !string.IsNullOrWhiteSpace(pagesRaw)
+                                        && !DocumentSelectionJsonParser.TryParsePages(Newtonsoft.Json.Linq.JToken.Parse(pagesRaw), out pages, out var _);
+                                }
+                                catch
+                                {
+                                    selectionFailed = true;
+                                }
+
+                                try
+                                {
+                                    selectionFailed |= !string.IsNullOrWhiteSpace(regionRaw)
+                                        && !DocumentSelectionJsonParser.TryParseRegion(Newtonsoft.Json.Linq.JToken.Parse(regionRaw), out region, out var _);
+                                }
+                                catch
+                                {
+                                    selectionFailed = true;
+                                }
+
+                                if (selectionFailed)
+                                {
+                                    this.CollectMessage(SHRuntimeMessageSeverity.Error, $"Invalid 'Pages'/'Region' selection JSON for '{ghPath?.Value}'.", SHRuntimeMessageOrigin.Tool);
+                                    outputs["Markdown"].Add(new GH_String(string.Empty));
+                                    outputs["Format"].Add(new GH_String(string.Empty));
+                                    continue;
+                                }
 
                                 if (ghPath == null || string.IsNullOrWhiteSpace(ghPath.Value))
                                 {
@@ -192,18 +246,39 @@ namespace SmartHopper.Components.Knowledge
                                 }
 
                                 const bool PreserveFormatting = true;
-                                var converted = await File2MdToolResult.CallAsync(
+                                var (converted, toolMessages) = await File2MdToolResult.CallAsync(
                                     ghPath.Value,
                                     removeHeaders,
                                     extractImages: true,
                                     preserveFormatting: PreserveFormatting,
                                     preserveComments: PreserveFormatting,
                                     preserveFootnotes: PreserveFormatting,
-                                    preserveEndnotes: PreserveFormatting).ConfigureAwait(false);
+                                    preserveEndnotes: PreserveFormatting,
+                                    pages: pages,
+                                    region: region,
+                                    cancellationToken: token).ConfigureAwait(false);
 
                                 if (converted == null)
                                 {
-                                    this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"Tool 'file2md' returned no result for '{ghPath.Value}'.", SHRuntimeMessageOrigin.Tool);
+                                    // Surface the tool's own diagnostics (e.g. a locked/unreadable
+                                    // file) instead of hiding the reason behind a generic warning.
+                                    var surfaced = false;
+                                    foreach (var msg in toolMessages ?? Array.Empty<SHRuntimeMessage>())
+                                    {
+                                        if (msg == null)
+                                        {
+                                            continue;
+                                        }
+
+                                        this.CollectMessage(msg.Severity, msg.Message, msg.Origin);
+                                        surfaced = true;
+                                    }
+
+                                    if (!surfaced)
+                                    {
+                                        this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"Tool 'file2md' returned no result for '{ghPath.Value}'.", SHRuntimeMessageOrigin.Tool);
+                                    }
+
                                     outputs["Markdown"].Add(new GH_String(string.Empty));
                                     outputs["Format"].Add(new GH_String(string.Empty));
                                     continue;
@@ -214,7 +289,15 @@ namespace SmartHopper.Components.Knowledge
 
                                 foreach (var img in converted.Images)
                                 {
-                                    outputs["Images"].Add(new GH_VersatileImage(img));
+                                    var kind = img.SourceReference?.Kind;
+                                    if (kind == SourceContentKind.Page || kind == SourceContentKind.Crop)
+                                    {
+                                        outputs["Rendered Pages"].Add(new GH_VersatileImage(img));
+                                    }
+                                    else
+                                    {
+                                        outputs["Images"].Add(new GH_VersatileImage(img));
+                                    }
                                 }
 
                                 foreach (var w in converted.Warnings)
@@ -231,6 +314,7 @@ namespace SmartHopper.Components.Knowledge
                     this.resultMarkdown = DataTreeProcessor.ExtractTypedTree<GH_String>(resultTrees, "Markdown");
                     this.resultFormat = DataTreeProcessor.ExtractTypedTree<GH_String>(resultTrees, "Format");
                     this.resultImages = DataTreeProcessor.ExtractTypedTree<GH_VersatileImage>(resultTrees, "Images");
+                    this.resultRenderedPages = DataTreeProcessor.ExtractTypedTree<GH_VersatileImage>(resultTrees, "Rendered Pages");
                 }
                 catch (OperationCanceledException)
                 {
@@ -238,7 +322,7 @@ namespace SmartHopper.Components.Knowledge
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[File2Md] Error: {ex.Message}");
+                    Logger.For<File2MdWorker>().Exception(ex, $"[File2Md] Error: {ex.Message}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
@@ -249,6 +333,7 @@ namespace SmartHopper.Components.Knowledge
                 this.parent.SetPersistentOutput("Markdown", this.resultMarkdown ?? new GH_Structure<GH_String>(), DA);
                 this.parent.SetPersistentOutput("Images", this.resultImages ?? new GH_Structure<GH_VersatileImage>(), DA);
                 this.parent.SetPersistentOutput("Format", this.resultFormat ?? new GH_Structure<GH_String>(), DA);
+                this.parent.SetPersistentOutput("Rendered Pages", this.resultRenderedPages ?? new GH_Structure<GH_VersatileImage>(), DA);
                 errorMessage = null;
             }
 

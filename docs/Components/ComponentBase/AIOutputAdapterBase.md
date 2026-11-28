@@ -18,6 +18,7 @@ Eliminate boilerplate for "tree of payloads in → typed values out" components.
 - **Symmetric batch and sync paths.** Both legs run the same `DecodeAllMappings` helper, so list-shaped outputs work transparently in batch mode. The legacy `SentinelTransformOutputs` hook is **not** invoked by the adapter base — declare every named output through `GetOutputMappings` instead.
 - **Sealed input shape.** Adds `Input >` (`AIInputPayloadParameter`, tree access) at index 0, then chains to `base.RegisterInputParams`. Tree-access parameters registered by subclasses automatically participate in per-branch processing. Subclasses use `GatherAdditionalInputs(DA, dict)` only for custom item/list state that cannot use the tree pipeline.
 - **Payload-aware capability gate.** `PrepareInputs` validates `RequiredCapability` OR-ed with the input modalities present in the current branch's merged payload (`AIInteractionImage` → `ImageInput`, `AIInteractionAudio` → `AudioInput`, via `AIInputPayloadMerger.GetRequiredInputCapabilities`). A payload-modality gap resolves the configured modality fallback chain, or fails with a `[Capability] ... does not support` error when fallback is disabled.
+- **Strict passthrough conversions.** Before capability validation, `PrepareInputs` offers the merged branch body to `GetPassthroughConversion`. When it returns an `IModalityFallback` (e.g. all-audio input → STT, all-user-text input → TTS), the normal assistant call is skipped entirely: `ModalityFallbackResolver.ResolveStep` picks the conversion provider/model honoring fallback pins and mode (same model → other model on same provider → another provider), the conversion runs per input item, and `ConvertPassthroughItem` projects each raw result item onto the primary output preserving cardinality. Mixed payloads (any text, prompt, or system interaction alongside) keep the normal assistant path.
 - **Category locked** to `"SmartHopper" / "Output"`.
 
 ## Subclass contract
@@ -31,6 +32,10 @@ protected abstract IReadOnlyList<OutputMapping> GetOutputMappings();    // must 
 protected virtual void GatherAdditionalInputs(IGH_DataAccess DA, Dictionary<string, object> additionalInputs);
 protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager);
 protected override IReadOnlyList<string> UsingAiTools => new[] { "..." };
+
+// Strict passthrough (return null → normal assistant behavior):
+protected virtual IModalityFallback GetPassthroughConversion(AIBody mergedBody);
+protected virtual IGH_Goo ConvertPassthroughItem(IAIInteraction item);
 ```
 
 ## `OutputMapping`
@@ -52,9 +57,12 @@ public class OutputMapping
 ## Execution
 
 ```text
-PrepareInputs (merge Input> branch into AIBody, prepend system prompt)
-  → CallAIAsync(body, forceToolName)
-  → DecodeAllMappings(AIReturn)              ← runs every Extractor
+PrepareInputs (merge Input> branch into AIBody)
+  → passthrough? → FallbackStep resolved via ModalityFallbackResolver
+       → fallback.ApplyAsync per item → ConvertPassthroughItem → primary output
+  → otherwise: prepend system prompt
+       → CallAIAsync(body, forceToolName)
+       → DecodeAllMappings(AIReturn)         ← runs every Extractor
   → FinishResults(primary, …extras)          ← atomic persistence + metrics
 ```
 
@@ -74,16 +82,13 @@ In batch mode the call is queued, `OnBatchCompleted` invokes `ProcessMappingsBat
 
 ---
 
-
 ## Why Read This?
 
 This document provides details about AIOutputAdapterBase.
 
-
 ## End-User Guide
 
 End-user guidance for AIOutputAdapterBase.
-
 
 ## Developer Reference
 
@@ -96,7 +101,6 @@ Example usage:
 `csharp
 // Another placeholder example
 ``r
-
 
 ## Architecture & Design
 

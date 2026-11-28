@@ -23,6 +23,7 @@ using System.Linq;
 using System.Threading;
 using SmartHopper.Core.ComponentBase.State;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.ComponentBase.Cores
 {
     /// <summary>
@@ -75,6 +76,13 @@ namespace SmartHopper.Core.ComponentBase.Cores
         /// File restoration triggered transition.
         /// </summary>
         FileRestoration,
+
+        /// <summary>
+        /// A run finished with retryable units unresolved (e.g. a batch delivered
+        /// partial results) — the component demotes to NeedsRun so only the
+        /// missing work re-executes on the next run.
+        /// </summary>
+        ResultsIncomplete,
     }
 
     /// <summary>
@@ -142,6 +150,12 @@ namespace SmartHopper.Core.ComponentBase.Cores
         private Dictionary<string, int> pendingInputHashes = new Dictionary<string, int>();
         private Dictionary<string, int> committedBranchCounts = new Dictionary<string, int>();
         private Dictionary<string, int> pendingBranchCounts = new Dictionary<string, int>();
+
+        // Input revision captured when a run enters Processing. Completion commits
+        // this snapshot — not the live pending values — so edits made while work
+        // was in flight stay pending and surface as input changes afterwards.
+        private Dictionary<string, int> runInputHashes;
+        private Dictionary<string, int> runBranchCounts;
 
         // Component name for logging
         private readonly string componentName;
@@ -310,14 +324,14 @@ namespace SmartHopper.Core.ComponentBase.Cores
                 {
                     rejectionMessage = $"Invalid transition from {this.currentState} to {newState}";
                     rejectedFromState = this.currentState;
-                    Debug.WriteLine($"[{this.componentName}] {rejectionMessage}");
+                    Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] {rejectionMessage}");
                 }
                 else
                 {
                     // Queue the transition
                     var request = new StateTransitionRequest(newState, reason);
                     this.pendingTransitions.Enqueue(request);
-                    Debug.WriteLine($"[{this.componentName}] Queued transition to {newState} (reason: {reason})");
+                    Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] Queued transition to {newState} (reason: {reason})");
 
                     // Process queue if not already transitioning
                     if (!this.isTransitioning)
@@ -416,7 +430,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
             // Skip if already in target state
             if (oldState == newState)
             {
-                Debug.WriteLine($"[{this.componentName}] Already in state {newState}, skipping transition");
+                Logger.For<ComponentStateManager>().Warning($"[{this.componentName}] Already in state {newState}, skipping transition");
                 return null;
             }
 
@@ -424,11 +438,11 @@ namespace SmartHopper.Core.ComponentBase.Cores
             if (!this.IsValidTransition(oldState, newState))
             {
                 var message = $"Transition from {oldState} to {newState} no longer valid";
-                Debug.WriteLine($"[{this.componentName}] {message}");
+                Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] {message}");
                 return (oldState, newState, isRejection: true, rejectionMessage: message);
             }
 
-            Debug.WriteLine($"[{this.componentName}] Transitioning: {oldState} -> {newState} (reason: {request.Reason})");
+            Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] Transitioning: {oldState} -> {newState} (reason: {request.Reason})");
 
             // Update state (events fired by caller outside the lock)
             this.currentState = newState;
@@ -481,7 +495,9 @@ namespace SmartHopper.Core.ComponentBase.Cores
         /// The graph intentionally allows <c>Error</c> as a destination from every
         /// non-terminal state, and allows recovery back into any running state from
         /// both <c>Cancelled</c> and <c>Error</c>. <c>NeedsRun</c> is purely a
-        /// waiting-for-Run marker and cannot self-bypass into <c>Completed</c>.
+        /// waiting-for-Run marker and cannot self-bypass into <c>Completed</c>;
+        /// the <c>Processing → NeedsRun</c> edge exists solely for the partial-
+        /// results demotion (batch completed with retryable units unresolved).
         /// </remarks>
         private static readonly IReadOnlyDictionary<ComponentState, ICollection<ComponentState>> AllowedTransitions =
             new Dictionary<ComponentState, ICollection<ComponentState>>
@@ -508,6 +524,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
                 {
                     ComponentState.Completed,
                     ComponentState.Cancelled,
+                    ComponentState.NeedsRun,
                     ComponentState.Error,
                 },
                 [ComponentState.Cancelled] = new HashSet<ComponentState>
@@ -545,7 +562,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
                     return;
                 }
 
-                Debug.WriteLine($"[{this.componentName}] Force state: {oldState} -> {newState}");
+                Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] Force state: {oldState} -> {newState}");
                 this.currentState = newState;
             }
 
@@ -564,7 +581,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
                 this.pendingTransitions.Clear();
                 if (count > 0)
                 {
-                    Debug.WriteLine($"[{this.componentName}] Cleared {count} pending transitions");
+                    Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] Cleared {count} pending transitions");
                 }
             }
         }
@@ -583,7 +600,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
 
             lock (this.stateLock)
             {
-                Debug.WriteLine($"[{this.componentName}] Begin restoration");
+                Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] Begin restoration");
                 this.isRestoringFromFile = true;
                 this.suppressInputChangeDetection = true;
 
@@ -607,7 +624,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
 
             lock (this.stateLock)
             {
-                Debug.WriteLine($"[{this.componentName}] End restoration (suppression still active for first solve)");
+                Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] End restoration (suppression still active for first solve)");
                 this.isRestoringFromFile = false;
 
                 // Note: suppressInputChangeDetection stays true until ClearSuppressionAfterFirstSolve() is called
@@ -624,7 +641,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
             {
                 if (this.suppressInputChangeDetection)
                 {
-                    Debug.WriteLine($"[{this.componentName}] Clearing input change suppression after first solve");
+                    Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] Clearing input change suppression after first solve");
                     this.suppressInputChangeDetection = false;
                 }
             }
@@ -640,7 +657,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
         {
             lock (this.stateLock)
             {
-                Debug.WriteLine($"[{this.componentName}] Suppressing input change detection for next solve");
+                Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] Suppressing input change detection for next solve");
                 this.suppressInputChangeDetection = true;
             }
         }
@@ -698,9 +715,107 @@ namespace SmartHopper.Core.ComponentBase.Cores
 
             lock (this.hashLock)
             {
-                Debug.WriteLine($"[{this.componentName}] Committing {this.pendingInputHashes.Count} hashes");
+                Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] Committing {this.pendingInputHashes.Count} hashes");
                 this.committedInputHashes = new Dictionary<string, int>(this.pendingInputHashes);
                 this.committedBranchCounts = new Dictionary<string, int>(this.pendingBranchCounts);
+            }
+        }
+
+        /// <summary>
+        /// Commits an explicit input snapshot as the new baseline, leaving the
+        /// pending values untouched. Used when the inputs acknowledged must be the
+        /// ones captured at gather time (e.g. batch submission): changes observed
+        /// while processing was in flight stay pending and surface as input
+        /// changes afterwards.
+        /// </summary>
+        /// <param name="hashes">The input hash snapshot to commit.</param>
+        /// <param name="branchCounts">The branch-count snapshot to commit.</param>
+        public void CommitHashes(Dictionary<string, int> hashes, Dictionary<string, int> branchCounts)
+        {
+            this.ThrowIfDisposed();
+
+            lock (this.hashLock)
+            {
+                Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] Committing {hashes?.Count ?? 0} hashes (snapshot)");
+                this.committedInputHashes = hashes != null
+                    ? new Dictionary<string, int>(hashes)
+                    : new Dictionary<string, int>();
+                this.committedBranchCounts = branchCounts != null
+                    ? new Dictionary<string, int>(branchCounts)
+                    : new Dictionary<string, int>();
+            }
+        }
+
+        /// <summary>
+        /// Captures the current pending input revision as the run snapshot. Call
+        /// when a run starts processing so completion can acknowledge exactly the
+        /// inputs that were gathered — even if the user edits inputs mid-run.
+        /// </summary>
+        public void CaptureRunSnapshot()
+        {
+            this.ThrowIfDisposed();
+
+            lock (this.hashLock)
+            {
+                this.runInputHashes = new Dictionary<string, int>(this.pendingInputHashes);
+                this.runBranchCounts = new Dictionary<string, int>(this.pendingBranchCounts);
+            }
+        }
+
+        /// <summary>
+        /// Commits the captured run snapshot as the acknowledged baseline. Edits
+        /// that arrived after the snapshot stay pending and are reported by
+        /// <see cref="GetChangedInputs"/>. Falls back to committing the pending
+        /// values when no snapshot exists (e.g. a run resumed from file).
+        /// </summary>
+        public void CommitRunSnapshot()
+        {
+            this.ThrowIfDisposed();
+
+            Dictionary<string, int> hashes;
+            Dictionary<string, int> branchCounts;
+            lock (this.hashLock)
+            {
+                hashes = this.runInputHashes;
+                branchCounts = this.runBranchCounts;
+            }
+
+            if (hashes != null)
+            {
+                this.CommitHashes(hashes, branchCounts);
+            }
+            else
+            {
+                this.CommitHashes();
+            }
+        }
+
+        /// <summary>
+        /// Gets the input revision captured by <see cref="CaptureRunSnapshot"/>,
+        /// or null when no run snapshot exists.
+        /// </summary>
+        /// <returns>Copy of the run snapshot hashes, or null.</returns>
+        public Dictionary<string, int> GetRunSnapshotHashes()
+        {
+            lock (this.hashLock)
+            {
+                return this.runInputHashes != null
+                    ? new Dictionary<string, int>(this.runInputHashes)
+                    : null;
+            }
+        }
+
+        /// <summary>
+        /// Gets the branch counts captured by <see cref="CaptureRunSnapshot"/>.
+        /// </summary>
+        /// <returns>Copy of the run snapshot branch counts, or null.</returns>
+        public Dictionary<string, int> GetRunSnapshotBranchCounts()
+        {
+            lock (this.hashLock)
+            {
+                return this.runBranchCounts != null
+                    ? new Dictionary<string, int>(this.runBranchCounts)
+                    : null;
             }
         }
 
@@ -716,7 +831,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
 
             lock (this.hashLock)
             {
-                Debug.WriteLine($"[{this.componentName}] Restoring {hashes?.Count ?? 0} committed hashes");
+                Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] Restoring {hashes?.Count ?? 0} committed hashes");
                 this.committedInputHashes = hashes != null
                     ? new Dictionary<string, int>(hashes)
                     : new Dictionary<string, int>();
@@ -741,7 +856,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
             {
                 if (this.suppressInputChangeDetection)
                 {
-                    Debug.WriteLine($"[{this.componentName}] GetChangedInputs: suppressed, returning empty");
+                    Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] GetChangedInputs: suppressed, returning empty");
                     return Array.Empty<string>();
                 }
             }
@@ -771,7 +886,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
 
                 if (changed.Count > 0)
                 {
-                    Debug.WriteLine($"[{this.componentName}] GetChangedInputs: {string.Join(", ", changed)}");
+                    Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] GetChangedInputs: {string.Join(", ", changed)}");
                 }
 
                 return changed;
@@ -788,6 +903,32 @@ namespace SmartHopper.Core.ComponentBase.Cores
             lock (this.hashLock)
             {
                 return new Dictionary<string, int>(this.committedInputHashes);
+            }
+        }
+
+        /// <summary>
+        /// Gets the pending input hashes — the most recently observed input state,
+        /// updated on every solve.
+        /// </summary>
+        /// <returns>Copy of the pending hashes dictionary.</returns>
+        public Dictionary<string, int> GetPendingHashes()
+        {
+            lock (this.hashLock)
+            {
+                return new Dictionary<string, int>(this.pendingInputHashes);
+            }
+        }
+
+        /// <summary>
+        /// Gets the pending branch counts — the most recently observed input state,
+        /// updated on every solve.
+        /// </summary>
+        /// <returns>Copy of the pending branch-counts dictionary.</returns>
+        public Dictionary<string, int> GetPendingBranchCounts()
+        {
+            lock (this.hashLock)
+            {
+                return new Dictionary<string, int>(this.pendingBranchCounts);
             }
         }
 
@@ -815,6 +956,8 @@ namespace SmartHopper.Core.ComponentBase.Cores
                 this.pendingInputHashes.Clear();
                 this.committedBranchCounts.Clear();
                 this.pendingBranchCounts.Clear();
+                this.runInputHashes = null;
+                this.runBranchCounts = null;
             }
         }
 
@@ -883,7 +1026,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
                 this.debounceTargetState = targetState;
                 this.debounceTimeMs = milliseconds;
 
-                Debug.WriteLine($"[{this.componentName}] Starting debounce: {milliseconds}ms -> {targetState} (gen: {currentGeneration})");
+                Logger.For<DebounceTimerState>().Trace($"[{this.componentName}] Starting debounce: {milliseconds}ms -> {targetState} (gen: {currentGeneration})");
 
                 // Replace any pending timer. Dispose the old one outside the lock
                 // so its callback cannot block this method and vice versa.
@@ -913,7 +1056,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
             {
                 if (this.debounceTimeMs > 0)
                 {
-                    Debug.WriteLine($"[{this.componentName}] Cancelling debounce");
+                    Logger.For<DebounceTimerState>().Trace($"[{this.componentName}] Cancelling debounce");
                     oldTimer = this.debounceTimer;
                     this.debounceTimer = null;
                     this.debounceTimeMs = 0;
@@ -952,14 +1095,14 @@ namespace SmartHopper.Core.ComponentBase.Cores
                 // this callback is stale and must be ignored.
                 if (this.isDisposed || this.debounceTimeMs == 0 || generation != this.debounceGeneration)
                 {
-                    Debug.WriteLine($"[{this.componentName}] Debounce callback: stale (gen {generation} vs current {this.debounceGeneration}) or already cancelled");
+                    Logger.For<DebounceTimerState>().Trace($"[{this.componentName}] Debounce callback: stale (gen {generation} vs current {this.debounceGeneration}) or already cancelled");
                     return;
                 }
 
                 // Validate target state is still compatible with current state
                 if (!this.IsValidTransition(this.currentState, targetState))
                 {
-                    Debug.WriteLine($"[{this.componentName}] Debounce target {targetState} no longer valid from {this.currentState}");
+                    Logger.For<DebounceTimerState>().Trace($"[{this.componentName}] Debounce target {targetState} no longer valid from {this.currentState}");
                     this.debounceTimeMs = 0;
                     return;
                 }
@@ -968,7 +1111,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
                 this.debounceTimeMs = 0;
             }
 
-            Debug.WriteLine($"[{this.componentName}] Debounce elapsed, requesting transition to {targetState}");
+            Logger.For<DebounceTimerState>().Trace($"[{this.componentName}] Debounce elapsed, requesting transition to {targetState}");
             this.RequestTransition(targetState, TransitionReason.DebounceComplete);
         }
 
@@ -993,7 +1136,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
 
             this.ClearHashes();
 
-            Debug.WriteLine($"[{this.componentName}] State manager reset");
+            Logger.For<DebounceTimerState>().Trace($"[{this.componentName}] State manager reset");
         }
 
         /// <summary>

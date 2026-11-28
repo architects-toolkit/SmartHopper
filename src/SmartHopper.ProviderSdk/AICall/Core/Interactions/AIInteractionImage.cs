@@ -55,18 +55,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         public string ImageSize { get; init; } = "1024x1024";
 
         /// <summary>
-        /// Gets the quality setting used for image generation (e.g., "standard", "hd").
-        /// </summary>
-        public string ImageQuality { get; init; } = "standard";
-
-        /// <summary>
-        /// Gets the style setting used for image generation (e.g., "vivid", "natural").
-        /// </summary>
-        public string ImageStyle { get; init; } = "vivid";
-
-        /// <summary>
         /// Gets the aspect ratio of the generated image (e.g., "1:1", "16:9").
-        /// Provider-specific; used by Gemini image generation.
         /// </summary>
         public string AspectRatio { get; init; }
 
@@ -81,6 +70,13 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         /// Used to propagate warnings, infos, or provider notes alongside the result.
         /// </summary>
         public List<SHRuntimeMessage> Messages { get; init; } = new List<SHRuntimeMessage>();
+
+        /// <summary>
+        /// Gets a value indicating whether this interaction carries consumable image content —
+        /// either a resolved <see cref="ImageUrl"/> or inline <see cref="ImageData"/>.
+        /// Result-selection helpers use this to skip request/placeholder image interactions.
+        /// </summary>
+        public bool HasContent => this.ImageUrl != null || !string.IsNullOrWhiteSpace(this.ImageData);
 
         /// <summary>
         /// Returns a string representation of the <see cref="AIInteractionImage"/>.
@@ -152,18 +148,14 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         /// Returns a new image interaction configured as an image generation request.
         /// </summary>
         /// <param name="prompt">The prompt to generate the image from.</param>
-        /// <param name="size">The size of the image to generate (e.g., "1024x1024").</param>
-        /// <param name="quality">The quality setting used for image generation (e.g., "standard", "hd").</param>
-        /// <param name="style">The style setting used for image generation (e.g., "vivid", "natural").</param>
+        /// <param name="size">The size of the image to generate (e.g., "1024x1024", "1K", "2K", "4K").</param>
         /// <param name="aspectRatio">The aspect ratio of the image to generate (e.g., "1:1", "16:9").</param>
         /// <returns>A new immutable <see cref="AIInteractionImage"/>.</returns>
-        public AIInteractionImage WithRequest(string prompt, string size = null, string quality = null, string style = null, string aspectRatio = null)
+        public AIInteractionImage WithRequest(string prompt, string size = null, string aspectRatio = null)
             => this with
             {
                 OriginalPrompt = prompt,
                 ImageSize = size ?? this.ImageSize,
-                ImageQuality = quality ?? this.ImageQuality,
-                ImageStyle = style ?? this.ImageStyle,
                 AspectRatio = aspectRatio ?? this.AspectRatio,
             };
 
@@ -249,15 +241,14 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
 
         /// <summary>
         /// Returns a stable de-duplication key for this image interaction. Includes URL/hash and core options
-        /// (size, quality, style) to distinguish similar images.
+        /// (size, aspect ratio) to distinguish similar images.
         /// </summary>
         /// <returns>De-duplication key.</returns>
         public string GetDedupKey()
         {
             var size = this.ImageSize ?? string.Empty;
-            var quality = this.ImageQuality ?? string.Empty;
-            var style = this.ImageStyle ?? string.Empty;
-            return $"{this.GetStreamKey()}:{size}:{quality}:{style}";
+            var aspectRatio = this.AspectRatio ?? string.Empty;
+            return $"{this.GetStreamKey()}:{size}:{aspectRatio}";
         }
 
         /// <summary>

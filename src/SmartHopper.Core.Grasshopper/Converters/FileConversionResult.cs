@@ -29,6 +29,7 @@
 
 using System.Collections.Generic;
 using SmartHopper.Core.Types;
+using SmartHopper.ProviderSdk.Documents;
 
 namespace SmartHopper.Core.Grasshopper.Converters
 {
@@ -93,6 +94,14 @@ namespace SmartHopper.Core.Grasshopper.Converters
         /// Only populated when <see cref="FileConversionOptions.ExtractImages"/> is enabled.
         /// </summary>
         public List<VersatileImage> Images { get; set; } = new List<VersatileImage>();
+
+        /// <summary>
+        /// Gets or sets the neutral document evidence for formats that preserve page/visual
+        /// structure (currently PDF). <see cref="MarkdownContent"/>, <see cref="Metadata"/>,
+        /// <see cref="Warnings"/> and <see cref="Images"/> remain the compatibility
+        /// projections; page renders live under <c>Document.Images</c>.
+        /// </summary>
+        public DocumentEvidence Document { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether the conversion was successful.

@@ -34,6 +34,7 @@ using System;
 using System.Diagnostics;
 using HtmlAgilityPack;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.Converters.Formats
 {
     /// <summary>
@@ -83,7 +84,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[HeuristicExtractor] Extraction failed: {ex.Message}");
+                Logger.For<HeuristicExtractor>().Exception(ex, $"[HeuristicExtractor] Extraction failed: {ex.Message}");
                 return null;
             }
         }

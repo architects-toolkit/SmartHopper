@@ -21,12 +21,16 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
+using System.Runtime.ExceptionServices;
+using System.Threading;
 using System.Threading.Tasks;
+using GhJSON.Core.Hosting;
 using GhJSON.Grasshopper;
 using Grasshopper;
 using Grasshopper.Kernel;
 using Rhino;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 {
     /// <summary>
@@ -34,35 +38,54 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
     /// </summary>
     public static class CanvasAccess
     {
+        /// <summary>Maximum time a posted call may sit unclaimed in the UI queue.</summary>
+        private static readonly TimeSpan QueuedStartBudget = TimeSpan.FromSeconds(30);
+
         /// <summary>
         /// Runs <paramref name="func"/> on the Rhino UI thread and blocks until it
         /// completes. If the caller is already on the UI thread, the function runs
         /// inline. Any exception thrown by the function is re-thrown to the caller.
+        /// Admission is bounded: if the UI queue does not claim the call within
+        /// <see cref="QueuedStartBudget"/>, a <see cref="TimeoutException"/> is thrown
+        /// and the queued callback becomes a no-op; a started call owns its outcome
+        /// and the caller always waits for the real result.
         /// </summary>
         /// <typeparam name="T">The result type.</typeparam>
         /// <param name="func">The work to run on the UI thread.</param>
         /// <returns>The function result.</returns>
         public static T RunOnUiThread<T>(Func<T> func)
         {
+            if (func == null)
+            {
+                throw new ArgumentNullException(nameof(func));
+            }
+
             if (RhinoApp.InvokeRequired == false)
             {
                 return func();
             }
 
-            var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
-            RhinoApp.InvokeOnUiThread(new Action(() =>
-            {
-                try
-                {
-                    tcs.SetResult(func());
-                }
-                catch (Exception ex)
-                {
-                    tcs.SetException(ex);
-                }
-            }));
+            var post = GhJsonGrasshopper
+                .PostToUiThreadAsync(func, QueuedStartBudget, CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
 
-            return tcs.Task.GetAwaiter().GetResult();
+            switch (post.State)
+            {
+                case UiPostState.Completed:
+                    return post.Value!;
+                case UiPostState.Faulted:
+                    ExceptionDispatchInfo.Capture(post.Error!).Throw();
+                    throw post.Error!;
+                case UiPostState.BusyNotStarted:
+                    throw new TimeoutException(
+                        $"Grasshopper UI thread did not admit the call within {QueuedStartBudget.TotalSeconds:n0} s.");
+                case UiPostState.NotPosted:
+                    throw new InvalidOperationException(
+                        "The Grasshopper UI thread is unavailable; the call was not queued.", post.Error);
+                default:
+                    throw new OperationCanceledException();
+            }
         }
 
         /// <summary>
@@ -144,17 +167,17 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 
             if (obj is IGH_Component component)
             {
-                // Debug.WriteLine("The object is an IGH_Component.");
+                // Logger.Error(typeof(CanvasAccess).FullName, "The object is an IGH_Component.");
                 return component;
             }
             else if (obj is IGH_Param param)
             {
-                // Debug.WriteLine("The object is an IGH_Param.");
+                // Logger.Error(typeof(CanvasAccess).FullName, "The object is an IGH_Param.");
                 return param;
             }
             else
             {
-                // Debug.WriteLine("The object is neither an IGH_Component nor an IGH_Param.");
+                // Logger.Error(typeof(CanvasAccess).FullName, "The object is neither an IGH_Component nor an IGH_Param.");
                 return obj;
             }
         }
@@ -398,12 +421,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     return targetPath;
                 }
 
-                Debug.WriteLine("[CanvasAccess] SaveDocument returned false.");
+                Logger.Trace(typeof(CanvasAccess).FullName, "[CanvasAccess] SaveDocument returned false.");
                 return null;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[CanvasAccess] SaveDocument failed: {ex.Message}");
+                Logger.Exception(typeof(CanvasAccess).FullName, ex, $"[CanvasAccess] SaveDocument failed: {ex.Message}");
                 return null;
             }
         }
@@ -433,14 +456,14 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 var canvas = Instances.ActiveCanvas;
                 if (canvas?.Document == null)
                 {
-                    System.Diagnostics.Debug.WriteLine("[CanvasAccess] CenterViewOnComponent: No active canvas");
+                    Logger.Trace(typeof(CanvasAccess).FullName, "[CanvasAccess] CenterViewOnComponent: No active canvas");
                     return false;
                 }
 
                 var component = canvas.Document.FindObject(instanceGuid, true);
                 if (component == null)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[CanvasAccess] CenterViewOnComponent: Component not found: {instanceGuid}");
+                    Logger.Trace(typeof(CanvasAccess).FullName, $"[CanvasAccess] CenterViewOnComponent: Component not found: {instanceGuid}");
                     return false;
                 }
 
@@ -463,7 +486,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 // Check if component is already within the central 2/3
                 if (centralRegion.Contains(componentCenter))
                 {
-                    System.Diagnostics.Debug.WriteLine("[CanvasAccess] Component already in central region, no pan needed");
+                    Logger.Trace(typeof(CanvasAccess).FullName, "[CanvasAccess] Component already in central region, no pan needed");
                     return false;
                 }
 
@@ -486,12 +509,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 canvas.Viewport.MidPoint = newMidpoint;
                 canvas.Refresh();
 
-                System.Diagnostics.Debug.WriteLine($"[CanvasAccess] Positioned component {instanceGuid} at horizontal {horizontalPosition:P0}");
+                Logger.Trace(typeof(CanvasAccess).FullName, $"[CanvasAccess] Positioned component {instanceGuid} at horizontal {horizontalPosition:P0}");
                 return true;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[CanvasAccess] Error centering canvas: {ex.Message}");
+                Logger.Exception(typeof(CanvasAccess).FullName, ex, $"[CanvasAccess] Error centering canvas: {ex.Message}");
                 return false;
             }
         }

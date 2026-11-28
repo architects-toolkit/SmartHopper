@@ -39,30 +39,32 @@ namespace SmartHopper.Components.Grasshopper
             : base(
                   "Save GhJSON",
                   "SaveGhJSON",
-                  "Save a GhJSON string to a .ghjson file. If the path includes an extension, it will be replaced with .ghjson.",
+                  "Save a GhJSON document string to a .ghjson file on disk.",
                   "SmartHopper",
-                  "Grasshopper")
+                  "D. GhJSON")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("CCF3E353-3421-474F-B353-CDF1C20D435B");
 
         /// <inheritdoc/>
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.SaveGhJSON;
+
+        /// <inheritdoc/>
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("GhJSON", "G", "GhJSON document string to save.", GH_ParamAccess.item);
-            pManager.AddTextParameter("Path", "P", "Absolute file path. If an extension is present, it will be replaced with .ghjson.", GH_ParamAccess.item);
+            pManager.AddTextParameter("GhJSON", "G", "GhJSON document string to write to disk.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Path", "P", "Destination file path (the extension is normalized to .ghjson automatically).", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Saved Path", "S", "The actual path where the file was saved.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Saved Path", "S", "Full file path where the .ghjson file was written.", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>

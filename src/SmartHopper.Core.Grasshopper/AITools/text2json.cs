@@ -31,6 +31,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Utilities;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -88,6 +89,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""jsonSchema"": {
                             ""type"": ""string"",
                             ""description"": ""JSON Schema string the output must conform to""
+                        },
+                        ""contextFilter"": {
+                            ""type"": ""string"",
+                            ""description"": ""Optional context-provider filter controlling which context providers feed the request (e.g., 'time,file', '-time', '*', '-*').""
                         }
                     },
                     ""required"": [""prompt"", ""jsonSchema""]
@@ -99,7 +104,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "text", "json", "data-processing", "read-only" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""object"", ""description"": ""Generated JSON object conforming to the provided schema."" } } }",
                 annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
-                surfaces: AIToolSurface.Direct | AIToolSurface.Batch);
+                surfaces: AIToolSurface.Direct | AIToolSurface.Batch,
+                activityLabel: "converting text to JSON",
+                resultLabel: "converted text to JSON");
         }
 
         /// <summary>
@@ -131,8 +138,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 provider: toolCall.Provider,
                 model: toolCall.Model,
                 body: requestBody,
-                endpoint: this.toolName,
+                origin: this.toolName,
                 capability: this.toolCapabilityRequirements);
+
+            // Forward per-request parameters (extras, sampling, timeout) to the provider call
+            if (toolCall.Parameters != null)
+            {
+                request.Parameters = toolCall.Parameters;
+            }
             return request;
         }
 
@@ -150,7 +163,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                Debug.WriteLine("[JsonTools] Running GenerateJson tool");
+                Logger.For<text2json>().Trace("[JsonTools] Running GenerateJson tool");
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.GetArgumentsOrEmpty();
@@ -225,7 +238,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[JsonTools] Error in GenerateJson: {ex.Message}");
+                Logger.For<text2json>().Exception(ex, $"[JsonTools] Error in GenerateJson: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }

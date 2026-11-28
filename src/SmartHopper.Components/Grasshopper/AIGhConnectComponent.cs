@@ -30,6 +30,7 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.ProviderSdk.AIModels;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Grasshopper
 {
     /// <summary>
@@ -43,10 +44,10 @@ namespace SmartHopper.Components.Grasshopper
         public override Guid ComponentGuid => new Guid("190BDF18-B8C4-4C53-A09E-5C74016D0034");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => null;
+        protected override Bitmap Icon => Resources.AIGhConnect;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "gh_smart_connect" };
@@ -65,25 +66,24 @@ namespace SmartHopper.Components.Grasshopper
             : base(
                   "AI Smart Connect",
                   "AIGhConnect",
-                  "Use AI to intelligently connect selected Grasshopper components based on a described purpose.\nSelect components on the canvas, describe the desired wiring goal, and let AI suggest and create the connections.",
+                  "Connect selected Grasshopper components automatically using AI.\nClick 'Select Components' to pick the components on the canvas, describe how they should be wired together, and review the proposed connections before they are created.",
                   "SmartHopper",
-                  "Grasshopper")
+                  "D. GhJSON")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Purpose", "P", "A text description of the desired wiring purpose or goal.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Purpose", "P", "Plain-language description of how the selected components should be connected.", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddBooleanParameter("Success", "S", "True if all suggested connections were created successfully.", GH_ParamAccess.item);
-            pManager.AddTextParameter("Reasoning", "R", "AI explanation of why the suggested connections achieve the purpose.", GH_ParamAccess.item);
-            pManager.AddTextParameter("Connections", "C", "JSON summary of the connection results.", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Success", "S", "True if all proposed connections were created without errors.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Reasoning", "R", "AI explanation of how the chosen connections achieve the requested purpose.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Connections", "C", "JSON summary of the applied and skipped connections.", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>
@@ -154,7 +154,7 @@ namespace SmartHopper.Components.Grasshopper
 
                 try
                 {
-                    Debug.WriteLine($"[AIGhConnectWorker] Starting with {this.guids.Count} GUIDs, purpose: {this.purpose}");
+                    Logger.For<AIGhConnectWorker>().Trace($"[AIGhConnectWorker] Starting with {this.guids.Count} GUIDs, purpose: {this.purpose}");
 
                     var parameters = new JObject
                     {
@@ -197,11 +197,11 @@ namespace SmartHopper.Components.Grasshopper
                         this.connectionsJson = string.Empty;
                     }
 
-                    Debug.WriteLine($"[AIGhConnectWorker] Completed - success={this.success}, reasoning length={this.reasoning.Length}");
+                    Logger.For<AIGhConnectWorker>().Trace($"[AIGhConnectWorker] Completed - success={this.success}, reasoning length={this.reasoning.Length}");
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIGhConnectWorker] Error: {ex.Message}");
+                    Logger.For<AIGhConnectWorker>().Exception(ex, $"[AIGhConnectWorker] Error: {ex.Message}");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                     this.success = false;
                 }
@@ -213,6 +213,7 @@ namespace SmartHopper.Components.Grasshopper
                 this.parent.SetPersistentOutput("Success", new GH_Boolean(this.success), DA);
                 this.parent.SetPersistentOutput("Reasoning", new GH_String(this.reasoning), DA);
                 this.parent.SetPersistentOutput("Connections", new GH_String(this.connectionsJson), DA);
+                this.parent.SetMetricsOutput(DA);
 
                 message = this.success ? "Connected successfully" : "Connection completed with issues";
             }

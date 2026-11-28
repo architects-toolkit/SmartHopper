@@ -51,6 +51,7 @@ GH_Component
   - [BatchSentinel](./BatchSentinel.md) – `##SH_BATCH:{customId}##` placeholder protocol.
 - **Data tree processing**
   - [Data tree processing schema](./DataTreeProcessingSchema.md)
+  - [Incremental unit-result reuse](./UnitResultReuse.md) — per-unit result cache keyed by logical work identity.
   - [Flat-tree broadcasting](./FlatTreeBroadcasting.md)
 
 ## Design criteria

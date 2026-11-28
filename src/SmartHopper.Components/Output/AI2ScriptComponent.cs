@@ -40,7 +40,7 @@ namespace SmartHopper.Components.Output
         /// Initializes a new instance of the <see cref="AI2ScriptComponent"/> class.
         /// </summary>
         public AI2ScriptComponent()
-            : base("AI to Script", "AI→Script", "Generate GH script code from AI input", GH_Exposure.tertiary)
+            : base("AI to Script", "AI2Script", "Call the AI provider on the connected input(s) and return Grasshopper script code.", GH_Exposure.tertiary | GH_Exposure.obscure)
         {
         }
 
@@ -52,7 +52,7 @@ namespace SmartHopper.Components.Output
         /// <summary>
         /// Gets the component icon.
         /// </summary>
-        protected override Bitmap Icon => Resources.aitoscript;
+        protected override Bitmap Icon => Resources.AI2Script;
 
         /// <summary>
         /// Gets the AI tools used by this component.
@@ -93,7 +93,7 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "Script",
                     NickName = "S",
-                    Description = "Generated script code",
+                    Description = "Generated Grasshopper script code.",
                     ParamType = typeof(Param_String),
                     Access = GH_ParamAccess.tree,
                     Extractor = OutputMapping.Single(aiReturn =>
@@ -114,7 +114,7 @@ namespace SmartHopper.Components.Output
         /// </summary>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Language", "L", "Script language (python or csharp)", GH_ParamAccess.tree, "python");
+            pManager.AddTextParameter("Language", "L", "Target script language ('python' or 'csharp', defaults to 'python').", GH_ParamAccess.tree, "python");
         }
 
         /// <summary>

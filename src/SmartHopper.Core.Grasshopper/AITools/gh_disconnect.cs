@@ -50,7 +50,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AIMutatingTool(
                 name: this.toolName,
-                description: "Stage Grasshopper wire removals, show the user an in-canvas visual review, and remove only accepted connections. Requires component GUIDs (use gh_get_selected or gh_get to find them first).",
+                description: "Stage Grasshopper wire removals, show the user an in-canvas visual review, and remove only accepted connections. Requires component GUIDs (use gh_get_selected or gh_get to find them first). Each result entry reports status 'disconnected' for real removals or 'noop' when no wire existed between the resolved endpoints.",
                 category: "Canvas.Modifications",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -88,7 +88,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 enabled: true,
                 tags: new[] { "canvas", "components", "mutating", "connections", "disconnect" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""successful"": { ""type"": ""array"", ""items"": { ""type"": ""object"" } }, ""failed"": { ""type"": ""array"", ""items"": { ""type"": ""object"" } }, ""successCount"": { ""type"": ""integer"" }, ""failCount"": { ""type"": ""integer"" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: true));
+                annotations: new AIToolAnnotations(destructiveHint: true),
+                activityLabel: "unwiring components",
+                resultLabel: "unwired components");
         }
 
         /// <summary>
@@ -143,9 +145,39 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         TargetParameter = value.TargetParameter,
                     })
                     .ToList();
+
+                // A proposal whose wire does not exist must not be staged: it is a
+                // no-op that would otherwise still prompt the user for approval.
+                var stagedProposals = new List<CanvasConnectionReviewProposal>();
+                var stagedIndexByProposalIndex = new Dictionary<int, int>();
+                for (var proposalIdx = 0; proposalIdx < proposals.Count; proposalIdx++)
+                {
+                    var candidate = proposals[proposalIdx];
+                    var sourceParam = ResolveDisconnectEndpoint(
+                        doc.FindObject(candidate.SourceGuid, true), candidate.SourceParameter, output: true);
+                    var targetParam = ResolveDisconnectEndpoint(
+                        doc.FindObject(candidate.TargetGuid, true), candidate.TargetParameter, output: false);
+                    if (sourceParam != null && targetParam != null &&
+                        !targetParam.Sources.Contains(sourceParam))
+                    {
+                        successfulDisconnections.Add(new JObject
+                        {
+                            ["sourceGuid"] = candidate.SourceGuid.ToString(),
+                            ["targetGuid"] = candidate.TargetGuid.ToString(),
+                            ["sourceParam"] = candidate.SourceParameter ?? "(first output)",
+                            ["targetParam"] = candidate.TargetParameter ?? "(first input)",
+                            ["status"] = "noop"
+                        });
+                        continue;
+                    }
+
+                    stagedIndexByProposalIndex[proposalIdx] = stagedProposals.Count;
+                    stagedProposals.Add(candidate);
+                }
+
                 var reviewSession = CanvasChangeReviewService.CreateConnectionSession(
                     this.toolName,
-                    proposals,
+                    stagedProposals,
                     CanvasChangeKind.ConnectionRemoved);
                 var applyReview = reviewSession.Items.Count > 0 &&
                     await CanvasChangeReviewService.ReviewAsync(reviewSession, toolCall.InvocationContext, toolCall.CancellationToken).ConfigureAwait(false);
@@ -193,13 +225,40 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         continue;
                     }
 
-                    if (!acceptedIndexes.Contains(proposalIndex++))
+                    if (!stagedIndexByProposalIndex.TryGetValue(proposalIndex, out var stagedIndex))
+                    {
+                        // Wire never existed — already reported as a no-op before the review.
+                        proposalIndex++;
+                        continue;
+                    }
+
+                    proposalIndex++;
+                    if (!acceptedIndexes.Contains(stagedIndex))
                     {
                         failedDisconnections.Add(new JObject
                         {
                             ["sourceGuid"] = sourceGuidStr,
                             ["targetGuid"] = targetGuidStr,
                             ["error"] = "Disconnection rejected by the user or an endpoint was not found.",
+                        });
+                        continue;
+                    }
+
+                    // Distinguish real removals from no-ops: the upstream disconnector reports
+                    // success for nonexistent wires, so verify a wire actually exists between
+                    // the resolved endpoints before calling it.
+                    var sourceParam = ResolveDisconnectEndpoint(doc.FindObject(sourceGuid, true), sourceParamName, output: true);
+                    var targetParam = ResolveDisconnectEndpoint(doc.FindObject(targetGuid, true), targetParamName, output: false);
+                    if (sourceParam != null && targetParam != null &&
+                        !targetParam.Sources.Contains(sourceParam))
+                    {
+                        successfulDisconnections.Add(new JObject
+                        {
+                            ["sourceGuid"] = sourceGuidStr,
+                            ["targetGuid"] = targetGuidStr,
+                            ["sourceParam"] = sourceParamName ?? "(first output)",
+                            ["targetParam"] = targetParamName ?? "(first input)",
+                            ["status"] = "noop"
                         });
                         continue;
                     }
@@ -230,27 +289,19 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }
 
-                // Recompute the solution on the UI thread after all disconnections.
+                // Schedule the recompute once all disconnections are committed —
+                // the acknowledgement is not held for arbitrary downstream solving.
                 if (successfulDisconnections.Any())
                 {
-                    var solutionTcs = new TaskCompletionSource<bool>();
-                    Rhino.RhinoApp.InvokeOnUiThread(() =>
-                    {
-                        try
+                    await UiThreadMarshal.RunOnUiThreadAsync(
+                        () =>
                         {
                             toolCall.CancellationToken.ThrowIfCancellationRequested();
-                            doc.NewSolution(false);
+                            doc.ScheduleSolution(5);
                             Instances.RedrawCanvas();
-                            solutionTcs.SetResult(true);
-                        }
-                        catch (Exception ex)
-                        {
-                            solutionTcs.SetException(ex);
-                        }
-                    });
-
-                    await solutionTcs.Task
-                        .WaitAsync(toolCall.CancellationToken).ConfigureAwait(false);
+                            return true;
+                        },
+                        toolCall.CancellationToken).ConfigureAwait(false);
                 }
 
                 var toolResult = new JObject
@@ -275,5 +326,40 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
         }
 
+        /// <summary>
+        /// Resolves the output or input parameter on a document object, mirroring GhJSON's
+        /// ConnectionHelper semantics: a standalone param resolves to itself; component params
+        /// are matched by nickname, then name, then numeric index; the first parameter is used
+        /// when no name is supplied.
+        /// </summary>
+        private static IGH_Param? ResolveDisconnectEndpoint(IGH_DocumentObject? obj, string? paramName, bool output)
+        {
+            if (obj is IGH_Param param)
+            {
+                return param;
+            }
+
+            if (obj is not IGH_Component component)
+            {
+                return null;
+            }
+
+            var list = output ? component.Params.Output : component.Params.Input;
+            if (string.IsNullOrWhiteSpace(paramName))
+            {
+                return list.FirstOrDefault();
+            }
+
+            var named = list.FirstOrDefault(p => string.Equals(p.NickName, paramName, StringComparison.OrdinalIgnoreCase))
+                ?? list.FirstOrDefault(p => string.Equals(p.Name, paramName, StringComparison.OrdinalIgnoreCase));
+            if (named != null)
+            {
+                return named;
+            }
+
+            return int.TryParse(paramName, out var index) && index >= 0 && index < list.Count
+                ? list[index]
+                : null;
+        }
     }
 }

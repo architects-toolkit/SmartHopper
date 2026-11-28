@@ -25,6 +25,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.FileSystem;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
@@ -54,7 +55,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 },
                 ""savePath"": {
                     ""type"": ""string"",
-                    ""description"": ""Optional absolute file path that also receives the PNG. Parent directories are created and existing files are overwritten.""
+                    ""description"": ""Optional file path that also receives the PNG. Relative names are written inside the SmartHopper Screenshots folder and never overwrite. Absolute paths require user approval and must end in .png.""
                 }
             }
         }";
@@ -94,7 +95,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 },
                 ""savePath"": {
                     ""type"": ""string"",
-                    ""description"": ""Optional absolute file path that also receives the PNG. Parent directories are created and existing files are overwritten.""
+                    ""description"": ""Optional file path that also receives the PNG. Relative names are written inside the SmartHopper Screenshots folder and never overwrite. Absolute paths require user approval and must end in .png.""
                 }
             }
         }";
@@ -155,7 +156,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 },
                 ""savePath"": {
                     ""type"": ""string"",
-                    ""description"": ""Optional absolute file path that also receives the PNG. Parent directories are created and existing files are overwritten.""
+                    ""description"": ""Optional file path that also receives the PNG. Relative names are written inside the SmartHopper Screenshots folder and never overwrite. Absolute paths require user approval and must end in .png.""
                 }
             }
         }";
@@ -211,7 +212,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     destructiveHint: false,
                     idempotentHint: false,
                     openWorldHint: false,
-                    title: "Grasshopper Canvas Screenshot"));
+                    title: "Grasshopper Canvas Screenshot"),
+                activityLabel: "capturing canvas screenshot",
+                resultLabel: "captured canvas screenshot");
 
             yield return new AITool(
                 name: ViewportToolName,
@@ -227,7 +230,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     destructiveHint: false,
                     idempotentHint: false,
                     openWorldHint: false,
-                    title: "Rhino Viewport Screenshot"));
+                    title: "Rhino Viewport Screenshot"),
+                activityLabel: "capturing viewport screenshot",
+                resultLabel: "captured viewport screenshot");
 
             yield return new AITool(
                 name: HiResToolName,
@@ -243,7 +248,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     destructiveHint: false,
                     idempotentHint: false,
                     openWorldHint: false,
-                    title: "Grasshopper Canvas Hi-Res Screenshot"));
+                    title: "Grasshopper Canvas Hi-Res Screenshot"),
+                activityLabel: "capturing hi-res screenshot",
+                resultLabel: "captured hi-res screenshot");
         }
 
         private static int ReadDimension(JObject args, string propertyName, int defaultValue)
@@ -285,9 +292,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
 
         /// <summary>
-        /// Writes the captured PNG to <paramref name="savePath"/> when provided, creating
-        /// parent directories and overwriting existing files. Returns the normalized
-        /// absolute path that was written, or <see langword="null"/> when no savePath
+        /// Writes the captured PNG to <paramref name="savePath"/> when provided. Relative
+        /// names land in the screenshot export directory under SmartHopper's app data and
+        /// never overwrite; absolute paths need a .png extension and explicit approval
+        /// through the local-file consent gate, which warns the user before overwriting.
+        /// Returns the path that was written, or <see langword="null"/> when no savePath
         /// was given.
         /// </summary>
         private static string? SavePng(ImageCaptureResult capture, string? savePath)
@@ -297,15 +306,112 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 return null;
             }
 
-            var fullPath = Path.GetFullPath(savePath.Trim());
+            var trimmed = savePath.Trim();
+            var mode = FileMode.CreateNew;
+            string fullPath;
+
+            // Re-validates the still-open destination before any bytes are written:
+            // sandbox exports must still resolve inside Screenshots, and a consented
+            // absolute path must still resolve to exactly the approved file.
+            Func<string, bool> destinationCheck;
+            if (Path.IsPathRooted(trimmed))
+            {
+                if (!LocalPath.TryCanonicalize(trimmed, out var canonical, out var error))
+                {
+                    throw new InvalidOperationException(error);
+                }
+
+                if (!string.Equals(Path.GetExtension(canonical), ".png", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException("savePath must point to a .png file.");
+                }
+
+                // Blocking wait is safe here except on the Rhino UI thread, where an
+                // unanswered prompt would deadlock — RequireBlocking refuses instead.
+                LocalFileAccess.RequireBlocking(canonical, LocalFileCapability.Write, "screenshots");
+                mode = FileMode.OpenOrCreate;
+                fullPath = canonical;
+                var approved = canonical;
+                destinationCheck = path =>
+                    LocalPath.TryCanonicalize(path, out var check, out _)
+                    && LocalPath.Comparer.Equals(check, approved);
+            }
+            else
+            {
+                // Relative names stay inside the export sandbox. Both sides are
+                // canonicalized so a linked subfolder inside the sandbox resolves to
+                // its real target before the containment check.
+                var root = LocalPath.ScreenshotsDirectory;
+                if (!LocalPath.TryCanonicalize(Path.GetFullPath(Path.Combine(root, trimmed)), out var resolved, out var error)
+                    || !LocalPath.TryCanonicalize(root, out var resolvedRoot, out _))
+                {
+                    throw new InvalidOperationException(error);
+                }
+
+                if (!LocalPath.IsUnder(resolvedRoot, resolved) || string.Equals(resolved, resolvedRoot, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException("Relative savePath values must stay inside the Screenshots folder.");
+                }
+
+                if (!string.Equals(Path.GetExtension(resolved), ".png", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException("savePath must point to a .png file.");
+                }
+
+                var sandbox = resolvedRoot;
+                destinationCheck = path =>
+                    LocalPath.TryCanonicalize(path, out var check, out _)
+                    && LocalPath.IsUnder(sandbox, check);
+                fullPath = resolved;
+            }
+
             var directory = Path.GetDirectoryName(fullPath);
             if (!string.IsNullOrEmpty(directory))
             {
                 Directory.CreateDirectory(directory);
             }
 
-            File.WriteAllBytes(fullPath, Convert.FromBase64String(capture.ImageBase64));
-            return fullPath;
+            // Open without truncating first: a link planted while consent was pending
+            // must not be followed. The destination spelling is re-canonicalized with
+            // the handle open — once verified, writes are pinned to that file.
+            FileStream? stream = null;
+            try
+            {
+                try
+                {
+                    // Write-only access: exports never read the destination back, and
+                    // requiring read rights would reject legitimately write-only targets.
+                    stream = mode == FileMode.CreateNew
+                        ? new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None)
+                        : new FileStream(fullPath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
+                }
+                catch (IOException) when (mode == FileMode.CreateNew)
+                {
+                    throw new InvalidOperationException($"'{fullPath}' already exists; exports never overwrite.");
+                }
+
+                if (!destinationCheck(fullPath))
+                {
+                    stream.Dispose();
+                    stream = null;
+
+                    // No by-path cleanup: the check failed because the path stopped
+                    // resolving to the approved file, so deleting by spelling could
+                    // remove an unrelated unapproved file swapped in behind it. A
+                    // created-but-rejected zero-byte leftover is harmless.
+                    throw new InvalidOperationException(
+                        $"The destination '{fullPath}' changed while it was being prepared; export aborted.");
+                }
+
+                stream.SetLength(0);
+                var bytes = Convert.FromBase64String(capture.ImageBase64);
+                stream.Write(bytes, 0, bytes.Length);
+                return fullPath;
+            }
+            finally
+            {
+                stream?.Dispose();
+            }
         }
 
         private async Task<AIReturn> CaptureCanvasAsync(AIToolCall toolCall)

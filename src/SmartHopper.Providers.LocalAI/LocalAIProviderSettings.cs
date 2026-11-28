@@ -22,6 +22,7 @@ using System.Diagnostics;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Providers.LocalAI
@@ -85,13 +86,13 @@ namespace SmartHopper.Providers.LocalAI
                 {
                     Name = "MaxTokens",
                     DisplayName = "Max Tokens",
-                    Description = "Maximum number of tokens to generate.",
+                    Description = "Maximum number of tokens to generate. Set to 0 for unlimited.",
                     Type = typeof(int),
                     DefaultValue = 2000,
                     ControlParams = new NumericSettingDescriptorControl
                     {
                         UseSlider = false,
-                        Min = 1,
+                        Min = 0,
                         Max = 32768,
                         Step = 1,
                     },
@@ -110,7 +111,7 @@ namespace SmartHopper.Providers.LocalAI
         /// <inheritdoc/>
         public override bool ValidateSettings(Dictionary<string, object> settings)
         {
-            Debug.WriteLine($"[LocalAI] ValidateSettings called. Settings null? {settings == null}");
+            Logger.For<LocalAIProviderSettings>().Trace($"[LocalAI] ValidateSettings called. Settings null? {settings == null}");
 
             if (settings == null)
             {
@@ -138,7 +139,7 @@ namespace SmartHopper.Providers.LocalAI
                 }
             }
 
-            if (!this.ValidateMaxTokens(settings, showErrorDialogs, "Max tokens must be a positive number."))
+            if (!this.ValidateMaxTokens(settings, showErrorDialogs, "Max tokens must be 0 or greater."))
             {
                 return false;
             }

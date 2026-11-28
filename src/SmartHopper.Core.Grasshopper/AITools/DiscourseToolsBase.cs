@@ -34,6 +34,7 @@ using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -159,7 +160,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "knowledge", "forum", "web", "search", "read-only", "external" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""results"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
+                activityLabel: $"surfing {this.ForumName} forum",
+                resultLabel: $"surfed {this.ForumName} forum");
         }
 
         /// <summary>
@@ -237,6 +240,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 output.CreateSuccess(immutable, toolCall);
                 return output;
             }
+            catch (UnauthorizedAccessException)
+            {
+                // Consent denials are a refusal, not a fetch failure — let them
+                // propagate so the tool reports an explicit runtime error.
+                throw;
+            }
             catch (Exception ex)
             {
                 output.CreateError($"Error: {ex.Message}");
@@ -256,7 +265,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                Debug.WriteLine($"[{this.ForumName}ForumTools] Running SummarizePost tool");
+                Logger.For<DiscourseToolsBase>().Error($"[{this.ForumName}ForumTools] Running SummarizePost tool");
 
                 string providerName = toolCall.Provider;
                 string modelName = toolCall.Model;
@@ -331,8 +340,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         provider: providerName,
                         model: modelName,
                         capability: AICapability.TextInput | AICapability.TextOutput,
-                        endpoint: endpoint,
+                        origin: endpoint,
                         body: requestBody);
+                    if (toolCall.Parameters != null)
+                    {
+                        summaryRequest.Parameters = toolCall.Parameters;
+                    }
 
                     var summaryResult = await summaryRequest.Exec().ConfigureAwait(false);
 
@@ -396,9 +409,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 output.CreateSuccess(toolBody);
                 return output;
             }
+            catch (UnauthorizedAccessException)
+            {
+                // Consent denials are a refusal, not a fetch failure — let them
+                // propagate so the tool reports an explicit runtime error.
+                throw;
+            }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.ForumName}ForumTools] Error in SummarizePost: {ex.Message}");
+                Logger.For<DiscourseToolsBase>().Exception(ex, $"[{this.ForumName}ForumTools] Error in SummarizePost: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }
@@ -469,13 +488,19 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (HttpRequestException httpEx)
             {
-                Debug.WriteLine($"[{this.ToolPrefix}_forum_topic_get] HTTP error while fetching topic: {httpEx}.");
+                Logger.For<DiscourseToolsBase>().Error($"[{this.ToolPrefix}_forum_topic_get] HTTP error while fetching topic: {httpEx}.");
                 output.CreateNetworkError(httpEx.Message, toolCall);
                 return output;
             }
+            catch (UnauthorizedAccessException)
+            {
+                // Consent denials are a refusal, not a fetch failure — let them
+                // propagate so the tool reports an explicit runtime error.
+                throw;
+            }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.ToolPrefix}_forum_topic_get] Error while fetching topic: {ex}.");
+                Logger.For<DiscourseToolsBase>().Exception(ex, $"[{this.ToolPrefix}_forum_topic_get] Error while fetching topic: {ex}.");
                 output.CreateError($"Error: {ex.Message}", toolCall);
                 return output;
             }
@@ -493,7 +518,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                Debug.WriteLine($"[{this.ForumName}ForumTools] Running SummarizeTopic tool");
+                Logger.For<DiscourseToolsBase>().Error($"[{this.ForumName}ForumTools] Running SummarizeTopic tool");
 
                 string providerName = toolCall.Provider;
                 string modelName = toolCall.Model;
@@ -587,8 +612,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     provider: providerName,
                     model: modelName,
                     capability: this.SummarizeCapabilityRequirements,
-                    endpoint: endpoint,
+                    origin: endpoint,
                     body: requestBody);
+                if (toolCall.Parameters != null)
+                {
+                    summaryRequest.Parameters = toolCall.Parameters;
+                }
 
                 var summaryResult = await summaryRequest.Exec().ConfigureAwait(false);
 
@@ -627,9 +656,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 output.CreateSuccess(toolBody);
                 return output;
             }
+            catch (UnauthorizedAccessException)
+            {
+                // Consent denials are a refusal, not a fetch failure — let them
+                // propagate so the tool reports an explicit runtime error.
+                throw;
+            }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.ForumName}ForumTools] Error in SummarizeTopic: {ex.Message}");
+                Logger.For<DiscourseToolsBase>().Exception(ex, $"[{this.ForumName}ForumTools] Error in SummarizeTopic: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }
@@ -679,6 +714,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 output.CreateSuccess(immutable, toolCall);
                 return output;
             }
+            catch (UnauthorizedAccessException)
+            {
+                // Consent denials are a refusal, not a fetch failure — let them
+                // propagate so the tool reports an explicit runtime error.
+                throw;
+            }
             catch (Exception ex)
             {
                 output.CreateError($"Error: {ex.Message}");
@@ -691,7 +732,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         private async Task<JObject> FetchPostAsync(string baseUrl, int id)
         {
-            using var httpClient = new HttpClient();
+            using var httpClient = SmartHopper.Infrastructure.Networking.ExternalDataHttpClient.Create();
             return await DiscourseForumService.FetchPostAsync(httpClient, baseUrl, id).ConfigureAwait(false);
         }
 
@@ -710,7 +751,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         private async Task<JObject> FetchTopicAsync(string baseUrl, int topicId)
         {
-            using var httpClient = new HttpClient();
+            using var httpClient = SmartHopper.Infrastructure.Networking.ExternalDataHttpClient.Create();
             return await DiscourseForumService.FetchTopicAsync(httpClient, baseUrl, topicId, includeRaw: true).ConfigureAwait(false);
         }
 
@@ -720,10 +761,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         private async Task<JArray> SearchForumAsync(string baseUrl, string query)
         {
-            using var httpClient = new HttpClient();
+            using var httpClient = SmartHopper.Infrastructure.Networking.ExternalDataHttpClient.Create();
 
             var searchUri = new Uri($"{baseUrl}/search.json?q={Uri.EscapeDataString(query)}");
-            Debug.WriteLine($"[{this.ForumName}ForumTools] Search API call: {searchUri}");
+            Logger.For<DiscourseToolsBase>().Trace($"[{this.ForumName}ForumTools] Search API call: {searchUri}");
             var response = await httpClient.GetAsync(searchUri).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -747,7 +788,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
             }
 
-            Debug.WriteLine($"[{this.ForumName}ForumTools] Search returned {posts.Count} posts, {topics.Count} topics, {topicLookup.Count} topic titles mapped");
+            Logger.For<DiscourseToolsBase>().Trace($"[{this.ForumName}ForumTools] Search returned {posts.Count} posts, {topics.Count} topics, {topicLookup.Count} topic titles mapped");
 
             var filteredResults = new JArray();
             foreach (var post in posts)

@@ -35,10 +35,10 @@ namespace SmartHopper.Components.JSON
         public override Guid ComponentGuid => new Guid("E7BCC771-BB43-4144-A88F-666398743023");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.jsonmerge;
+        protected override Bitmap Icon => Resources.JsonMerge;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.quarternary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary | GH_Exposure.obscure;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonMergeComponent"/> class.
@@ -47,22 +47,22 @@ namespace SmartHopper.Components.JSON
             : base(
                 "JSON Merge",
                 "JsonMerge",
-                "Merge multiple JSON objects into one.\nShallow merge: later objects overwrite keys from earlier ones on conflict.",
+                "Merge a list of JSON objects into a single JSON object (shallow merge; later objects overwrite earlier keys on conflict).",
                 "SmartHopper",
-                "JSON")
+                "H. JSON")
         {
         }
 
         /// <inheritdoc/>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("JSONs", "J", "List of JSON object strings to merge", GH_ParamAccess.list);
+            pManager.AddTextParameter("JSONs", "J", "List of JSON object strings to merge in order.", GH_ParamAccess.list);
         }
 
         /// <inheritdoc/>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("JSON", "J", "Merged JSON object string", GH_ParamAccess.item);
+            pManager.AddTextParameter("JSON", "J", "Merged JSON object string.", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>

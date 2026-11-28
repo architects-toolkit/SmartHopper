@@ -38,10 +38,10 @@ namespace SmartHopper.Components.JSON
         public override Guid ComponentGuid => new Guid("288B86E1-E748-4503-A9C9-986F4279F8CA");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.jsonschema;
+        protected override Bitmap Icon => Resources.JsonSchema;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.quinary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonSchemaComponent"/> class.
@@ -50,19 +50,19 @@ namespace SmartHopper.Components.JSON
             : base(
                 "JSON Schema",
                 "JsonSchema",
-                "Build a JSON Schema from property definitions.\n\nProperty format: \"name:type\" or \"name:type:description\"\nUse dot-notation for nested properties: \"address.city:string:The city name\"\nValid types: string, number, integer, boolean, object, array",
+                "Build a JSON Schema from property definitions for use with AI Text To JSON or AI to JSON.\nConnect JSON Schema Property and JSON Schema Object components, or pass strings formatted as 'name:type:description:required'.",
                 "SmartHopper",
-                "JSON")
+                "H. JSON")
         {
         }
 
         /// <inheritdoc/>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Title", "Ti", "Optional schema title", GH_ParamAccess.item, string.Empty);
-            pManager.AddTextParameter("Description", "D", "Optional schema description", GH_ParamAccess.item, string.Empty);
-            pManager.AddTextParameter("Properties", "P", "Property definitions. Format: \"name:type\" or \"name:type:description\". Use dot-notation for nested properties: \"address.city:string\". Append :required to mark property as required: \"name:type:description:required\"\nValid types: string, number, integer, boolean, object, array", GH_ParamAccess.list);
-            pManager.AddBooleanParameter("Array?", "A", "If true, creates an array schema where items are objects with the defined properties", GH_ParamAccess.item, false);
+            pManager.AddTextParameter("Title", "Ti", "Optional title for the JSON Schema.", GH_ParamAccess.item, string.Empty);
+            pManager.AddTextParameter("Description", "D", "Optional description of what the JSON Schema represents.", GH_ParamAccess.item, string.Empty);
+            pManager.AddTextParameter("Properties", "P", "Property definitions from JSON Schema Property / JSON Schema Object components, or strings formatted as 'name:type', 'name:type:description', or 'name:type:description:required' (valid types: string, number, integer, boolean, object, array).", GH_ParamAccess.list);
+            pManager.AddBooleanParameter("Array?", "A", "When true, wraps the object schema in a top-level JSON array.", GH_ParamAccess.item, false);
 
             pManager[0].Optional = true;
             pManager[1].Optional = true;
@@ -72,7 +72,7 @@ namespace SmartHopper.Components.JSON
         /// <inheritdoc/>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Schema", "S", "JSON Schema string", GH_ParamAccess.item);
+            pManager.AddTextParameter("Schema", "S", "Complete JSON Schema string.", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>

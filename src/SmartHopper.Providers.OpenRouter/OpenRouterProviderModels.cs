@@ -27,6 +27,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Providers.OpenRouter
 {
     /// <summary>
@@ -50,7 +51,32 @@ namespace SmartHopper.Providers.OpenRouter
 
             var models = new List<AIModelCapabilities>
             {
-                // Released between July 2026 and October 2026
+                // Released between August 2026 and November 2026
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openrouter/auto",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 10000,
+                    ContextLimit = 2000000,
+                    Created = new DateTime(2026, 11, 5),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openrouter/auto-code",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9995,
+                    ContextLimit = 2000000,
+                    Created = new DateTime(2026, 11, 5),
+                },
 
                 new AIModelCapabilities
                 {
@@ -59,14 +85,9 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 10000,
+                    Rank = 9990,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 25),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = -1m,
-                        Completion = -1m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -76,13 +97,88 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.TextOutput,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9995,
+                    Rank = 9985,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 21),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "inclusionai/ling-3.2-flash:free",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9980,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 11, 13),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = -1m,
-                        Completion = -1m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "baidu/ernie-5.5-flash-preview:free",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9975,
+                    ContextLimit = 1024000,
+                    Created = new DateTime(2026, 11, 10),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "liquid/lfm-3-1.7b:free",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9970,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 11, 6),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "particle-ai/particle-1:free",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9965,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 10, 28),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0m),
+                        },
                     },
                 },
 
@@ -93,21 +189,17 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9990,
+                    Rank = 9960,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 10, 21),
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "xingchen-agi/xing4.0-29b-a4b:free",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9985,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 10, 16),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -117,9 +209,17 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9980,
+                    Rank = 9955,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 10, 15),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -129,12 +229,16 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9975,
+                    Rank = 9950,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 10, 13),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000004m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0m),
+                        },
                     },
                 },
 
@@ -145,49 +249,17 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9970,
+                    Rank = 9945,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 10, 13),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000004m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0m),
+                        },
                     },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "liquid/lfm-2.5-2.6b:free",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9965,
-                    ContextLimit = 65536,
-                    Created = new DateTime(2026, 8, 11),
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "nvidia/nemotron-3.5-lightning:free",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9960,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 8, 11),
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "thinkingmachines/inkling-small:free",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9955,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 7, 30),
                 },
 
                 new AIModelCapabilities
@@ -197,14 +269,17 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9950,
+                    Rank = 9940,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 8, 27),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000000513m,
-                        Completion = 0.0000000701m,
-                        InputCacheRead = 0.00000003m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000464m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000000729m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                        },
                     },
                 },
 
@@ -215,33 +290,59 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9945,
+                    Rank = 9935,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 9, 8),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000025m,
-                        Completion = 0.0000001m,
-                        InputCacheRead = 0.0000000025m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000025m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "qwen/qwen3.7-flash",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "prism-ml/ternary-bonsai-2-9b",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9940,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 7, 27),
+                    Rank = 9930,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 10, 16),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000003m,
-                        Completion = 0.00000013m,
-                        InputCacheRead = 0.000000006m,
-                        InputCacheWrite = 0.000000038m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000008m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000013m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000004m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "tencent/hy4-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9925,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 11, 16),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000035m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000001405m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000015m),
+                        },
                     },
                 },
 
@@ -252,238 +353,17 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9935,
-                    ContextLimit = 128000,
-                    Created = new DateTime(2026, 9, 12),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000003m,
-                        Completion = 0.00000015m,
-                        InputCacheRead = 0.00000003m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "inception/mercury-2.5",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9930,
-                    ContextLimit = 260000,
-                    Created = new DateTime(2026, 9, 8),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000004m,
-                        Completion = 0.00000015m,
-                        InputCacheRead = 0.000000004m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "~deepseek/deepseek-v4-flash-latest",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9925,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 8, 1),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000000422m,
-                        Completion = 0.0000001694m,
-                        InputCacheRead = 0.000000028m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek/deepseek-v4-flash-0731",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
-                    Verified = false,
                     Rank = 9920,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 7, 31),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000000422m,
-                        Completion = 0.0000001694m,
-                        InputCacheRead = 0.000000028m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000011m,
-                        Completion = 0.00000033m,
-                        InputCacheRead = 0.0000000035m,
-                    },
-                    Aliases = new List<string> { "deepseek/deepseek-v4-flash-0731:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "tencent/hy-mt2-1.8b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9915,
-                    ContextLimit = 8192,
-                    Created = new DateTime(2026, 8, 20),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000000044m,
-                        Completion = 0.000000177m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "inclusionai/ling-3.0-flash-vl",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9910,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2026, 9, 10),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000006m,
-                        Completion = 0.00000018m,
-                        InputCacheRead = 0.000000012m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "upstage/solar-mini4",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9905,
-                    ContextLimit = 524288,
-                    Created = new DateTime(2026, 9, 23),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000005m,
-                        Completion = 0.0000002m,
-                        InputCacheRead = 0.000000005m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "meta/muse-spark-1.3-contributor",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9900,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 9, 2),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000002m,
-                        InputCacheRead = 0.000000002m,
-                        WebSearch = 0.0025m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "meta/muse-spark-1.2-contributor",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9895,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 8, 21),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000002m,
-                        InputCacheRead = 0.000000002m,
-                        WebSearch = 0.0025m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "nvidia/nemotron-3.5-lightning",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9890,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 8, 11),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000007m,
-                        Completion = 0.0000002m,
-                        InputCacheRead = 0.00000004m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "inclusionai/ling-3.1-flash",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9885,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 10, 2),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000000075m,
-                        Completion = 0.000000225m,
-                        InputCacheRead = 0.000000015m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "inference-net/schematron-v2-small",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9880,
                     ContextLimit = 128000,
                     Created = new DateTime(2026, 9, 12),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000005m,
-                        Completion = 0.00000023m,
-                        InputCacheRead = 0.00000005m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "nex-agi/nex-n2.5-pro",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9875,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 9, 8),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000000075m,
-                        Completion = 0.00000025m,
-                        InputCacheRead = 0.000000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                        },
                     },
                 },
 
@@ -494,14 +374,174 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9870,
+                    Rank = 9915,
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 8, 31),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000006m,
-                        Completion = 0.00000025m,
-                        InputCacheRead = 0.000000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000006m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "inclusionai/ling-3.1-flash",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9910,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 10, 2),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000006m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000018m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000012m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "inclusionai/ling-3.0-flash-vl",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9905,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2026, 9, 10),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000006m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000018m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000012m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek/deepseek-v4.1-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9900,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 9, 10),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000498m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000001992m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000000996m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000004m),
+                        },
+                    },
+                    Aliases = new List<string> { "deepseek/deepseek-v4.1-flash:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "liquid/lfm-3-1.7b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9895,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 11, 6),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000008m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "upstage/solar-mini4",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9890,
+                    ContextLimit = 524288,
+                    Created = new DateTime(2026, 9, 23),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000005m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "inference-net/schematron-v2-small",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9885,
+                    ContextLimit = 128000,
+                    Created = new DateTime(2026, 9, 12),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000023m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "nex-agi/nex-n2.5-pro",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9880,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 9, 8),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+                        },
                     },
                 },
 
@@ -512,103 +552,80 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9865,
-                    ContextLimit = 1050000,
+                    Rank = 9875,
+                    ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 21),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000014m,
-                        Completion = 0.00000028m,
-                        InputCacheRead = 0.0000000028m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000014m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000028m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000028m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "tencent/hy-mt2-30b-a3b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    Model = "thinkingmachines/inkling-2-mini",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9860,
-                    ContextLimit = 8192,
-                    Created = new DateTime(2026, 8, 20),
+                    Rank = 9870,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 11, 21),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000074m,
-                        Completion = 0.000000295m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "tencent/hy-mt2-7b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9855,
-                    ContextLimit = 8192,
-                    Created = new DateTime(2026, 8, 19),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000000074m,
-                        Completion = 0.000000295m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "inception/mercury-3",
+                    Model = "ricursiveai/ripple-65b-preview",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9850,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 10, 16),
+                    Rank = 9865,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 11, 4),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.00000035m,
-                        InputCacheRead = 0.00000001m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "qwen/qwen3.8-omni-flash",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "nex-agi/nex-n2.6",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9845,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 9, 21),
+                    Rank = 9860,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 11, 10),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000015m,
-                        Completion = 0.00000047m,
-                        InputCacheRead = 0.000000016m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3.8-flash",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9840,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 8, 26),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000015m,
-                        Completion = 0.00000047m,
-                        InputCacheRead = 0.000000016m,
-                        InputCacheWrite = 0.0000002m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000012m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000024m),
+                        },
                     },
                 },
 
@@ -619,15 +636,136 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9835,
+                    Rank = 9855,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 15),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000015m,
-                        Completion = 0.0000005m,
-                        InputCacheRead = 0.00000002m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000047m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
+                        },
                     },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3.8-omni-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9850,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 9, 21),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000047m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000016m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3.8-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9845,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 8, 26),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000047m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000016m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000002m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "meta/muse-ember",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9840,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 11, 9),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000004m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.0025m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "particle-ai/particle-1",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9835,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 10, 28),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000007m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek/deepseek-v4.1-flash-1017",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9830,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 10, 17),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000036m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000035m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000149m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000029m),
+                        },
+                    },
+                    Aliases = new List<string> { "deepseek/deepseek-v4.1-flash-1017:batch" },
                 },
 
                 new AIModelCapabilities
@@ -637,24 +775,30 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9830,
+                    Rank = 9825,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 10, 7),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000005m,
-                        InputCacheRead = 0.00000001m,
-                        InputCacheWrite = 0.000000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.00000005m,
-                        Completion = 0.00000025m,
-                        InputCacheRead = 0.000000005m,
-                        InputCacheWrite = 0.0000000625m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000625m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "anthropic/claude-haiku-5.5:batch" },
                 },
@@ -666,24 +810,30 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9825,
+                    Rank = 9820,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 22),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000005m,
-                        InputCacheRead = 0.00000001m,
-                        InputCacheWrite = 0.000000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.00000005m,
-                        Completion = 0.00000025m,
-                        InputCacheRead = 0.000000005m,
-                        InputCacheWrite = 0.0000000625m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000625m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-6-luna-pro:batch" },
                 },
@@ -695,24 +845,30 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9820,
+                    Rank = 9815,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 22),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000005m,
-                        InputCacheRead = 0.00000001m,
-                        InputCacheWrite = 0.000000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.00000005m,
-                        Completion = 0.00000025m,
-                        InputCacheRead = 0.000000005m,
-                        InputCacheWrite = 0.0000000625m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000625m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-6-luna:batch" },
                 },
@@ -724,14 +880,38 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9815,
+                    Rank = 9810,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 9, 18),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000075m,
-                        Completion = 0.0000005m,
-                        InputCacheRead = 0.0000000375m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000375m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "~deepseek/deepseek-flash-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9805,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 9, 14),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000036m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                        },
                     },
                 },
 
@@ -742,16 +922,19 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9810,
+                    Rank = 9800,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 11),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000005m,
-                        InputCacheRead = 0.00000001m,
-                        InputCacheWrite = 0.000000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -762,40 +945,28 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9805,
+                    Rank = 9795,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 8, 26),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000015m,
-                        Completion = 0.0000005m,
-                        InputCacheRead = 0.00000003m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.00000005m,
-                        Completion = 0.00000018m,
-                        InputCacheRead = 0.00000001m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000023m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000068m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000009m),
+                        },
                     },
                     Aliases = new List<string> { "z-ai/glm-5.3-flash:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "liquid/lfm-2.5-2.6b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9800,
-                    ContextLimit = 128000,
-                    Created = new DateTime(2026, 8, 11),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000035m,
-                        Completion = 0.0000005m,
-                        InputCacheRead = 0.00000004m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -805,76 +976,18 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9795,
+                    Rank = 9790,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 19),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000015m,
-                        Completion = 0.0000006m,
-                        InputCacheRead = 0.000000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000135m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000054m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000135m),
+                        },
                     },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek/deepseek-v4.1-flash-1017",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9790,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 10, 17),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000015m,
-                        Completion = 0.0000006m,
-                        InputCacheRead = 0.000000003m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "upstage/solar-pro4",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9785,
-                    ContextLimit = 524288,
-                    Created = new DateTime(2026, 8, 10),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000015m,
-                        Completion = 0.0000006m,
-                        InputCacheRead = 0.00000003m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek/deepseek-v4-flash-vision-exp",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9780,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 8, 21),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000002156m,
-                        Completion = 0.0000006468m,
-                        InputCacheRead = 0.00000000686m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000011m,
-                        Completion = 0.00000033m,
-                        InputCacheRead = 0.0000000035m,
-                    },
-                    Aliases = new List<string> { "deepseek/deepseek-v4-flash-vision-exp:batch" },
                 },
 
                 new AIModelCapabilities
@@ -884,14 +997,38 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9775,
+                    Rank = 9785,
                     ContextLimit = 128000,
                     Created = new DateTime(2026, 10, 13),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000005m,
-                        Completion = 0.0000007m,
-                        InputCacheRead = 0.000000025m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000007m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "kt/midm-k-3.0-pro",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9780,
+                    ContextLimit = 261795,
+                    Created = new DateTime(2026, 11, 5),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000008m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000004m),
+                        },
                     },
                 },
 
@@ -902,14 +1039,38 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9770,
-                    ContextLimit = 1050000,
+                    Rank = 9775,
+                    ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 21),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000435m,
-                        Completion = 0.00000087m,
-                        InputCacheRead = 0.0000000036m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000435m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000087m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000036m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "thinkingmachines/inkling-2-small",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9770,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 11, 9),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                        },
                     },
                 },
 
@@ -925,103 +1086,55 @@ namespace SmartHopper.Providers.OpenRouter
                     Created = new DateTime(2026, 10, 16),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000025m,
-                        Completion = 0.000001m,
-                        InputCacheRead = 0.00000005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "~deepseek/deepseek-flash-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "motif-technologies/motif-3",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
                     Rank = 9760,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 9, 14),
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 11, 2),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000002m,
-                        Completion = 0.000001m,
-                        InputCacheRead = 0.000000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000006m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "deepseek/deepseek-v4.1-flash",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
+                    Model = "z-ai/glm-5.3-flashx-legal",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
                     Verified = false,
                     Rank = 9755,
                     ContextLimit = 1048576,
-                    Created = new DateTime(2026, 9, 10),
+                    Created = new DateTime(2026, 11, 2),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000002m,
-                        Completion = 0.000001m,
-                        InputCacheRead = 0.000000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000037m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                        },
                     },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000005m,
-                        Completion = 0.00000015m,
-                        InputCacheRead = 0.000000004m,
-                    },
-                    Aliases = new List<string> { "deepseek/deepseek-v4.1-flash:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "meta/muse-glimmer-30b",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9750,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2026, 8, 9),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000012m,
-                        InputCacheRead = 0.00000004m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.000000175m,
-                        Completion = 0.00000075m,
-                        InputCacheRead = 0.00000002m,
-                    },
-                    Aliases = new List<string> { "meta/muse-glimmer-30b:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "thinkingmachines/inkling-small",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9745,
-                    ContextLimit = 524288,
-                    Created = new DateTime(2026, 7, 30),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000045m,
-                        Completion = 0.0000012m,
-                        InputCacheRead = 0.0000001m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000005m,
-                        Completion = 0.0000012m,
-                        InputCacheRead = 0.0000001m,
-                    },
-                    Aliases = new List<string> { "thinkingmachines/inkling-small:batch" },
                 },
 
                 new AIModelCapabilities
@@ -1031,14 +1144,38 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9740,
+                    Rank = 9750,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 18),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000037m,
-                        Completion = 0.00000125m,
-                        InputCacheRead = 0.00000009m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000037m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "tencent/hy4",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9745,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 11, 4),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000417m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012505m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000021m),
+                        },
                     },
                 },
 
@@ -1049,40 +1186,18 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9735,
+                    Rank = 9740,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 9, 23),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000007m,
-                        Completion = 0.0000014m,
-                        InputCacheRead = 0.00000018m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000007m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000014m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000018m),
+                        },
                     },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "z-ai/glm-5.3",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9730,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 8, 18),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000000079m,
-                        Completion = 0.0000014m,
-                        InputCacheRead = 0.000000078m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000045m,
-                        Completion = 0.000002m,
-                        InputCacheRead = 0.0000001m,
-                    },
-                    Aliases = new List<string> { "z-ai/glm-5.3:batch" },
                 },
 
                 new AIModelCapabilities
@@ -1092,13 +1207,16 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9725,
+                    Rank = 9735,
                     ContextLimit = 36864,
                     Created = new DateTime(2026, 9, 25),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000015m,
-                        Completion = 0.0000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+                        },
                     },
                 },
 
@@ -1109,218 +1227,38 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9720,
+                    Rank = 9730,
                     ContextLimit = 192000,
                     Created = new DateTime(2026, 9, 22),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000015m,
-                        InputCacheRead = 0.00000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "deepseek/deepseek-v4-pro-0813",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9715,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 8, 12),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000066m,
-                        Completion = 0.00000198m,
-                        InputCacheRead = 0.000000022m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000066m,
-                        Completion = 0.00000198m,
-                        InputCacheRead = 0.000000022m,
-                    },
-                    Aliases = new List<string> { "deepseek/deepseek-v4-pro-0813:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "moondream/moondream3-preview",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9710,
-                    ContextLimit = 32000,
-                    Created = new DateTime(2026, 10, 15),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000025m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "moondream/moondream3.1-9b-a2b",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9705,
-                    ContextLimit = 32000,
-                    Created = new DateTime(2026, 10, 15),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000025m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3.8-27b",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9700,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 8, 14),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000002m,
-                        Completion = 0.0000025m,
-                        InputCacheRead = 0.00000009m,
-                        InputCacheWrite = 0.00000053125m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "bytedance-seed/seed-2-1-turbo",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9695,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 8, 12),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000005m,
-                        Completion = 0.0000025m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "tencent/hy4-preview",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9690,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 8, 28),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000000834m,
-                        Completion = 0.000002501m,
-                        InputCacheRead = 0.000000042m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "stepfun/step-5-preview",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9685,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 10, 8),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000001m,
-                        Completion = 0.0000027m,
-                        InputCacheRead = 0.0000001m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "elorian/glimpse",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9680,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 10, 17),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000006m,
-                        Completion = 0.000003m,
-                        InputCacheRead = 0.00000006m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "unbiased/pareto-26.10",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9675,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 10, 15),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000008m,
-                        Completion = 0.0000032m,
-                        InputCacheRead = 0.00000003m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "~unbiased/pareto-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9670,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 10, 13),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000008m,
-                        Completion = 0.0000032m,
-                        InputCacheRead = 0.00000003m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "sakana/sakana-namazu",
+                    Model = "radixark/daisyrose-27b",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9665,
+                    Rank = 9725,
                     ContextLimit = 262144,
-                    Created = new DateTime(2026, 8, 11),
+                    Created = new DateTime(2026, 11, 21),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000095m,
-                        Completion = 0.000004m,
-                        InputCacheRead = 0.00000015m,
-                        WebSearch = 0.007m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001875m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000375m),
+                        },
                     },
                 },
 
@@ -1331,14 +1269,183 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9660,
+                    Rank = 9720,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 6),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000136m,
-                        Completion = 0.00000418m,
-                        InputCacheRead = 0.00000014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000007m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000021m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000007m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "moondream/moondream3-preview",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9715,
+                    ContextLimit = 32000,
+                    Created = new DateTime(2026, 10, 15),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "moondream/moondream3.1-9b-a2b",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9710,
+                    ContextLimit = 32000,
+                    Created = new DateTime(2026, 10, 15),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "tencent/hy4-preview",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9705,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 8, 28),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000834m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002501m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000042m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "stepfun/step-5-preview",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9700,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 10, 8),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000027m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "elorian/glimpse",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9695,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 10, 17),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000006m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "unbiased/pareto-26.10",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9690,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 10, 15),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000008m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000032m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "~unbiased/pareto-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9685,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 10, 13),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000008m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000032m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "baidu/ernie-light-dt-1.0-intl",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9680,
+                    ContextLimit = 1024000,
+                    Created = new DateTime(2026, 11, 10),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000113m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000394m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000113m),
+                        },
                     },
                 },
 
@@ -1349,14 +1456,17 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9655,
+                    Rank = 9675,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 15),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000125m,
-                        Completion = 0.00000425m,
-                        InputCacheRead = 0.00000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000425m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                        },
                     },
                 },
 
@@ -1367,90 +1477,134 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9650,
+                    Rank = 9670,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 2),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000125m,
-                        Completion = 0.00000425m,
-                        InputCacheRead = 0.00000015m,
-                        WebSearch = 0.0025m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000425m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.0025m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "meta/muse-spark-1.2",
+                    Model = "qwen/qwen4-max",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9645,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 8, 5),
+                    Rank = 9665,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 11, 16),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000125m,
-                        Completion = 0.00000425m,
-                        InputCacheRead = 0.00000015m,
-                        WebSearch = 0.0025m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001425m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004275m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000007125m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000178125m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "~z-ai/glm-latest",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9640,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 8, 19),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000000703m,
-                        Completion = 0.0000043843m,
-                        InputCacheRead = 0.0000000703m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "google/gemini-3.7-flash",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "openai/gpt-6.1-terra-pro",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9635,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 8, 13),
+                    Rank = 9660,
+                    ContextLimit = 1050000,
+                    Created = new DateTime(2026, 10, 26),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000075m,
-                        Completion = 0.00000375m,
-                        Image = 0.00000075m,
-                        Audio = 0.00000075m,
-                        InputAudioCache = 0.000000075m,
-                        InputCacheRead = 0.000000075m,
-                        InputCacheWrite = 0.0000000416666666666667m,
-                        InternalReasoning = 0.00000375m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000000375m,
-                        Completion = 0.000001875m,
-                        Image = 0.000000375m,
-                        Audio = 0.000000375m,
-                        InputAudioCache = 0.0000000375m,
-                        InputCacheRead = 0.0000000375m,
-                        InputCacheWrite = 0.0000000416666666666667m,
-                        InternalReasoning = 0.000001875m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000625m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
-                    Aliases = new List<string> { "google/gemini-3.7-flash:batch" },
+                    Aliases = new List<string> { "openai/gpt-6.1-terra-pro:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-6.1-terra",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9655,
+                    ContextLimit = 1050000,
+                    Created = new DateTime(2026, 10, 26),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000625m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/gpt-6.1-terra:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "~openai/gpt-terra-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9650,
+                    ContextLimit = 1050000,
+                    Created = new DateTime(2026, 9, 11),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -1460,34 +1614,82 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9630,
+                    Rank = 9645,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 2),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000825m,
-                        Completion = 0.000004125m,
-                        Image = 0.000000825m,
-                        Audio = 0.000000825m,
-                        InputAudioCache = 0.0000000825m,
-                        InputCacheRead = 0.0000000825m,
-                        InputCacheWrite = 0.0000000416666666666667m,
-                        InternalReasoning = 0.000004125m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000375m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000000825m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000416666666666667m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00000375m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.00000075m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000000375m,
-                        Completion = 0.000001875m,
-                        Image = 0.000000375m,
-                        Audio = 0.000000375m,
-                        InputAudioCache = 0.0000000375m,
-                        InputCacheRead = 0.0000000375m,
-                        InputCacheWrite = 0.0000000416666666666667m,
-                        InternalReasoning = 0.000001875m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000375m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001875m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.000000375m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000000375m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000000375m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000375m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000416666666666667m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000001875m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
                     },
-                    Aliases = new List<string> { "google/gemini-3.8-flash:batch" },
+                    Aliases = new List<string> { "google/gemini-3.8-flash:batch", "google/gemini-3-8-flash" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "z-ai/glm-5.3-prime",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9640,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 9, 23),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000168m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000528m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000336m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistralai/pixtral-large-2502",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9635,
+                    ContextLimit = 128000,
+                    Created = new DateTime(2026, 11, 20),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -1497,14 +1699,17 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9625,
+                    Rank = 9630,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 9, 23),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000003m,
-                        Completion = 0.000006m,
-                        InputCacheRead = 0.00000075m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000075m),
+                        },
                     },
                 },
 
@@ -1513,18 +1718,32 @@ namespace SmartHopper.Providers.OpenRouter
                     Provider = provider,
                     Model = "x-ai/grok-4.7",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
+                    SupportsBatch = true,
                     Verified = false,
-                    Rank = 9620,
+                    Rank = 9625,
                     ContextLimit = 500000,
                     Created = new DateTime(2026, 9, 21),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000006m,
-                        InputCacheRead = 0.0000005m,
-                        WebSearch = 0.005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+                        },
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000016m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000048m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+                        },
+                    },
+                    Aliases = new List<string> { "x-ai/grok-4.7:batch" },
                 },
 
                 new AIModelCapabilities
@@ -1534,15 +1753,18 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9615,
+                    Rank = 9620,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 11),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000006m,
-                        InputCacheRead = 0.00000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -1551,62 +1773,30 @@ namespace SmartHopper.Providers.OpenRouter
                     Provider = provider,
                     Model = "qwen/qwen3.8-max-0902",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
+                    SupportsBatch = true,
                     Verified = false,
-                    Rank = 9610,
+                    Rank = 9615,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 3),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000006m,
-                        InputCacheRead = 0.00000025m,
-                        InputCacheWrite = 0.0000025m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3.8-2.4t-a95b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9605,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 8, 12),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000002m,
-                        Completion = 0.000006m,
-                        InputCacheRead = 0.00000025m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000006m,
-                        InputCacheRead = 0.00000025m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000115m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000345m),
+                        },
                     },
-                    Aliases = new List<string> { "qwen/qwen3.8-2.4t-a95b:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "x-ai/grok-4.6",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9600,
-                    ContextLimit = 500000,
-                    Created = new DateTime(2026, 8, 12),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000002m,
-                        Completion = 0.000006m,
-                        InputCacheRead = 0.0000005m,
-                        WebSearch = 0.005m,
-                    },
+                    Aliases = new List<string> { "qwen/qwen3.8-max-0902:batch" },
                 },
 
                 new AIModelCapabilities
@@ -1616,14 +1806,17 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9595,
+                    Rank = 9610,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 10, 13),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000025m,
-                        Completion = 0.0000075m,
-                        InputCacheRead = 0.00000025m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000075m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                        },
                     },
                 },
 
@@ -1634,15 +1827,49 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9590,
+                    Rank = 9605,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 14),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001188m,
-                        Completion = 0.000008m,
-                        InputCacheRead = 0.00000012m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000999m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000008m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000999m),
+                        },
                     },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "moonshotai/kimi-k3.1-pro",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9600,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 10, 23),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002403m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000084023m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000372m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005583m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                        },
+                    },
+                    Aliases = new List<string> { "moonshotai/kimi-k3.1-pro:batch" },
                 },
 
                 new AIModelCapabilities
@@ -1652,51 +1879,130 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9585,
+                    Rank = 9595,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 21),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000435m,
-                        Completion = 0.0000087m,
-                        InputCacheRead = 0.000000036m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000435m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000087m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000036m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "z-ai/glm-5.3-prime",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "google/gemini-omni-1.2-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.VideoOutput | AICapability.Reasoning,
                     SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9590,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2026, 11, 5),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000009m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "google/gemini-omni-1.1-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.VideoOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9585,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2026, 11, 4),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000009m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-6.2-sol-pro",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
                     Verified = false,
                     Rank = 9580,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 9, 23),
+                    ContextLimit = 1050000,
+                    Created = new DateTime(2026, 11, 17),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000028m,
-                        Completion = 0.0000088m,
-                        InputCacheRead = 0.00000056m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/gpt-6.2-sol-pro:batch" },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "moonshotai/kimi-k3.1-pro",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
+                    Model = "openai/gpt-6.2-sol",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
                     Verified = false,
                     Rank = 9575,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 10, 23),
+                    ContextLimit = 1050000,
+                    Created = new DateTime(2026, 11, 17),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.0000002m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/gpt-6.2-sol:batch" },
                 },
 
                 new AIModelCapabilities
@@ -1711,21 +2017,27 @@ namespace SmartHopper.Providers.OpenRouter
                     Created = new DateTime(2026, 9, 29),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.0000001m,
-                        InputCacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000001m,
-                        Completion = 0.000005m,
-                        InputCacheRead = 0.00000005m,
-                        InputCacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
-                    Aliases = new List<string> { "openai/gpt-6.1-sol-pro:batch" },
+                    Aliases = new List<string> { "openai/gpt-6.1-sol-pro:batch", "openai/gpt-6-1-sol-pro" },
                 },
 
                 new AIModelCapabilities
@@ -1740,21 +2052,27 @@ namespace SmartHopper.Providers.OpenRouter
                     Created = new DateTime(2026, 9, 29),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.0000001m,
-                        InputCacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000001m,
-                        Completion = 0.000005m,
-                        InputCacheRead = 0.00000005m,
-                        InputCacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
-                    Aliases = new List<string> { "openai/gpt-6.1-sol:batch" },
+                    Aliases = new List<string> { "openai/gpt-6.1-sol:batch", "openai/gpt-6-1-sol" },
                 },
 
                 new AIModelCapabilities
@@ -1769,19 +2087,25 @@ namespace SmartHopper.Providers.OpenRouter
                     Created = new DateTime(2026, 9, 28),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.0000001m,
-                        InputCacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000001m,
-                        Completion = 0.000005m,
-                        InputCacheRead = 0.00000005m,
-                        InputCacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "anthropic/claude-sonnet-5.5:batch" },
                 },
@@ -1798,19 +2122,25 @@ namespace SmartHopper.Providers.OpenRouter
                     Created = new DateTime(2026, 9, 22),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.0000002m,
-                        InputCacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000001m,
-                        Completion = 0.000005m,
-                        InputCacheRead = 0.0000001m,
-                        InputCacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-6-sol-pro:batch" },
                 },
@@ -1827,19 +2157,25 @@ namespace SmartHopper.Providers.OpenRouter
                     Created = new DateTime(2026, 9, 22),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.0000002m,
-                        InputCacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000001m,
-                        Completion = 0.000005m,
-                        InputCacheRead = 0.0000001m,
-                        InputCacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-6-sol:batch" },
                 },
@@ -1856,12 +2192,58 @@ namespace SmartHopper.Providers.OpenRouter
                     Created = new DateTime(2026, 9, 11),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.0000001m,
-                        InputCacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "google/gemini-4-hydrogen",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9540,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 11, 12),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000075m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.0000015m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000075m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000375m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.00000075m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000000375m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000375m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00000375m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
+                    },
+                    Aliases = new List<string> { "google/gemini-4-hydrogen:batch" },
                 },
 
                 new AIModelCapabilities
@@ -1871,35 +2253,61 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9540,
+                    Rank = 9535,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 23),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000004m,
-                        Completion = 0.000012m,
-                        InputCacheRead = 0.0000005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000012m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "~openai/gpt-terra-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
+                    Model = "google/gemini-4-carbon",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
                     Verified = false,
-                    Rank = 9535,
-                    ContextLimit = 1050000,
-                    Created = new DateTime(2026, 9, 11),
+                    Rank = 9530,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 11, 10),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000012m,
-                        InputCacheRead = 0.0000002m,
-                        InputCacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.000002m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000001875m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.000001m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000001875m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
+                    },
+                    Aliases = new List<string> { "google/gemini-4-carbon:batch" },
                 },
 
                 new AIModelCapabilities
@@ -1909,32 +2317,39 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9530,
+                    Rank = 9525,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 13),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.00001m,
-                        Image = 0.000002m,
-                        Audio = 0.000002m,
-                        InputAudioCache = 0.0000001m,
-                        InputCacheRead = 0.0000001m,
-                        InputCacheWrite = 0.0000001875m,
-                        InternalReasoning = 0.00001m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000001875m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.000002m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000001m,
-                        Completion = 0.000005m,
-                        Image = 0.000001m,
-                        Audio = 0.000001m,
-                        InputAudioCache = 0.00000005m,
-                        InputCacheRead = 0.00000005m,
-                        InputCacheWrite = 0.0000001875m,
-                        InternalReasoning = 0.000005m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.000001m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000001875m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
                     },
                     Aliases = new List<string> { "google/gemini-4-argon:batch" },
                 },
@@ -1946,14 +2361,17 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9525,
+                    Rank = 9520,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 24),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000003m,
-                        Completion = 0.000015m,
-                        InputCacheRead = 0.0000003m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000003m),
+                        },
                     },
                 },
 
@@ -1964,15 +2382,18 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9520,
+                    Rank = 9515,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 12),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000004m,
-                        Completion = 0.00002m,
-                        InputCacheRead = 0.0000002m,
-                        WebSearch = 0.0025m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -1983,26 +2404,75 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9515,
+                    Rank = 9510,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 22),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000004m,
-                        Completion = 0.00002m,
-                        InputCacheRead = 0.0000002m,
-                        InputCacheWrite = 0.000005m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.0000001m,
-                        InputCacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "anthropic/claude-opus-5.5:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "google/gemini-4-neon",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9505,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 11, 18),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.000003m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000015m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000075m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.0000015m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000075m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
+                    },
+                    Aliases = new List<string> { "google/gemini-4-neon:batch" },
                 },
 
                 new AIModelCapabilities
@@ -2012,15 +2482,18 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9510,
+                    Rank = 9500,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 11),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000005m,
-                        Completion = 0.00003m,
-                        InputCacheRead = 0.0000005m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -2031,16 +2504,125 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9505,
+                    Rank = 9495,
                     ContextLimit = 65536,
                     Created = new DateTime(2026, 10, 6),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000015m,
-                        Completion = 0.0000075m,
-                        ImageOutput = 0.00003m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000075m),
+                            new AIPriceEntry("image_output", AIPriceUnit.Token, 0.00003m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
                     },
+                    Aliases = new List<string> { "google/gemini-nano-banana-2-1" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-6.2-astra-pro",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9490,
+                    ContextLimit = 1050000,
+                    Created = new DateTime(2026, 11, 17),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000008m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00004m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/gpt-6.2-astra-pro:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-6.2-astra",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9485,
+                    ContextLimit = 1050000,
+                    Created = new DateTime(2026, 11, 17),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000008m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00004m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/gpt-6.2-astra:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "anthropic/claude-fable-5.2",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9480,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 11, 9),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000008m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00004m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "anthropic/claude-fable-5.2:batch" },
                 },
 
                 new AIModelCapabilities
@@ -2050,16 +2632,19 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9500,
+                    Rank = 9475,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 11),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00001m,
-                        Completion = 0.00005m,
-                        InputCacheRead = 0.000001m,
-                        InputCacheWrite = 0.0000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000008m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00004m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -2070,24 +2655,30 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9495,
+                    Rank = 9470,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 4),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00001m,
-                        Completion = 0.00005m,
-                        InputCacheRead = 0.000001m,
-                        InputCacheWrite = 0.0000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000005m,
-                        Completion = 0.000025m,
-                        InputCacheRead = 0.0000005m,
-                        InputCacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-6-astra:batch" },
                 },
@@ -2099,24 +2690,30 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9490,
+                    Rank = 9465,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 4),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00001m,
-                        Completion = 0.00005m,
-                        InputCacheRead = 0.000001m,
-                        InputCacheWrite = 0.0000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000005m,
-                        Completion = 0.000025m,
-                        InputCacheRead = 0.0000005m,
-                        InputCacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-6-astra-pro:batch" },
                 },
@@ -2128,31 +2725,37 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9485,
+                    Rank = 9460,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 1),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00001m,
-                        Completion = 0.00005m,
-                        InputCacheRead = 0.00000025m,
-                        InputCacheWrite = 0.0000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000005m,
-                        Completion = 0.000025m,
-                        InputCacheRead = 0.000000125m,
-                        InputCacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "anthropic/claude-fable-5.1:batch" },
                 },
 
 
 
-                // Released between April 2026 and July 2026
+                // Released between May 2026 and August 2026
 
                 new AIModelCapabilities
                 {
@@ -2161,14 +2764,9 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9480,
+                    Rank = 9455,
                     ContextLimit = 2000000,
                     Created = new DateTime(2026, 7, 17),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = -1m,
-                        Completion = -1m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -2178,50 +2776,29 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.TextOutput,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9475,
+                    Rank = 9450,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 13),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = -1m,
-                        Completion = -1m,
-                    },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "thinkingmachines/inkling:free",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9470,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 7, 17),
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "cohere/north-mini-code:free",
+                    Model = "nvidia/nemotron-3.5-lightning:free",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9465,
-                    ContextLimit = 256000,
-                    Created = new DateTime(2026, 6, 17),
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "nvidia/nemotron-3.5-content-safety:free",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9460,
-                    ContextLimit = 128000,
-                    Created = new DateTime(2026, 6, 4),
+                    Rank = 9445,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 8, 11),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -2231,22 +2808,38 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9455,
+                    Rank = 9440,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 4),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsStreaming = true,
+                    Model = "inclusionai/ling-3.0-tiny",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9450,
-                    ContextLimit = 256000,
-                    Created = new DateTime(2026, 4, 28),
+                    Rank = 9435,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 8, 6),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000045m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000003m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -2256,14 +2849,101 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9445,
+                    Rank = 9430,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 7, 23),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000021m,
-                        Completion = 0.000000063m,
-                        InputCacheRead = 0.0000000042m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000021m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000063m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000042m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3.7-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9425,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 7, 27),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000013m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000006m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000038m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "~deepseek/deepseek-v4-flash-latest",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9420,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 8, 1),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000044m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000132m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000014m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "tencent/hy-mt2-1.8b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9415,
+                    ContextLimit = 8192,
+                    Created = new DateTime(2026, 8, 20),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000044m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000177m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "nvidia/nemotron-3.5-lightning",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9410,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 8, 11),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000007m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000004m),
+                        },
                     },
                 },
 
@@ -2274,35 +2954,88 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9440,
+                    Rank = 9405,
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 6, 4),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000002m,
-                        Completion = 0.0000002m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "~anthropic/claude-haiku-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
+                    Model = "tencent/hy-mt2-30b-a3b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9435,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 4, 27),
+                    Rank = 9400,
+                    ContextLimit = 8192,
+                    Created = new DateTime(2026, 8, 20),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000005m,
-                        InputCacheRead = 0.00000001m,
-                        InputCacheWrite = 0.000000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000074m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000295m),
+                        },
                     },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "tencent/hy-mt2-7b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9395,
+                    ContextLimit = 8192,
+                    Created = new DateTime(2026, 8, 19),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000074m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000295m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek/deepseek-v4-flash-0731",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9390,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 7, 31),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000443m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000035m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000048m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000144m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000012m),
+                        },
+                    },
+                    Aliases = new List<string> { "deepseek/deepseek-v4-flash-0731:batch" },
                 },
 
                 new AIModelCapabilities
@@ -2312,146 +3045,70 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9430,
+                    Rank = 9385,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 7, 6),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000132m,
-                        Completion = 0.000000528m,
-                        InputCacheRead = 0.000000033m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000014m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000058m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000035m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "qwen/qwen3.6-35b-a3b",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
+                    Model = "upstage/solar-pro4",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9425,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 4, 27),
+                    Rank = 9380,
+                    ContextLimit = 524288,
+                    Created = new DateTime(2026, 8, 10),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.00000095m,
-                        InputCacheRead = 0.00000005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "qwen/qwen3.6-flash",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9420,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 4, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000001875m,
-                        Completion = 0.000001125m,
-                        InputCacheWrite = 0.000000234375m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "stepfun/step-3.7-flash",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9415,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 5, 28),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000002m,
-                        Completion = 0.00000115m,
-                        InputCacheRead = 0.00000004m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "meituan/longcat-2.0",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9410,
-                    ContextLimit = 1048756,
-                    Created = new DateTime(2026, 7, 20),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000012m,
-                        InputCacheRead = 0.000000006m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/gpt-5.6-luna-pro",
+                    Model = "deepseek/deepseek-v4-flash-vision-exp",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9405,
-                    ContextLimit = 1050000,
-                    Created = new DateTime(2026, 7, 9),
+                    Rank = 9375,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 8, 21),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000002m,
-                        Completion = 0.0000012m,
-                        InputCacheRead = 0.00000002m,
-                        InputCacheWrite = 0.00000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002156m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006468m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000000686m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000006m,
-                        InputCacheRead = 0.00000001m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000011m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000033m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000035m),
+                        },
                     },
-                    Aliases = new List<string> { "openai/gpt-5.6-luna-pro:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/gpt-5.6-luna",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.ToolChat | AICapability.ReasoningChat | AICapability.ToolReasoningChat,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9400,
-                    ContextLimit = 1050000,
-                    Created = new DateTime(2026, 7, 9),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000002m,
-                        Completion = 0.0000012m,
-                        InputCacheRead = 0.00000002m,
-                        InputCacheWrite = 0.00000025m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000006m,
-                        InputCacheRead = 0.00000001m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/gpt-5.6-luna:batch" },
+                    Aliases = new List<string> { "deepseek/deepseek-v4-flash-vision-exp:batch" },
                 },
 
                 new AIModelCapabilities
@@ -2461,22 +3118,149 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9395,
+                    Rank = 9370,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 5, 31),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000012m,
-                        InputCacheRead = 0.00000006m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000023m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000096m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000012m,
-                        InputCacheRead = 0.00000006m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000224m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000088m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000448m),
+                        },
                     },
                     Aliases = new List<string> { "minimax/minimax-m3:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "stepfun/step-3.7-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9365,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 5, 28),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000115m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000004m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "thinkingmachines/inkling-small",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9360,
+                    ContextLimit = 524288,
+                    Created = new DateTime(2026, 7, 30),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000045m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000036m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000096m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000008m),
+                        },
+                    },
+                    Aliases = new List<string> { "thinkingmachines/inkling-small:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-5.6-luna-pro",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9355,
+                    ContextLimit = 1050000,
+                    Created = new DateTime(2026, 7, 9),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/gpt-5.6-luna-pro:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-5.6-luna",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Default = AICapability.Text2Text | AICapability.Text2Json | AICapability.ToolChat | AICapability.ReasoningChat | AICapability.ToolReasoningChat,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9350,
+                    ContextLimit = 1050000,
+                    Created = new DateTime(2026, 7, 9),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/gpt-5.6-luna:batch" },
                 },
 
                 new AIModelCapabilities
@@ -2486,22 +3270,80 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9390,
+                    Rank = 9345,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 3),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000032m,
-                        Completion = 0.00000128m,
-                        InputCacheRead = 0.000000064m,
-                        InputCacheWrite = 0.0000004m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000032m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000128m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000064m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000004m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.00000023m,
-                        Completion = 0.00000092m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000023m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000092m),
+                        },
                     },
                     Aliases = new List<string> { "qwen/qwen3.7-plus:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "~z-ai/glm-latest",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9340,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 8, 19),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000699m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000014m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000689m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "z-ai/glm-5.3",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9335,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 8, 18),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000699m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000014m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000689m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000028m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001249m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000061m),
+                        },
+                    },
+                    Aliases = new List<string> { "z-ai/glm-5.3:batch" },
                 },
 
                 new AIModelCapabilities
@@ -2511,126 +3353,81 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9385,
+                    Rank = 9330,
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 7, 7),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000007m,
-                        Completion = 0.0000014m,
-                        InputCacheRead = 0.00000018m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000007m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000014m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000018m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "perceptron/perceptron-mk1",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9380,
-                    ContextLimit = 32768,
-                    Created = new DateTime(2026, 5, 12),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000015m,
-                        Completion = 0.0000015m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3.5-plus-20260420",
+                    Model = "qwen/qwen3.8-27b",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9375,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 4, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000018m,
-                        InputCacheWrite = 0.000000375m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "x-ai/grok-build-0.1",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9370,
-                    ContextLimit = 256000,
-                    Created = new DateTime(2026, 5, 20),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000001m,
-                        Completion = 0.000002m,
-                        InputCacheRead = 0.0000002m,
-                        WebSearch = 0.005m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3.6-27b",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9365,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 4, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000025m,
-                        Completion = 0.000002m,
-                        InputCacheRead = 0.000000025m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "google/gemini-3.1-flash-lite",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.Audio2Text,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9360,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 5, 7),
+                    Rank = 9325,
+                    ContextLimit = 1024000,
+                    Created = new DateTime(2026, 8, 14),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000025m,
-                        Completion = 0.0000015m,
-                        Image = 0.00000025m,
-                        Audio = 0.0000005m,
-                        InputAudioCache = 0.00000005m,
-                        InputCacheRead = 0.000000025m,
-                        InputCacheWrite = 0.0000000833333333333333m,
-                        InternalReasoning = 0.0000015m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000035m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000175m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000053125m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000000125m,
-                        Completion = 0.00000075m,
-                        Image = 0.000000125m,
-                        Audio = 0.00000025m,
-                        InputAudioCache = 0.000000025m,
-                        InputCacheRead = 0.0000000125m,
-                        InternalReasoning = 0.00000075m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000016m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000004m),
+                        },
                     },
-                    Aliases = new List<string> { "google/gemini-3.1-flash-lite:batch" },
+                    Aliases = new List<string> { "qwen/qwen3.8-27b:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "meta/muse-glimmer-30b",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9320,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2026, 8, 9),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000035m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000004m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000024m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000096m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000032m),
+                        },
+                    },
+                    Aliases = new List<string> { "meta/muse-glimmer-30b:batch" },
                 },
 
                 new AIModelCapabilities
@@ -2640,20 +3437,26 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9355,
+                    Rank = 9315,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 6, 4),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000006m,
-                        Completion = 0.0000024m,
-                        InputCacheRead = 0.00000012m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000022m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.0000006m,
-                        Completion = 0.0000036m,
-                        InputCacheRead = 0.0000002m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000036m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                        },
                     },
                     Aliases = new List<string> { "nvidia/nemotron-3-ultra-550b-a55b:batch" },
                 },
@@ -2661,65 +3464,52 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "x-ai/grok-4.3",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
+                    Model = "z-ai/glm-5.2",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9350,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 4, 30),
+                    Rank = 9310,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 6, 16),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000125m,
-                        Completion = 0.0000025m,
-                        InputCacheRead = 0.0000002m,
-                        WebSearch = 0.005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000062m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000242m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000014m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000001m,
-                        Completion = 0.000002m,
-                        InputCacheRead = 0.00000016m,
-                        WebSearch = 0.005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000322m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000989m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000109m),
+                        },
                     },
-                    Aliases = new List<string> { "x-ai/grok-4.3:batch" },
+                    Aliases = new List<string> { "z-ai/glm-5.2:batch" },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "google/gemini-3.5-flash-lite",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
+                    Model = "bytedance-seed/seed-2-1-turbo",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
                     Verified = false,
-                    Rank = 9345,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 7, 21),
+                    Rank = 9305,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 8, 12),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000025m,
-                        Image = 0.0000003m,
-                        Audio = 0.0000003m,
-                        InputAudioCache = 0.00000003m,
-                        InputCacheRead = 0.00000003m,
-                        InputCacheWrite = 0.0000000833333333333333m,
-                        InternalReasoning = 0.0000025m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                        },
                     },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000015m,
-                        Completion = 0.00000125m,
-                        Image = 0.00000015m,
-                        Audio = 0.00000015m,
-                        InputAudioCache = 0.000000015m,
-                        InputCacheRead = 0.000000015m,
-                        InternalReasoning = 0.00000125m,
-                        WebSearch = 0.014m,
-                    },
-                    Aliases = new List<string> { "google/gemini-3.5-flash-lite:batch" },
                 },
 
                 new AIModelCapabilities
@@ -2729,22 +3519,102 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9340,
+                    Rank = 9300,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 6, 12),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000006712m,
-                        Completion = 0.00000335m,
-                        InputCacheRead = 0.00000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000012m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.00000095m,
-                        Completion = 0.000004m,
-                        InputCacheRead = 0.00000019m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000095m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000019m),
+                        },
                     },
                     Aliases = new List<string> { "moonshotai/kimi-k2.7-code:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "google/gemini-3.5-flash-lite",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9295,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 7, 21),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.00000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.0000003m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.00000015m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.000000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
+                    },
+                    Aliases = new List<string> { "google/gemini-3.5-flash-lite:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek/deepseek-v4-pro-0813",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9290,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 8, 12),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000132m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000396m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000044m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000066m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000198m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000022m),
+                        },
+                    },
+                    Aliases = new List<string> { "deepseek/deepseek-v4-pro-0813:batch" },
                 },
 
                 new AIModelCapabilities
@@ -2754,22 +3624,50 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9335,
+                    Rank = 9285,
                     ContextLimit = 524288,
                     Created = new DateTime(2026, 7, 17),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000001m,
-                        Completion = 0.00000405m,
-                        InputCacheRead = 0.00000017m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000405m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000017m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000001m,
-                        Completion = 0.00000405m,
-                        InputCacheRead = 0.00000017m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000405m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000017m),
+                        },
                     },
                     Aliases = new List<string> { "thinkingmachines/inkling:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "meta/muse-spark-1.2",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9280,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 8, 5),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000425m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.0025m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -2779,55 +3677,63 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9330,
+                    Rank = 9275,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 7, 16),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000125m,
-                        Completion = 0.00000425m,
-                        InputCacheRead = 0.00000015m,
-                        WebSearch = 0.0025m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000425m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.0025m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "qwen/qwen3.7-max",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
+                    Model = "google/gemini-3.7-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
                     Verified = false,
-                    Rank = 9325,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 5, 21),
+                    Rank = 9270,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 8, 13),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000001475m,
-                        Completion = 0.000004425m,
-                        InputCacheRead = 0.000000295m,
-                        InputCacheWrite = 0.00000184375m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000375m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000416666666666667m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00000375m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.00000075m),
+                        },
                     },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "~openai/gpt-mini-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9320,
-                    ContextLimit = 400000,
-                    Created = new DateTime(2026, 4, 27),
-                    Pricing = new AIModelPricing
+                    BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.00000075m,
-                        Completion = 0.0000045m,
-                        InputCacheRead = 0.000000075m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000375m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001875m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.000000375m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000000375m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000000375m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000375m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000416666666666667m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000001875m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
                     },
+                    Aliases = new List<string> { "google/gemini-3.7-flash:batch" },
                 },
 
                 new AIModelCapabilities
@@ -2837,32 +3743,39 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9315,
+                    Rank = 9265,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 7, 21),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000075m,
-                        Completion = 0.00000375m,
-                        Image = 0.00000075m,
-                        Audio = 0.00000075m,
-                        InputAudioCache = 0.000000075m,
-                        InputCacheRead = 0.000000075m,
-                        InputCacheWrite = 0.0000000416666666666667m,
-                        InternalReasoning = 0.00000375m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000375m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000416666666666667m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00000375m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.00000075m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000000375m,
-                        Completion = 0.000001875m,
-                        Image = 0.000000375m,
-                        Audio = 0.000000375m,
-                        InputAudioCache = 0.0000000375m,
-                        InputCacheRead = 0.0000000375m,
-                        InputCacheWrite = 0.0000000416666666666667m,
-                        InternalReasoning = 0.000001875m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000375m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001875m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.000000375m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000000375m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000000375m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000375m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000416666666666667m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000001875m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
                     },
                     Aliases = new List<string> { "google/gemini-3.6-flash:batch" },
                 },
@@ -2870,26 +3783,65 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "~google/gemini-flash-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
+                    Model = "qwen/qwen3.8-2.4t-a95b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
                     Verified = false,
-                    Rank = 9310,
+                    Rank = 9260,
                     ContextLimit = 1048576,
-                    Created = new DateTime(2026, 4, 27),
+                    Created = new DateTime(2026, 8, 12),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000075m,
-                        Completion = 0.00000375m,
-                        Image = 0.00000075m,
-                        Audio = 0.00000075m,
-                        InputAudioCache = 0.000000075m,
-                        InputCacheRead = 0.000000075m,
-                        InputCacheWrite = 0.0000000416666666666667m,
-                        InternalReasoning = 0.00000375m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                        },
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                        },
+                    },
+                    Aliases = new List<string> { "qwen/qwen3.8-2.4t-a95b:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "x-ai/grok-4.6",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9255,
+                    ContextLimit = 500000,
+                    Created = new DateTime(2026, 8, 12),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000016m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000048m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+                        },
+                    },
+                    Aliases = new List<string> { "x-ai/grok-4.6:batch" },
                 },
 
                 new AIModelCapabilities
@@ -2899,15 +3851,18 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9305,
+                    Rank = 9250,
                     ContextLimit = 500000,
                     Created = new DateTime(2026, 7, 8),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000006m,
-                        InputCacheRead = 0.0000003m,
-                        WebSearch = 0.005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+                        },
                     },
                 },
 
@@ -2918,15 +3873,19 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9300,
+                    Rank = 9245,
                     ContextLimit = 500000,
                     Created = new DateTime(2026, 7, 8),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000006m,
-                        InputCacheRead = 0.0000005m,
-                        WebSearch = 0.005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0m),
+                        },
                     },
                 },
 
@@ -2937,63 +3896,18 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9295,
+                    Rank = 9240,
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 7, 7),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000003m,
-                        Completion = 0.000006m,
-                        InputCacheRead = 0.00000075m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000075m),
+                        },
                     },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "z-ai/glm-5.2",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9290,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 6, 16),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000000341m,
-                        Completion = 0.000007m,
-                        InputCacheRead = 0.000000033m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000007m,
-                        Completion = 0.0000022m,
-                        InputCacheRead = 0.00000007m,
-                    },
-                    Aliases = new List<string> { "z-ai/glm-5.2:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "mistralai/mistral-medium-3-5",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9285,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 4, 30),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000015m,
-                        Completion = 0.0000075m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000075m,
-                        Completion = 0.00000375m,
-                    },
-                    Aliases = new List<string> { "mistralai/mistral-medium-3-5:batch" },
                 },
 
                 new AIModelCapabilities
@@ -3003,72 +3917,32 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9280,
+                    Rank = 9235,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 30),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.0000002m,
-                        InputCacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000001m,
-                        Completion = 0.000005m,
-                        InputCacheRead = 0.0000001m,
-                        InputCacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "anthropic/claude-sonnet-5:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "~anthropic/claude-sonnet-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9275,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 4, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000002m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.0000001m,
-                        InputCacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "moonshotai/kimi-k3",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9270,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 7, 16),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000000239m,
-                        Completion = 0.0000108m,
-                        InputCacheRead = 0.00000021m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000228m,
-                        Completion = 0.0000114m,
-                        InputCacheRead = 0.000000228m,
-                    },
-                    Aliases = new List<string> { "moonshotai/kimi-k3:batch" },
                 },
 
                 new AIModelCapabilities
@@ -3078,23 +3952,29 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9265,
+                    Rank = 9230,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 7, 9),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000012m,
-                        InputCacheRead = 0.0000002m,
-                        InputCacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000012m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000001m,
-                        Completion = 0.000006m,
-                        InputCacheRead = 0.0000001m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-5.6-terra-pro:batch" },
                 },
@@ -3106,23 +3986,29 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9260,
+                    Rank = 9225,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 7, 9),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000012m,
-                        InputCacheRead = 0.0000002m,
-                        InputCacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000012m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000001m,
-                        Completion = 0.000006m,
-                        InputCacheRead = 0.0000001m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-5.6-terra:batch" },
                 },
@@ -3130,81 +4016,32 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "google/gemini-3.5-flash",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "moonshotai/kimi-k3",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9255,
+                    Rank = 9220,
                     ContextLimit = 1048576,
-                    Created = new DateTime(2026, 5, 19),
+                    Created = new DateTime(2026, 7, 16),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000015m,
-                        Completion = 0.000009m,
-                        Image = 0.0000015m,
-                        Audio = 0.000003m,
-                        InputAudioCache = 0.0000003m,
-                        InputCacheRead = 0.00000015m,
-                        InputCacheWrite = 0.0000000833333333333333m,
-                        InternalReasoning = 0.000009m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000192m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000016m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000182m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.00000075m,
-                        Completion = 0.0000045m,
-                        Image = 0.00000075m,
-                        Audio = 0.0000015m,
-                        InputAudioCache = 0.00000015m,
-                        InputCacheRead = 0.000000075m,
-                        InternalReasoning = 0.0000045m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000228m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000114m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000228m),
+                        },
                     },
-                    Aliases = new List<string> { "google/gemini-3.5-flash:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "~google/gemini-pro-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9250,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 4, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000002m,
-                        Completion = 0.00001m,
-                        Image = 0.000002m,
-                        Audio = 0.000002m,
-                        InputAudioCache = 0.0000001m,
-                        InputCacheRead = 0.0000001m,
-                        InputCacheWrite = 0.0000001875m,
-                        InternalReasoning = 0.00001m,
-                        WebSearch = 0.014m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "~moonshotai/kimi-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9245,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 4, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000015m,
-                        Completion = 0.000016m,
-                        InputCacheRead = 0.00000014m,
-                    },
+                    Aliases = new List<string> { "moonshotai/kimi-k3:batch" },
                 },
 
                 new AIModelCapabilities
@@ -3214,24 +4051,30 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9240,
+                    Rank = 9215,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 7, 9),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000004m,
-                        Completion = 0.00002m,
-                        InputCacheRead = 0.0000004m,
-                        InputCacheWrite = 0.000005m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.0000002m,
-                        InputCacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-5.6-sol-pro:batch" },
                 },
@@ -3243,24 +4086,30 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9235,
+                    Rank = 9210,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 7, 9),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000004m,
-                        Completion = 0.00002m,
-                        InputCacheRead = 0.0000004m,
-                        InputCacheWrite = 0.000005m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.0000002m,
-                        InputCacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-5.6-sol:batch" },
                 },
@@ -3272,24 +4121,30 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9230,
+                    Rank = 9205,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 7, 24),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000005m,
-                        Completion = 0.000025m,
-                        InputCacheRead = 0.0000005m,
-                        InputCacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.0000025m,
-                        Completion = 0.0000125m,
-                        InputCacheRead = 0.00000025m,
-                        InputCacheWrite = 0.000003125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000125m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000003125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "anthropic/claude-opus-5:batch" },
                 },
@@ -3301,24 +4156,30 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9225,
+                    Rank = 9200,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 5, 27),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000005m,
-                        Completion = 0.000025m,
-                        InputCacheRead = 0.0000005m,
-                        InputCacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.0000025m,
-                        Completion = 0.0000125m,
-                        InputCacheRead = 0.00000025m,
-                        InputCacheWrite = 0.000003125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000125m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000003125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "anthropic/claude-opus-4.8:batch" },
                 },
@@ -3330,34 +4191,18 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9220,
+                    Rank = 9195,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 24),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000005m,
-                        Completion = 0.00003m,
-                        InputCacheRead = 0.0000005m,
-                        WebSearch = 0.01m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/gpt-chat-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9215,
-                    ContextLimit = 400000,
-                    Created = new DateTime(2026, 5, 5),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000005m,
-                        Completion = 0.00003m,
-                        InputCacheRead = 0.0000005m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -3369,15 +4214,18 @@ namespace SmartHopper.Providers.OpenRouter
                     Default = AICapability.Text2Image | AICapability.Image2Image | AICapability.Image2Text,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9210,
+                    Rank = 9190,
                     ContextLimit = 65536,
                     Created = new DateTime(2026, 6, 30),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000025m,
-                        Completion = 0.0000015m,
-                        ImageOutput = 0.00003m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("image_output", AIPriceUnit.Token, 0.00003m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
                     },
                 },
 
@@ -3388,16 +4236,19 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9205,
+                    Rank = 9185,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 9),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00001m,
-                        Completion = 0.00005m,
-                        InputCacheRead = 0.00000025m,
-                        InputCacheWrite = 0.0000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000008m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00004m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -3408,24 +4259,30 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9200,
+                    Rank = 9180,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 9),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00001m,
-                        Completion = 0.00005m,
-                        InputCacheRead = 0.000001m,
-                        InputCacheWrite = 0.0000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000005m,
-                        Completion = 0.000025m,
-                        InputCacheRead = 0.0000005m,
-                        InputCacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "anthropic/claude-fable-5:batch" },
                 },
@@ -3437,16 +4294,20 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9195,
+                    Rank = 9175,
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 6, 18),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000005m,
-                        Completion = 0.000003m,
-                        ImageOutput = 0.00006m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("image_output", AIPriceUnit.Token, 0.00006m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
                     },
+                    Aliases = new List<string> { "google/gemini-3-1-flash-image" },
                 },
 
                 new AIModelCapabilities
@@ -3456,27 +4317,31 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9190,
+                    Rank = 9170,
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 6, 18),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000012m,
-                        Image = 0.000002m,
-                        ImageOutput = 0.00012m,
-                        Audio = 0.000002m,
-                        InputAudioCache = 0.0000002m,
-                        InputCacheRead = 0.0000002m,
-                        InputCacheWrite = 0.000000375m,
-                        InternalReasoning = 0.000012m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000012m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("image_output", AIPriceUnit.Token, 0.00012m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000375m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000012m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.000002m),
+                        },
                     },
                 },
 
 
 
-                // Released between January 2026 and April 2026
+                // Released between February 2026 and May 2026
 
                 new AIModelCapabilities
                 {
@@ -3486,13 +4351,29 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9185,
+                    Rank = 9165,
                     ContextLimit = 2000000,
                     Created = new DateTime(2026, 4, 21),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9160,
+                    ContextLimit = 256000,
+                    Created = new DateTime(2026, 4, 28),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = -1m,
-                        Completion = -1m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0m),
+                        },
                     },
                 },
 
@@ -3504,9 +4385,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9180,
+                    Rank = 9155,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 4, 3),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -3517,9 +4406,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9175,
+                    Rank = 9150,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 4, 2),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -3531,9 +4428,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9170,
+                    Rank = 9145,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 3, 30),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -3544,35 +4449,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9165,
+                    Rank = 9140,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 3, 30),
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "nvidia/nemotron-3-super-120b-a12b:free",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9160,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 3, 11),
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openrouter/free",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9155,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2026, 2, 1),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -3583,13 +4470,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9150,
+                    Rank = 9135,
                     ContextLimit = 16384,
                     Created = new DateTime(2026, 3, 20),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000001m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000001m),
+                        },
                     },
                 },
 
@@ -3601,14 +4491,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9145,
+                    Rank = 9130,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 4, 24),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000091m,
-                        Completion = 0.000000182m,
-                        InputCacheRead = 0.0000000182m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000009m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000018m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000018m),
+                        },
                     },
                 },
 
@@ -3620,14 +4513,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9140,
+                    Rank = 9125,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 4, 3),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000000675m,
-                        Completion = 0.000000225m,
-                        InputCacheRead = 0.0000000375m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000675m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000225m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000375m),
+                        },
                     },
                 },
 
@@ -3639,33 +4535,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9135,
+                    Rank = 9120,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 2, 25),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000065m,
-                        Completion = 0.00000026m,
-                        InputCacheWrite = 0.00000008125m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "stepfun/step-3.5-flash",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9130,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 1, 29),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000003m,
-                        InputCacheRead = 0.00000002m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000065m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000026m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000008125m),
+                        },
                     },
                 },
 
@@ -3677,21 +4557,49 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9125,
+                    Rank = 9115,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 4, 2),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000002m,
-                        Completion = 0.0000004m,
-                        InputCacheRead = 0.00000005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.00000039m,
-                        Completion = 0.00000097m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000039m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000097m),
+                        },
                     },
                     Aliases = new List<string> { "google/gemma-4-31b-it:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "nvidia/nemotron-3-super-120b-a12b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9110,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 3, 11),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -3702,50 +4610,40 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9120,
+                    Rank = 9105,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 2, 26),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000004m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "deepseek/deepseek-v4-pro",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "~anthropic/claude-haiku-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9115,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 4, 24),
+                    Rank = 9100,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 4, 27),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000002088m,
-                        Completion = 0.0000004176m,
-                        InputCacheRead = 0.0000000174m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "tencent/hy3-preview",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9110,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 4, 22),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000018m,
-                        Completion = 0.0000006m,
-                        InputCacheRead = 0.00000006m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -3757,20 +4655,26 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9105,
+                    Rank = 9095,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 3, 16),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000015m,
-                        Completion = 0.0000006m,
-                        InputCacheRead = 0.000000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000000075m,
-                        Completion = 0.0000003m,
-                        InputCacheRead = 0.0000000075m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000075m),
+                        },
                     },
                     Aliases = new List<string> { "mistralai/mistral-small-2603:batch" },
                 },
@@ -3778,57 +4682,22 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "upstage/solar-pro-3",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9100,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2026, 1, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000015m,
-                        Completion = 0.0000006m,
-                        InputCacheRead = 0.000000015m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "inception/mercury-2",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9095,
-                    ContextLimit = 128000,
-                    Created = new DateTime(2026, 3, 4),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000025m,
-                        Completion = 0.00000075m,
-                        InputCacheRead = 0.000000025m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3-coder-next",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    Model = "qwen/qwen3.6-35b-a3b",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
                     Rank = 9090,
                     ContextLimit = 262144,
-                    Created = new DateTime(2026, 2, 4),
+                    Created = new DateTime(2026, 4, 27),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000012m,
-                        Completion = 0.0000008m,
-                        InputCacheRead = 0.00000007m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000009m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+                        },
                     },
                 },
 
@@ -3845,47 +4714,34 @@ namespace SmartHopper.Providers.OpenRouter
                     Created = new DateTime(2026, 2, 25),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000014m,
-                        Completion = 0.000001m,
-                        InputCacheRead = 0.00000005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000014m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "minimax/minimax-m2.7",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "qwen/qwen3.6-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
                     Rank = 9080,
-                    ContextLimit = 204800,
-                    Created = new DateTime(2026, 3, 18),
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 4, 27),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000012m,
-                        InputCacheRead = 0.00000006m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "minimax/minimax-m2.5",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9075,
-                    ContextLimit = 204800,
-                    Created = new DateTime(2026, 2, 12),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000012m,
-                        InputCacheRead = 0.00000003m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001875m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001125m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000234375m),
+                        },
                     },
                 },
 
@@ -3897,22 +4753,28 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9070,
+                    Rank = 9075,
                     ContextLimit = 400000,
                     Created = new DateTime(2026, 3, 17),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000002m,
-                        Completion = 0.00000125m,
-                        InputCacheRead = 0.00000002m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.000000625m,
-                        InputCacheRead = 0.00000001m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000625m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-5.4-nano:batch" },
                 },
@@ -3920,19 +4782,42 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "qwen/qwen3.5-plus-02-15",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "perceptron/perceptron-mk1",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9070,
+                    ContextLimit = 32768,
+                    Created = new DateTime(2026, 5, 12),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek/deepseek-v4-pro",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
                     Rank = 9065,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 2, 16),
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 4, 24),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000026m,
-                        Completion = 0.00000156m,
-                        InputCacheWrite = 0.000000325m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000009m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                        },
                     },
                 },
 
@@ -3949,9 +4834,56 @@ namespace SmartHopper.Providers.OpenRouter
                     Created = new DateTime(2026, 2, 23),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000008m,
-                        Completion = 0.0000016m,
-                        InputCacheRead = 0.0000002m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000008m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000016m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3.5-plus-20260420",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9055,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 4, 27),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000018m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000375m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "minimax/minimax-m2.7",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9050,
+                    ContextLimit = 196608,
+                    Created = new DateTime(2026, 3, 18),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000018m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000042m),
+                        },
                     },
                 },
 
@@ -3963,14 +4895,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9055,
+                    Rank = 9045,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 4, 2),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000325m,
-                        Completion = 0.00000195m,
-                        InputCacheWrite = 0.00000040625m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000325m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000195m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000040625m),
+                        },
                     },
                 },
 
@@ -3982,135 +4917,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9050,
+                    Rank = 9040,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 3, 10),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000025m,
-                        Completion = 0.000002m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3.5-27b",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9045,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 2, 25),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000027m,
-                        Completion = 0.00000216m,
-                        InputCacheRead = 0.00000027m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "google/gemini-3.1-flash-lite-preview",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9040,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 3, 3),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000025m,
-                        Completion = 0.0000015m,
-                        Image = 0.00000025m,
-                        Audio = 0.0000005m,
-                        InputAudioCache = 0.00000005m,
-                        InputCacheRead = 0.000000025m,
-                        InputCacheWrite = 0.0000000833333333333333m,
-                        InternalReasoning = 0.0000015m,
-                        WebSearch = 0.014m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "nvidia/nemotron-3-super-120b-a12b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9035,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 3, 11),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000024m,
-                        InputCacheRead = 0.00000015m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "x-ai/grok-4.20-multi-agent",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9030,
-                    ContextLimit = 2000000,
-                    Created = new DateTime(2026, 3, 31),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000125m,
-                        Completion = 0.0000025m,
-                        InputCacheRead = 0.0000002m,
-                        WebSearch = 0.005m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "x-ai/grok-4.20",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9025,
-                    ContextLimit = 2000000,
-                    Created = new DateTime(2026, 3, 31),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000125m,
-                        Completion = 0.0000025m,
-                        InputCacheRead = 0.0000002m,
-                        WebSearch = 0.005m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "moonshotai/kimi-k2.5",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9020,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 1, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000005m,
-                        Completion = 0.0000025m,
-                        InputCacheRead = 0.00000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                        },
                     },
                 },
 
@@ -4122,32 +4938,213 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9015,
+                    Rank = 9035,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 2, 25),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000004m,
-                        Completion = 0.0000032m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000026m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000208m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "z-ai/glm-5",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "google/gemini-3.1-flash-lite",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Default = AICapability.Audio2Text,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9030,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 5, 7),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.00000025m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.000000125m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.000000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000125m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
+                    },
+                    Aliases = new List<string> { "google/gemini-3.1-flash-lite:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "google/gemini-3.1-flash-lite-preview",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9025,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 3, 3),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.00000025m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "x-ai/grok-4.3",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9020,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 4, 30),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000016m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+                        },
+                    },
+                    Aliases = new List<string> { "x-ai/grok-4.3:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "x-ai/grok-4.20-multi-agent",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9015,
+                    ContextLimit = 2000000,
+                    Created = new DateTime(2026, 3, 31),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "x-ai/grok-4.20",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
                     Rank = 9010,
-                    ContextLimit = 204800,
-                    Created = new DateTime(2026, 2, 11),
+                    ContextLimit = 2000000,
+                    Created = new DateTime(2026, 3, 31),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000001m,
-                        Completion = 0.0000032m,
-                        InputCacheRead = 0.0000002m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3.5-27b",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9005,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 2, 25),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000026m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000026m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000027m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3.6-27b",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9000,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 4, 27),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000032m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000032m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+                        },
                     },
                 },
 
@@ -4159,33 +5156,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9005,
+                    Rank = 8995,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 4, 20),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000065m,
-                        Completion = 0.00000341m,
-                        InputCacheRead = 0.00000015m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3.5-397b-a17b",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9000,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 2, 16),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000005m,
-                        Completion = 0.0000036m,
-                        InputCacheRead = 0.0000003m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000065m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000341m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                        },
                     },
                 },
 
@@ -4197,33 +5178,62 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8995,
+                    Rank = 8990,
                     ContextLimit = 202752,
                     Created = new DateTime(2026, 3, 15),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000012m,
-                        Completion = 0.000004m,
-                        InputCacheRead = 0.00000024m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000012m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000024m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "z-ai/glm-5.1",
+                    Model = "qwen/qwen3.7-max",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8985,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 5, 21),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001475m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004425m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000295m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000184375m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "~openai/gpt-mini-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8990,
-                    ContextLimit = 204800,
-                    Created = new DateTime(2026, 4, 7),
+                    Rank = 8980,
+                    ContextLimit = 400000,
+                    Created = new DateTime(2026, 4, 27),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000014m,
-                        Completion = 0.0000044m,
-                        InputCacheRead = 0.00000026m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000045m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -4235,24 +5245,177 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8985,
+                    Rank = 8975,
                     ContextLimit = 400000,
                     Created = new DateTime(2026, 3, 17),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000075m,
-                        Completion = 0.0000045m,
-                        InputCacheRead = 0.000000075m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000045m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000000375m,
-                        Completion = 0.00000225m,
-                        InputCacheRead = 0.0000000375m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000375m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000225m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000375m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-5.4-mini:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "~anthropic/claude-sonnet-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8970,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 4, 27),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "~google/gemini-flash-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8965,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 4, 27),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000075m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000075m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.0000015m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "~moonshotai/kimi-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8960,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 4, 27),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001824m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000110055m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000018m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "google/gemini-3.5-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 8955,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 5, 19),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000009m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000009m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.0000015m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000045m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.00000075m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000045m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
+                    },
+                    Aliases = new List<string> { "google/gemini-3.5-flash:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "~google/gemini-pro-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8950,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 4, 27),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000001875m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.000002m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -4263,15 +5426,18 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8980,
+                    Rank = 8945,
                     ContextLimit = 400000,
                     Created = new DateTime(2026, 2, 24),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000175m,
-                        Completion = 0.000014m,
-                        InputCacheRead = 0.000000175m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000175m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000014m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000175m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -4283,54 +5449,30 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8975,
+                    Rank = 8940,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 3, 5),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000025m,
-                        Completion = 0.000015m,
-                        InputCacheRead = 0.00000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.00000125m,
-                        Completion = 0.0000075m,
-                        InputCacheRead = 0.000000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000075m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-5.4:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "anthropic/claude-sonnet-4.6",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8970,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 2, 17),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000003m,
-                        Completion = 0.000015m,
-                        InputCacheRead = 0.0000003m,
-                        InputCacheWrite = 0.00000375m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000015m,
-                        Completion = 0.0000075m,
-                        InputCacheRead = 0.00000015m,
-                        InputCacheWrite = 0.000001875m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "anthropic/claude-sonnet-4.6:batch" },
                 },
 
                 new AIModelCapabilities
@@ -4341,56 +5483,25 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8965,
+                    Rank = 8935,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 2, 25),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000012m,
-                        Image = 0.000002m,
-                        Audio = 0.000002m,
-                        InputAudioCache = 0.0000002m,
-                        InputCacheRead = 0.0000002m,
-                        InputCacheWrite = 0.000000375m,
-                        InternalReasoning = 0.000012m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000012m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000375m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000012m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.000002m),
+                        },
                     },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "google/gemini-3.1-pro-preview",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8960,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 2, 19),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000002m,
-                        Completion = 0.000012m,
-                        Image = 0.000002m,
-                        Audio = 0.000002m,
-                        InputAudioCache = 0.0000002m,
-                        InputCacheRead = 0.0000002m,
-                        InputCacheWrite = 0.000000375m,
-                        InternalReasoning = 0.000012m,
-                        WebSearch = 0.014m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.000001m,
-                        Completion = 0.000006m,
-                        Image = 0.000001m,
-                        Audio = 0.000001m,
-                        InternalReasoning = 0.000006m,
-                        WebSearch = 0.014m,
-                    },
-                    Aliases = new List<string> { "google/gemini-3.1-pro-preview:batch" },
                 },
 
                 new AIModelCapabilities
@@ -4401,16 +5512,19 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8955,
+                    Rank = 8930,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 4, 21),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000004m,
-                        Completion = 0.00002m,
-                        InputCacheRead = 0.0000002m,
-                        InputCacheWrite = 0.000005m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -4422,24 +5536,30 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8950,
+                    Rank = 8925,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 4, 16),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000005m,
-                        Completion = 0.000025m,
-                        InputCacheRead = 0.0000005m,
-                        InputCacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.0000025m,
-                        Completion = 0.0000125m,
-                        InputCacheRead = 0.00000025m,
-                        InputCacheWrite = 0.000003125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000125m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000003125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "anthropic/claude-opus-4.7:batch" },
                 },
@@ -4447,31 +5567,23 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "anthropic/claude-opus-4.6",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
+                    Model = "openai/gpt-chat-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsBatch = false,
                     Verified = false,
-                    Rank = 8945,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 2, 4),
+                    Rank = 8920,
+                    ContextLimit = 400000,
+                    Created = new DateTime(2026, 5, 5),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000005m,
-                        Completion = 0.000025m,
-                        InputCacheRead = 0.0000005m,
-                        InputCacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000025m,
-                        Completion = 0.0000125m,
-                        InputCacheRead = 0.00000025m,
-                        InputCacheWrite = 0.000003125m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "anthropic/claude-opus-4.6:batch" },
                 },
 
                 new AIModelCapabilities
@@ -4482,22 +5594,28 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8940,
+                    Rank = 8915,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 4, 24),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000005m,
-                        Completion = 0.00003m,
-                        InputCacheRead = 0.0000005m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.0000025m,
-                        Completion = 0.000015m,
-                        InputCacheRead = 0.00000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-5.5:batch" },
                 },
@@ -4510,16 +5628,19 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8935,
+                    Rank = 8910,
                     ContextLimit = 272000,
                     Created = new DateTime(2026, 4, 21),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000008m,
-                        Completion = 0.000015m,
-                        ImageOutput = 0.00003m,
-                        InputCacheRead = 0.000002m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000008m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                            new AIPriceEntry("image_output", AIPriceUnit.Token, 0.00003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -4531,15 +5652,18 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8930,
+                    Rank = 8905,
                     ContextLimit = 65536,
                     Created = new DateTime(2026, 2, 26),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000005m,
-                        Completion = 0.000003m,
-                        ImageOutput = 0.00006m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("image_output", AIPriceUnit.Token, 0.00006m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
                     },
                 },
 
@@ -4551,20 +5675,26 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8925,
+                    Rank = 8900,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 4, 24),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00003m,
-                        Completion = 0.00018m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00018m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000015m,
-                        Completion = 0.00009m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00009m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-5.5-pro:batch" },
                 },
@@ -4577,27 +5707,33 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8920,
+                    Rank = 8895,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 3, 5),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00003m,
-                        Completion = 0.00018m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00018m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000015m,
-                        Completion = 0.00009m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00009m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-5.4-pro:batch" },
                 },
 
 
 
-                // Released between October 2025 and January 2026
+                // Released between November 2025 and February 2026
 
                 new AIModelCapabilities
                 {
@@ -4607,13 +5743,29 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8915,
+                    Rank = 8890,
                     ContextLimit = 128000,
                     Created = new DateTime(2025, 12, 5),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openrouter/free",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8885,
+                    ContextLimit = 200000,
+                    Created = new DateTime(2026, 2, 1),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = -1m,
-                        Completion = -1m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0m),
+                        },
                     },
                 },
 
@@ -4625,14 +5777,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8910,
+                    Rank = 8880,
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 12, 2),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000001m,
-                        InputCacheRead = 0.00000001m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                        },
                     },
                 },
 
@@ -4644,20 +5799,26 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8905,
+                    Rank = 8875,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 12, 2),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000015m,
-                        Completion = 0.00000015m,
-                        InputCacheRead = 0.000000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000000075m,
-                        Completion = 0.000000075m,
-                        InputCacheRead = 0.0000000075m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000075m),
+                        },
                     },
                     Aliases = new List<string> { "mistralai/ministral-8b-2512:batch" },
                 },
@@ -4670,14 +5831,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8900,
+                    Rank = 8870,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 12, 2),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000002m,
-                        Completion = 0.0000002m,
-                        InputCacheRead = 0.00000002m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
+                        },
                     },
                 },
 
@@ -4689,33 +5853,39 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8895,
+                    Rank = 8865,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 12, 14),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000006m,
-                        Completion = 0.00000024m,
-                        InputCacheRead = 0.00000003m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000006m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000024m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000012m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "openai/gpt-oss-safeguard-20b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "qwen/qwen3-coder-next",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8890,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2025, 10, 29),
+                    Rank = 8860,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 2, 4),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000075m,
-                        Completion = 0.0000003m,
-                        InputCacheRead = 0.0000000375m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000012m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000008m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000007m),
+                        },
                     },
                 },
 
@@ -4727,33 +5897,39 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8885,
+                    Rank = 8855,
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 12, 8),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000009m,
-                        InputCacheRead = 0.00000005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000009m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000055m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "minimax/minimax-m2-her",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
+                    Model = "minimax/minimax-m2.5",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8880,
-                    ContextLimit = 65536,
-                    Created = new DateTime(2026, 1, 23),
+                    Rank = 8850,
+                    ContextLimit = 198000,
+                    Created = new DateTime(2026, 2, 12),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000012m,
-                        InputCacheRead = 0.00000003m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000027m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000095m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                        },
                     },
                 },
 
@@ -4765,20 +5941,26 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8875,
+                    Rank = 8845,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 12, 1),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000005m,
-                        Completion = 0.0000015m,
-                        InputCacheRead = 0.00000005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.00000025m,
-                        Completion = 0.00000075m,
-                        InputCacheRead = 0.000000025m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+                        },
                     },
                     Aliases = new List<string> { "mistralai/mistral-large-2512:batch" },
                 },
@@ -4786,20 +5968,44 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "openai/gpt-5.1-codex-mini",
+                    Model = "qwen/qwen3.5-plus-02-15",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8840,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 2, 16),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000026m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000156m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000325m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "moonshotai/kimi-k2.5",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8870,
-                    ContextLimit = 400000,
-                    Created = new DateTime(2025, 11, 13),
+                    Rank = 8835,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 1, 27),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000025m,
-                        Completion = 0.000002m,
-                        InputCacheRead = 0.00000003m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                        },
                     },
                 },
 
@@ -4811,32 +6017,38 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8865,
+                    Rank = 8830,
                     ContextLimit = 1000000,
                     Created = new DateTime(2025, 12, 2),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000025m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "moonshotai/kimi-k2-thinking",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "qwen/qwen3.5-397b-a17b",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8860,
+                    Rank = 8825,
                     ContextLimit = 262144,
-                    Created = new DateTime(2025, 11, 6),
+                    Created = new DateTime(2026, 2, 16),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000006m,
-                        Completion = 0.0000025m,
-                        InputCacheRead = 0.00000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000045m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000022m),
+                        },
                     },
                 },
 
@@ -4848,13 +6060,38 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8855,
+                    Rank = 8820,
                     ContextLimit = 256000,
                     Created = new DateTime(2025, 12, 8),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000001m,
-                        Completion = 0.000003m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000003m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "z-ai/glm-5",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8815,
+                    ContextLimit = 204800,
+                    Created = new DateTime(2026, 2, 11),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000032m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                        },
                     },
                 },
 
@@ -4866,29 +6103,36 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8850,
+                    Rank = 8810,
                     ContextLimit = 1048576,
                     Created = new DateTime(2025, 12, 17),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000005m,
-                        Completion = 0.000003m,
-                        Image = 0.0000005m,
-                        Audio = 0.000001m,
-                        InputAudioCache = 0.0000001m,
-                        InputCacheRead = 0.00000005m,
-                        InputCacheWrite = 0.0000000833333333333333m,
-                        InternalReasoning = 0.000003m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.0000005m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.00000025m,
-                        Completion = 0.0000015m,
-                        Image = 0.00000025m,
-                        Audio = 0.0000005m,
-                        InternalReasoning = 0.0000015m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.00000025m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
                     },
                     Aliases = new List<string> { "google/gemini-3-flash-preview:batch" },
                 },
@@ -4901,15 +6145,18 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8845,
+                    Rank = 8805,
                     ContextLimit = 128000,
                     Created = new DateTime(2026, 1, 19),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000006m,
-                        Completion = 0.0000024m,
-                        Audio = 0.0000006m,
-                        AudioOutput = 0.0000024m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000024m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("audio_output", AIPriceUnit.Token, 0.0000024m),
+                        },
                     },
                 },
 
@@ -4921,13 +6168,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8840,
+                    Rank = 8800,
                     ContextLimit = 1040000,
                     Created = new DateTime(2026, 1, 21),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000006m,
-                        Completion = 0.000006m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                        },
                     },
                 },
 
@@ -4939,82 +6189,18 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8835,
+                    Rank = 8795,
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 12, 4),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000125m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.000000125m,
-                        WebSearch = 0.01m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/gpt-5.1",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8830,
-                    ContextLimit = 400000,
-                    Created = new DateTime(2025, 11, 13),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000125m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.000000125m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.000000625m,
-                        Completion = 0.000005m,
-                        InputCacheRead = 0.0000000625m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/gpt-5.1:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/gpt-5.1-codex",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8825,
-                    ContextLimit = 400000,
-                    Created = new DateTime(2025, 11, 13),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000125m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.00000013m,
-                        WebSearch = 0.01m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "amazon/nova-premier-v1",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8820,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2025, 10, 31),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000025m,
-                        Completion = 0.0000125m,
-                        InputCacheRead = 0.000000625m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -5026,15 +6212,18 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8815,
+                    Rank = 8790,
                     ContextLimit = 400000,
                     Created = new DateTime(2026, 1, 14),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000175m,
-                        Completion = 0.000014m,
-                        InputCacheRead = 0.000000175m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000175m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000014m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000175m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -5046,22 +6235,28 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8810,
+                    Rank = 8785,
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 12, 10),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000175m,
-                        Completion = 0.000014m,
-                        InputCacheRead = 0.000000175m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000175m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000014m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000175m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000000875m,
-                        Completion = 0.000007m,
-                        InputCacheRead = 0.0000000875m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000875m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000007m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000875m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-5.2:batch" },
                 },
@@ -5069,20 +6264,115 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "perplexity/sonar-pro-search",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "anthropic/claude-sonnet-4.6",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
-                    SupportsBatch = false,
+                    SupportsBatch = true,
                     Verified = false,
-                    Rank = 8805,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2025, 10, 30),
+                    Rank = 8780,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 2, 17),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000003m,
-                        Completion = 0.000015m,
-                        WebSearch = 0.018m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000375m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000075m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000001875m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "anthropic/claude-sonnet-4.6:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "google/gemini-3.1-pro-preview",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 8775,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 2, 19),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000012m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000375m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000012m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.000002m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.000001m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000006m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
+                    },
+                    Aliases = new List<string> { "google/gemini-3.1-pro-preview:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "anthropic/claude-opus-4.6",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 8770,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 2, 4),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000125m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000003125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "anthropic/claude-opus-4.6:batch" },
                 },
 
                 new AIModelCapabilities
@@ -5093,24 +6383,30 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8800,
+                    Rank = 8765,
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 11, 24),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000005m,
-                        Completion = 0.000025m,
-                        InputCacheRead = 0.0000005m,
-                        InputCacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.0000025m,
-                        Completion = 0.0000125m,
-                        InputCacheRead = 0.00000025m,
-                        InputCacheWrite = 0.000003125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000125m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000003125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "anthropic/claude-opus-4.5:batch" },
                 },
@@ -5123,61 +6419,18 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8795,
+                    Rank = 8760,
                     ContextLimit = 128000,
                     Created = new DateTime(2026, 1, 19),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000025m,
-                        Completion = 0.00001m,
-                        Audio = 0.000032m,
-                        AudioOutput = 0.000064m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "mistralai/voxtral-small-24b-2507",
-                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8790,
-                    ContextLimit = 32768,
-                    Created = new DateTime(2025, 10, 30),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000003m,
-                        Audio = 0.0001m,
-                        InputCacheRead = 0.00000001m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "google/gemini-3-pro-image-preview",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8785,
-                    ContextLimit = 65536,
-                    Created = new DateTime(2025, 11, 20),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000002m,
-                        Completion = 0.000012m,
-                        Image = 0.000002m,
-                        ImageOutput = 0.00012m,
-                        Audio = 0.000002m,
-                        InputAudioCache = 0.0000002m,
-                        InputCacheRead = 0.0000002m,
-                        InputCacheWrite = 0.000000375m,
-                        InternalReasoning = 0.000012m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000032m),
+                            new AIPriceEntry("audio_output", AIPriceUnit.Token, 0.000064m),
+                        },
                     },
                 },
 
@@ -5189,133 +6442,54 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8780,
+                    Rank = 8755,
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 12, 10),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000021m,
-                        Completion = 0.000168m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000021m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000168m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.0000105m,
-                        Completion = 0.000084m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000105m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000084m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-5.2-pro:batch" },
                 },
 
 
 
-                // Released between July 2025 and October 2025
+                // Released between August 2025 and November 2025
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "openai/gpt-oss-20b",
+                    Model = "openai/gpt-oss-safeguard-20b",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
-                    SupportsBatch = true,
+                    SupportsBatch = false,
                     Verified = false,
-                    Rank = 8775,
+                    Rank = 8750,
                     ContextLimit = 131072,
-                    Created = new DateTime(2025, 8, 5),
+                    Created = new DateTime(2025, 10, 29),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000018m,
-                        Completion = 0.00000009m,
-                        InputCacheRead = 0.000000009m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000375m),
+                        },
                     },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.000000024m,
-                        Completion = 0.000000112m,
-                    },
-                    Aliases = new List<string> { "openai/gpt-oss-20b:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "ibm-granite/granite-4.0-h-micro",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8770,
-                    ContextLimit = 131000,
-                    Created = new DateTime(2025, 10, 20),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000000017m,
-                        Completion = 0.000000112m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3-coder-30b-a3b-instruct",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8765,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2025, 7, 31),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000007m,
-                        Completion = 0.00000028m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3-30b-a3b-instruct-2507",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8760,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2025, 7, 29),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000009m,
-                        Completion = 0.0000003m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/gpt-5-nano",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8755,
-                    ContextLimit = 400000,
-                    Created = new DateTime(2025, 8, 7),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000005m,
-                        Completion = 0.0000004m,
-                        InputCacheRead = 0.000000005m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.000000025m,
-                        Completion = 0.0000002m,
-                        InputCacheRead = 0.0000000025m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/gpt-5-nano:batch" },
                 },
 
                 new AIModelCapabilities
@@ -5326,14 +6500,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8750,
+                    Rank = 8745,
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 9, 27),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000005m,
-                        InputCacheRead = 0.00000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                        },
                     },
                 },
 
@@ -5345,102 +6522,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8745,
+                    Rank = 8740,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 10, 6),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000015m,
-                        Completion = 0.0000006m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/gpt-oss-120b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8740,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2025, 8, 5),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000015m,
-                        Completion = 0.0000006m,
-                        InputCacheRead = 0.000000075m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000000296m,
-                        Completion = 0.000000136m,
-                    },
-                    Aliases = new List<string> { "openai/gpt-oss-120b:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "z-ai/glm-4.5-air",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8735,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2025, 7, 25),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000013m,
-                        Completion = 0.00000085m,
-                        InputCacheRead = 0.000000025m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "mistralai/codestral-2508",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8730,
-                    ContextLimit = 256000,
-                    Created = new DateTime(2025, 8, 1),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000009m,
-                        InputCacheRead = 0.00000003m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000015m,
-                        Completion = 0.00000045m,
-                        InputCacheRead = 0.000000015m,
-                    },
-                    Aliases = new List<string> { "mistralai/codestral-2508:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek/deepseek-chat-v3.1",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8725,
-                    ContextLimit = 163840,
-                    Created = new DateTime(2025, 8, 21),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000025m,
-                        Completion = 0.00000095m,
-                        InputCacheRead = 0.00000013m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                        },
                     },
                 },
 
@@ -5452,34 +6543,18 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8720,
+                    Rank = 8735,
                     ContextLimit = 1000000,
                     Created = new DateTime(2025, 9, 17),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000195m,
-                        Completion = 0.000000975m,
-                        InputCacheRead = 0.000000039m,
-                        InputCacheWrite = 0.00000024375m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "minimax/minimax-m2",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8715,
-                    ContextLimit = 204800,
-                    Created = new DateTime(2025, 10, 23),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000000255m,
-                        Completion = 0.00000102m,
-                        InputCacheRead = 0.00000003m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000195m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000975m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000039m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000024375m),
+                        },
                     },
                 },
 
@@ -5491,14 +6566,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8710,
+                    Rank = 8730,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 9, 11),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000009m,
-                        Completion = 0.0000011m,
-                        InputCacheRead = 0.00000007m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000011m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000007m),
+                        },
                     },
                 },
 
@@ -5510,13 +6588,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8705,
+                    Rank = 8725,
                     ContextLimit = 256000,
                     Created = new DateTime(2025, 9, 26),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000085m,
-                        Completion = 0.00000125m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000085m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000125m),
+                        },
                     },
                 },
 
@@ -5528,70 +6609,63 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8700,
+                    Rank = 8720,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 9, 23),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000021m,
-                        Completion = 0.0000019m,
-                        InputCacheRead = 0.0000001m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000021m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000019m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "mistralai/mistral-medium-3.1",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8695,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2025, 8, 13),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000004m,
-                        Completion = 0.000002m,
-                        InputCacheRead = 0.00000004m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000002m,
-                        Completion = 0.000001m,
-                        InputCacheRead = 0.00000002m,
-                    },
-                    Aliases = new List<string> { "mistralai/mistral-medium-3.1:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/gpt-5-mini",
+                    Model = "openai/gpt-5.1-codex-mini",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.Text2Text | AICapability.Text2Json,
                     SupportsStreaming = true,
-                    SupportsBatch = true,
+                    SupportsBatch = false,
                     Verified = false,
-                    Rank = 8690,
+                    Rank = 8715,
                     ContextLimit = 400000,
-                    Created = new DateTime(2025, 8, 7),
+                    Created = new DateTime(2025, 11, 13),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000025m,
-                        Completion = 0.000002m,
-                        InputCacheRead = 0.000000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
-                    BatchPricing = new AIModelPricing
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "moonshotai/kimi-k2-thinking",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8710,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2025, 11, 6),
+                    Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000125m,
-                        Completion = 0.000001m,
-                        InputCacheRead = 0.0000000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                        },
                     },
-                    Aliases = new List<string> { "openai/gpt-5-mini:batch" },
                 },
 
                 new AIModelCapabilities
@@ -5602,13 +6676,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8685,
+                    Rank = 8705,
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 8, 26),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000001m,
-                        Completion = 0.000003m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                        },
                     },
                 },
 
@@ -5620,24 +6698,30 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8680,
+                    Rank = 8700,
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 10, 15),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000001m,
-                        Completion = 0.000005m,
-                        InputCacheRead = 0.0000001m,
-                        InputCacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.0000005m,
-                        Completion = 0.0000025m,
-                        InputCacheRead = 0.00000005m,
-                        InputCacheWrite = 0.000000625m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000625m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "anthropic/claude-haiku-4.5:batch" },
                 },
@@ -5645,50 +6729,102 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "openai/gpt-5-image-mini",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "openai/gpt-5.1",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 8695,
+                    ContextLimit = 400000,
+                    Created = new DateTime(2025, 11, 13),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000625m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000625m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/gpt-5.1:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-5.1-codex",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8675,
+                    Rank = 8690,
                     ContextLimit = 400000,
-                    Created = new DateTime(2025, 10, 16),
+                    Created = new DateTime(2025, 11, 13),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000025m,
-                        Completion = 0.000002m,
-                        ImageOutput = 0.000008m,
-                        InputCacheRead = 0.00000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000013m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "openai/gpt-5",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "amazon/nova-premier-v1",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
-                    SupportsBatch = true,
+                    SupportsBatch = false,
                     Verified = false,
-                    Rank = 8670,
-                    ContextLimit = 400000,
-                    Created = new DateTime(2025, 8, 7),
+                    Rank = 8685,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2025, 10, 31),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000125m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.000000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000125m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000625m),
+                        },
                     },
-                    BatchPricing = new AIModelPricing
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "perplexity/sonar-pro-search",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8680,
+                    ContextLimit = 200000,
+                    Created = new DateTime(2025, 10, 30),
+                    Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000625m,
-                        Completion = 0.000005m,
-                        InputCacheRead = 0.0000000625m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.018m),
+                        },
                     },
-                    Aliases = new List<string> { "openai/gpt-5:batch" },
                 },
 
                 new AIModelCapabilities
@@ -5699,24 +6835,30 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8665,
+                    Rank = 8675,
                     ContextLimit = 1000000,
                     Created = new DateTime(2025, 9, 29),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000003m,
-                        Completion = 0.000015m,
-                        InputCacheRead = 0.0000003m,
-                        InputCacheWrite = 0.00000375m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000375m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.0000015m,
-                        Completion = 0.0000075m,
-                        InputCacheRead = 0.00000015m,
-                        InputCacheWrite = 0.000001875m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000075m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000001875m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "anthropic/claude-sonnet-4.5:batch" },
                 },
@@ -5724,101 +6866,59 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "openai/gpt-5-image",
+                    Model = "mistralai/voxtral-small-24b-2507",
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8670,
+                    ContextLimit = 32768,
+                    Created = new DateTime(2025, 10, 30),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "google/gemini-3-pro-image-preview",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8660,
-                    ContextLimit = 400000,
-                    Created = new DateTime(2025, 10, 14),
+                    Rank = 8665,
+                    ContextLimit = 65536,
+                    Created = new DateTime(2025, 11, 20),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00001m,
-                        Completion = 0.00001m,
-                        ImageOutput = 0.00004m,
-                        InputCacheRead = 0.00000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000012m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("image_output", AIPriceUnit.Token, 0.00012m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000375m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000012m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.000002m),
+                        },
                     },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "anthropic/claude-opus-4.1",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8655,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2025, 8, 5),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000015m,
-                        Completion = 0.000075m,
-                        InputCacheRead = 0.0000015m,
-                        InputCacheWrite = 0.00001875m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000075m,
-                        Completion = 0.0000375m,
-                        InputCacheRead = 0.00000075m,
-                        InputCacheWrite = 0.000009375m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "anthropic/claude-opus-4.1:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/gpt-5-pro",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8650,
-                    ContextLimit = 400000,
-                    Created = new DateTime(2025, 10, 6),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000015m,
-                        Completion = 0.00012m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000075m,
-                        Completion = 0.00006m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/gpt-5-pro:batch" },
                 },
 
 
 
-                // Released between April 2025 and July 2025
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "meta-llama/llama-guard-4-12b",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8645,
-                    ContextLimit = 163840,
-                    Created = new DateTime(2025, 4, 30),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000018m,
-                        Completion = 0.00000018m,
-                    },
-                },
+                // Released between May 2025 and August 2025
 
                 new AIModelCapabilities
                 {
@@ -5828,14 +6928,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8640,
+                    Rank = 8660,
                     ContextLimit = 128000,
                     Created = new DateTime(2025, 7, 22),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000002m,
-                        InputCacheRead = 0.0000001m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                        },
                     },
                 },
 
@@ -5847,70 +6950,124 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8635,
+                    Rank = 8655,
                     ContextLimit = 256000,
                     Created = new DateTime(2025, 6, 20),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000075m,
-                        Completion = 0.0000002m,
-                        InputCacheRead = 0.00000001m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                        },
                     },
+                    Aliases = new List<string> { "mistralai/mistral-small-3-2-24b-instruct" },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "qwen/qwen3-14b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "qwen/qwen3-coder-30b-a3b-instruct",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8630,
-                    ContextLimit = 40960,
-                    Created = new DateTime(2025, 4, 28),
+                    Rank = 8650,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2025, 7, 31),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000012m,
-                        Completion = 0.00000024m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000007m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000028m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "qwen/qwen3-32b",
+                    Model = "openai/gpt-oss-20b",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
-                    SupportsBatch = false,
+                    SupportsBatch = true,
                     Verified = false,
-                    Rank = 8625,
+                    Rank = 8645,
                     ContextLimit = 131072,
-                    Created = new DateTime(2025, 4, 28),
+                    Created = new DateTime(2025, 8, 5),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000008m,
-                        Completion = 0.00000028m,
-                        InputCacheRead = 0.00000004m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000375m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000024m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000112m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/gpt-oss-20b:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3-30b-a3b-instruct-2507",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8640,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2025, 7, 29),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "qwen/qwen3-30b-a3b",
+                    Model = "openai/gpt-oss-120b",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
-                    SupportsBatch = false,
+                    SupportsBatch = true,
                     Verified = false,
-                    Rank = 8620,
-                    ContextLimit = 40960,
-                    Created = new DateTime(2025, 4, 28),
+                    Rank = 8635,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2025, 8, 5),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000012m,
-                        Completion = 0.0000005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000009m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000036m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                        },
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000296m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000136m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/gpt-oss-120b:batch" },
                 },
 
                 new AIModelCapabilities
@@ -5921,33 +7078,72 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8615,
+                    Rank = 8630,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 7, 21),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000009m,
-                        Completion = 0.00000055m,
-                        InputCacheRead = 0.0000000175m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000014m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000008m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "tencent/hunyuan-a13b-instruct",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "z-ai/glm-4.5-air",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8610,
+                    Rank = 8625,
                     ContextLimit = 131072,
-                    Created = new DateTime(2025, 7, 8),
+                    Created = new DateTime(2025, 7, 25),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000014m,
-                        Completion = 0.00000057m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000013m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000085m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+                        },
                     },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistralai/codestral-2508",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 8620,
+                    ContextLimit = 256000,
+                    Created = new DateTime(2025, 8, 1),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000009m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000045m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+                        },
+                    },
+                    Aliases = new List<string> { "mistralai/codestral-2508:batch" },
                 },
 
                 new AIModelCapabilities
@@ -5957,13 +7153,38 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8605,
+                    Rank = 8615,
                     ContextLimit = 128000,
                     Created = new DateTime(2025, 7, 9),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000002m,
-                        Completion = 0.0000009m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000009m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek/deepseek-chat-v3.1",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8610,
+                    ContextLimit = 163840,
+                    Created = new DateTime(2025, 8, 21),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000095m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000013m),
+                        },
                     },
                 },
 
@@ -5975,14 +7196,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8600,
+                    Rank = 8605,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 7, 23),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000003m,
-                        Completion = 0.000001m,
-                        InputCacheRead = 0.0000001m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                        },
                     },
                 },
 
@@ -5992,16 +7216,28 @@ namespace SmartHopper.Providers.OpenRouter
                     Model = "morph/morph-v3-fast",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     SupportsStreaming = true,
-                    SupportsBatch = false,
+                    SupportsBatch = true,
                     Verified = false,
-                    Rank = 8595,
+                    Rank = 8600,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 7, 7),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000008m,
-                        Completion = 0.0000012m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000008m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                        },
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                        },
+                    },
+                    Aliases = new List<string> { "morph/morph-v3-fast:batch" },
                 },
 
                 new AIModelCapabilities
@@ -6010,35 +7246,60 @@ namespace SmartHopper.Providers.OpenRouter
                     Model = "morph/morph-v3-large",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     SupportsStreaming = true,
-                    SupportsBatch = false,
+                    SupportsBatch = true,
                     Verified = false,
-                    Rank = 8590,
+                    Rank = 8595,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 7, 7),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000009m,
-                        Completion = 0.0000019m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000009m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000019m),
+                        },
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000045m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000095m),
+                        },
+                    },
+                    Aliases = new List<string> { "morph/morph-v3-large:batch" },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "mistralai/mistral-medium-3",
+                    Model = "mistralai/mistral-medium-3.1",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
-                    SupportsBatch = false,
+                    SupportsBatch = true,
                     Verified = false,
-                    Rank = 8585,
+                    Rank = 8590,
                     ContextLimit = 131072,
-                    Created = new DateTime(2025, 5, 7),
+                    Created = new DateTime(2025, 8, 13),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000004m,
-                        Completion = 0.000002m,
-                        InputCacheRead = 0.00000004m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000044m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000022m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000044m),
+                        },
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
+                        },
+                    },
+                    Aliases = new List<string> { "mistralai/mistral-medium-3.1:batch", "mistralai/mistral-medium-3-1" },
                 },
 
                 new AIModelCapabilities
@@ -6049,32 +7310,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8580,
+                    Rank = 8585,
                     ContextLimit = 163840,
                     Created = new DateTime(2025, 5, 28),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000005m,
-                        Completion = 0.00000215m,
-                        InputCacheRead = 0.00000035m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "minimax/minimax-m1",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8575,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2025, 6, 17),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000055m,
-                        Completion = 0.0000022m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000571m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002286m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000035m),
+                        },
                     },
                 },
 
@@ -6086,13 +7332,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8570,
+                    Rank = 8580,
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 7, 11),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000057m,
-                        Completion = 0.0000023m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000057m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000023m),
+                        },
                     },
                 },
 
@@ -6104,52 +7353,66 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8565,
+                    Rank = 8575,
                     ContextLimit = 1048576,
                     Created = new DateTime(2025, 6, 5),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000125m,
-                        Completion = 0.00001m,
-                        Image = 0.00000125m,
-                        Audio = 0.00000125m,
-                        InputAudioCache = 0.000000125m,
-                        InputCacheRead = 0.000000125m,
-                        InputCacheWrite = 0.000000375m,
-                        InternalReasoning = 0.00001m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000375m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.00000125m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "openai/o3-pro",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "anthropic/claude-opus-4.1",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8560,
+                    Rank = 8570,
                     ContextLimit = 200000,
-                    Created = new DateTime(2025, 6, 10),
+                    Created = new DateTime(2025, 8, 5),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00002m,
-                        Completion = 0.00008m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000075m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00001875m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.00001m,
-                        Completion = 0.00004m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000375m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000009375m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
-                    Aliases = new List<string> { "openai/o3-pro:batch" },
+                    Aliases = new List<string> { "anthropic/claude-opus-4.1:batch" },
                 },
 
 
 
-                // Released between January 2025 and April 2025
+                // Released between February 2025 and May 2025
 
                 new AIModelCapabilities
                 {
@@ -6159,32 +7422,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8555,
+                    Rank = 8565,
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 3, 13),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000004m,
-                        Completion = 0.00000005m,
-                        InputCacheRead = 0.00000002m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "mistralai/mistral-small-24b-instruct-2501",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8550,
-                    ContextLimit = 32768,
-                    Created = new DateTime(2025, 1, 30),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000005m,
-                        Completion = 0.00000008m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
+                        },
                     },
                 },
 
@@ -6196,13 +7444,37 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8545,
+                    Rank = 8560,
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 3, 13),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000005m,
-                        Completion = 0.00000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000015m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "meta-llama/llama-guard-4-12b",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8555,
+                    ContextLimit = 163840,
+                    Created = new DateTime(2025, 4, 30),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000018m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000018m),
+                        },
                     },
                 },
 
@@ -6214,13 +7486,59 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8540,
+                    Rank = 8550,
                     ContextLimit = 65536,
                     Created = new DateTime(2025, 3, 12),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000002m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3-14b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8545,
+                    ContextLimit = 40960,
+                    Created = new DateTime(2025, 4, 28),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000012m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000024m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3-32b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8540,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2025, 4, 28),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000008m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000028m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000004m),
+                        },
                     },
                 },
 
@@ -6233,31 +7551,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Rank = 8535,
-                    ContextLimit = 1310720,
+                    ContextLimit = 327680,
                     Created = new DateTime(2025, 4, 5),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000003m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "google/gemma-3-27b-it",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8530,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2025, 3, 12),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000008m,
-                        Completion = 0.00000035m,
-                        InputCacheRead = 0.00000004m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                        },
                     },
                 },
 
@@ -6269,24 +7571,73 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8525,
+                    Rank = 8530,
                     ContextLimit = 1047576,
                     Created = new DateTime(2025, 4, 14),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000004m,
-                        InputCacheRead = 0.000000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.00000005m,
-                        Completion = 0.0000002m,
-                        InputCacheRead = 0.0000000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-4.1-nano:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "google/gemma-3-27b-it",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8525,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2025, 3, 12),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000008m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000045m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000004m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3-30b-a3b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8520,
+                    ContextLimit = 40960,
+                    Created = new DateTime(2025, 4, 28),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000012m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -6297,32 +7648,39 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8520,
+                    Rank = 8515,
                     ContextLimit = 128000,
                     Created = new DateTime(2025, 3, 17),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000351m,
-                        Completion = 0.000000555m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000351m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000555m),
+                        },
                     },
+                    Aliases = new List<string> { "mistralai/mistral-small-3-1-24b-instruct" },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "mistralai/mistral-saba",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    Model = "thedrummer/skyfall-36b-v2",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8515,
+                    Rank = 8510,
                     ContextLimit = 32768,
-                    Created = new DateTime(2025, 2, 17),
+                    Created = new DateTime(2025, 3, 10),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000002m,
-                        Completion = 0.0000006m,
-                        InputCacheRead = 0.00000002m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000055m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000008m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                        },
                     },
                 },
 
@@ -6334,91 +7692,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8510,
+                    Rank = 8505,
                     ContextLimit = 524288,
                     Created = new DateTime(2025, 4, 5),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001875m,
-                        Completion = 0.0000006525m,
-                        InputCacheRead = 0.00000005m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen-plus",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8505,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2025, 2, 1),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000026m,
-                        Completion = 0.00000078m,
-                        InputCacheRead = 0.000000052m,
-                        InputCacheWrite = 0.000000325m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "thedrummer/skyfall-36b-v2",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8500,
-                    ContextLimit = 32768,
-                    Created = new DateTime(2025, 3, 10),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000055m,
-                        Completion = 0.0000008m,
-                        InputCacheRead = 0.00000025m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen2.5-vl-72b-instruct",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8495,
-                    ContextLimit = 128000,
-                    Created = new DateTime(2025, 2, 1),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000008m,
-                        Completion = 0.000001m,
-                        InputCacheRead = 0.0000004m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "perplexity/sonar",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8490,
-                    ContextLimit = 127072,
-                    Created = new DateTime(2025, 1, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000001m,
-                        Completion = 0.000001m,
-                        WebSearch = 0.005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000035m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000017m),
+                        },
                     },
                 },
 
@@ -6430,14 +7714,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8485,
+                    Rank = 8500,
                     ContextLimit = 163840,
                     Created = new DateTime(2025, 3, 24),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000029m,
-                        Completion = 0.00000114m,
-                        InputCacheRead = 0.00000011m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000011m),
+                        },
                     },
                 },
 
@@ -6449,22 +7736,28 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8480,
+                    Rank = 8495,
                     ContextLimit = 1047576,
                     Created = new DateTime(2025, 4, 14),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000004m,
-                        Completion = 0.0000016m,
-                        InputCacheRead = 0.0000001m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000016m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.0000002m,
-                        Completion = 0.0000008m,
-                        InputCacheRead = 0.00000005m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000008m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-4.1-mini:batch" },
                 },
@@ -6472,159 +7765,23 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "aion-labs/aion-rp-llama-3.1-8b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
+                    Model = "mistralai/mistral-medium-3",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8475,
-                    ContextLimit = 32768,
-                    Created = new DateTime(2025, 2, 4),
+                    Rank = 8490,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2025, 5, 7),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000008m,
-                        Completion = 0.0000016m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000044m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000022m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000044m),
+                        },
                     },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/o4-mini-high",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8470,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2025, 4, 16),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000011m,
-                        Completion = 0.0000044m,
-                        InputCacheRead = 0.000000275m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000055m,
-                        Completion = 0.0000022m,
-                        InputCacheRead = 0.0000001375m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/o4-mini-high:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/o4-mini",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8465,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2025, 4, 16),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000011m,
-                        Completion = 0.0000044m,
-                        InputCacheRead = 0.000000275m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000055m,
-                        Completion = 0.0000022m,
-                        InputCacheRead = 0.0000001375m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/o4-mini:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/o3-mini-high",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8460,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2025, 2, 12),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000011m,
-                        Completion = 0.0000044m,
-                        InputCacheRead = 0.00000055m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000055m,
-                        Completion = 0.0000022m,
-                        InputCacheRead = 0.000000275m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/o3-mini-high:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/o3-mini",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8455,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2025, 1, 31),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000011m,
-                        Completion = 0.0000044m,
-                        InputCacheRead = 0.00000055m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000055m,
-                        Completion = 0.0000022m,
-                        InputCacheRead = 0.000000275m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/o3-mini:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/o3",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8450,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2025, 4, 16),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000002m,
-                        Completion = 0.000008m,
-                        InputCacheRead = 0.0000005m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.000001m,
-                        Completion = 0.000004m,
-                        InputCacheRead = 0.00000025m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/o3:batch" },
                 },
 
                 new AIModelCapabilities
@@ -6635,22 +7792,28 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8445,
+                    Rank = 8485,
                     ContextLimit = 1047576,
                     Created = new DateTime(2025, 4, 14),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000008m,
-                        InputCacheRead = 0.0000005m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000008m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000001m,
-                        Completion = 0.000004m,
-                        InputCacheRead = 0.00000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-4.1:batch" },
                 },
@@ -6663,14 +7826,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8440,
+                    Rank = 8480,
                     ContextLimit = 128000,
                     Created = new DateTime(2025, 3, 7),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000008m,
-                        WebSearch = 0.005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000008m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+                        },
                     },
                 },
 
@@ -6682,15 +7848,18 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8435,
+                    Rank = 8475,
                     ContextLimit = 128000,
                     Created = new DateTime(2025, 3, 7),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000008m,
-                        InternalReasoning = 0.000003m,
-                        WebSearch = 0.005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000008m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+                        },
                     },
                 },
 
@@ -6698,17 +7867,20 @@ namespace SmartHopper.Providers.OpenRouter
                 {
                     Provider = provider,
                     Model = "cohere/command-a",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8430,
+                    Rank = 8470,
                     ContextLimit = 256000,
                     Created = new DateTime(2025, 3, 13),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000025m,
-                        Completion = 0.00001m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                        },
                     },
                 },
 
@@ -6720,46 +7892,44 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8425,
+                    Rank = 8465,
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 3, 7),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000003m,
-                        Completion = 0.000015m,
-                        WebSearch = 0.005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+                        },
                     },
                 },
+
+
+
+                // Released between November 2024 and February 2025
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "openai/o1-pro",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "mistralai/mistral-small-24b-instruct-2501",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     SupportsStreaming = true,
-                    SupportsBatch = true,
+                    SupportsBatch = false,
                     Verified = false,
-                    Rank = 8420,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2025, 3, 19),
+                    Rank = 8460,
+                    ContextLimit = 32768,
+                    Created = new DateTime(2025, 1, 30),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00015m,
-                        Completion = 0.0006m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000008m),
+                        },
                     },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.000075m,
-                        Completion = 0.0003m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/o1-pro:batch" },
                 },
-
-
-
-                // Released between October 2024 and January 2025
 
                 new AIModelCapabilities
                 {
@@ -6769,13 +7939,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8415,
+                    Rank = 8455,
                     ContextLimit = 16384,
                     Created = new DateTime(2025, 1, 10),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000007m,
-                        Completion = 0.00000014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000007m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000014m),
+                        },
                     },
                 },
 
@@ -6787,13 +7960,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8410,
+                    Rank = 8450,
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 12, 5),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000035m,
-                        Completion = 0.00000014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000035m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000014m),
+                        },
                     },
                 },
 
@@ -6801,17 +7977,20 @@ namespace SmartHopper.Providers.OpenRouter
                 {
                     Provider = provider,
                     Model = "cohere/command-r7b-12-2024",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8405,
+                    Rank = 8445,
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 12, 14),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000000375m,
-                        Completion = 0.00000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000375m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000015m),
+                        },
                     },
                 },
 
@@ -6823,13 +8002,38 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8400,
+                    Rank = 8440,
                     ContextLimit = 300000,
                     Created = new DateTime(2024, 12, 5),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000006m,
-                        Completion = 0.00000024m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000006m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000024m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistralai/mistral-saba",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8435,
+                    ContextLimit = 32768,
+                    Created = new DateTime(2025, 2, 17),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
+                        },
                     },
                 },
 
@@ -6841,49 +8045,84 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8395,
+                    Rank = 8430,
                     ContextLimit = 131072,
                     Created = new DateTime(2024, 12, 6),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.00000032m,
-                        InputCacheRead = 0.00000011m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000071m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000071m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000071m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "thedrummer/unslopnemo-12b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8390,
-                    ContextLimit = 1024000,
-                    Created = new DateTime(2024, 11, 8),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000004m,
-                        Completion = 0.0000004m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen-2.5-coder-32b-instruct",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    Model = "qwen/qwen-plus",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8385,
-                    ContextLimit = 32768,
-                    Created = new DateTime(2024, 11, 11),
+                    Rank = 8425,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2025, 2, 1),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000066m,
-                        Completion = 0.000001m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000026m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000078m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000052m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000325m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen2.5-vl-72b-instruct",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8420,
+                    ContextLimit = 128000,
+                    Created = new DateTime(2025, 2, 1),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000008m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000004m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "perplexity/sonar",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8415,
+                    ContextLimit = 127072,
+                    Created = new DateTime(2025, 1, 27),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+                        },
                     },
                 },
 
@@ -6895,31 +8134,37 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8380,
+                    Rank = 8410,
                     ContextLimit = 163840,
                     Created = new DateTime(2024, 12, 26),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000002574m,
-                        Completion = 0.0000010287m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002574m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000010287m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "minimax/minimax-01",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput,
+                    Model = "aion-labs/aion-rp-llama-3.1-8b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8375,
-                    ContextLimit = 1000192,
-                    Created = new DateTime(2025, 1, 15),
+                    Rank = 8405,
+                    ContextLimit = 32768,
+                    Created = new DateTime(2025, 2, 4),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000002m,
-                        Completion = 0.0000011m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000008m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000016m),
+                        },
                     },
                 },
 
@@ -6931,103 +8176,22 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8370,
+                    Rank = 8400,
                     ContextLimit = 300000,
                     Created = new DateTime(2024, 12, 5),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000008m,
-                        Completion = 0.0000032m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000008m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000032m),
+                        },
                     },
                 },
 
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "mistralai/mistral-large-2407",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8365,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2024, 11, 19),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000002m,
-                        Completion = 0.000006m,
-                        InputCacheRead = 0.0000002m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/gpt-4o-2024-11-20",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8360,
-                    ContextLimit = 128000,
-                    Created = new DateTime(2024, 11, 20),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000025m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.00000125m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/o1",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8355,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2024, 12, 17),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000015m,
-                        Completion = 0.00006m,
-                        InputCacheRead = 0.0000075m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000075m,
-                        Completion = 0.00003m,
-                        InputCacheRead = 0.00000375m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/o1:batch" },
-                },
 
 
-
-                // Released before October 2024 or unknown release date
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openrouter/auto",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8350,
-                    ContextLimit = 2000000,
-                    Created = new DateTime(2023, 11, 8),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = -1m,
-                        Completion = -1m,
-                    },
-                },
+                // Released before November 2024 or unknown release date
 
                 new AIModelCapabilities
                 {
@@ -7037,31 +8201,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8345,
+                    Rank = 8395,
                     ContextLimit = 131072,
                     Created = new DateTime(2024, 7, 19),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000029m,
-                        Completion = 0.00000003m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "sao10k/l3-lunaris-8b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8340,
-                    ContextLimit = 8192,
-                    Created = new DateTime(2024, 8, 13),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000004m,
-                        Completion = 0.00000005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000029m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000003m),
+                        },
                     },
                 },
 
@@ -7073,86 +8222,58 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8335,
+                    Rank = 8390,
                     ContextLimit = 131072,
                     Created = new DateTime(2024, 7, 23),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000005m,
-                        Completion = 0.00000008m,
-                        InputCacheRead = 0.000000025m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000004m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gryphe/mythomax-l2-13b",
+                    Model = "sao10k/l3-lunaris-8b",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8330,
+                    Rank = 8385,
                     ContextLimit = 8192,
-                    Created = new DateTime(2023, 7, 2),
+                    Created = new DateTime(2024, 8, 13),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000008m,
-                        Completion = 0.00000011m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000005m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "qwen/qwen-2.5-7b-instruct",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8325,
-                    ContextLimit = 32768,
-                    Created = new DateTime(2024, 10, 16),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000002m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "meta-llama/llama-3.2-1b-instruct",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8320,
-                    ContextLimit = 60000,
-                    Created = new DateTime(2024, 9, 25),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000000027m,
-                        Completion = 0.000000201m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "meta-llama/llama-3.2-3b-instruct",
+                    Model = "thedrummer/unslopnemo-12b",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8315,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2024, 9, 25),
+                    Rank = 8380,
+                    ContextLimit = 1024000,
+                    Created = new DateTime(2024, 11, 8),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000005m,
-                        Completion = 0.00000033m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                        },
                     },
                 },
 
@@ -7164,31 +8285,82 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8310,
+                    Rank = 8375,
                     ContextLimit = 32768,
                     Created = new DateTime(2024, 9, 19),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000036m,
-                        Completion = 0.0000004m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000036m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "meta-llama/llama-3.1-70b-instruct",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    Model = "mancer/weaver",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8305,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2024, 7, 23),
+                    Rank = 8370,
+                    ContextLimit = 8000,
+                    Created = new DateTime(2023, 8, 2),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000004m,
-                        Completion = 0.0000004m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000003m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "undi95/remm-slerp-l2-13b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8365,
+                    ContextLimit = 6144,
+                    Created = new DateTime(2023, 7, 22),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gryphe/mythomax-l2-13b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8360,
+                    ContextLimit = 8192,
+                    Created = new DateTime(2023, 7, 2),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                        },
                     },
                 },
 
@@ -7200,13 +8372,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8300,
+                    Rank = 8355,
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 8, 30),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000015m,
-                        Completion = 0.0000006m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                        },
                     },
                 },
 
@@ -7218,21 +8393,27 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8295,
+                    Rank = 8350,
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 7, 18),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000015m,
-                        Completion = 0.0000006m,
-                        InputCacheRead = 0.000000075m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000000075m,
-                        Completion = 0.0000003m,
-                        InputCacheRead = 0.0000000375m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000375m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-4o-mini:batch" },
                 },
@@ -7245,14 +8426,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8290,
+                    Rank = 8345,
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 7, 18),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000015m,
-                        Completion = 0.0000006m,
-                        InputCacheRead = 0.000000075m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                        },
                     },
                 },
 
@@ -7264,49 +8448,37 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8285,
+                    Rank = 8340,
                     ContextLimit = 8192,
                     Created = new DateTime(2024, 7, 13),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000065m,
-                        Completion = 0.00000065m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000065m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000065m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "undi95/remm-slerp-l2-13b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    Model = "meta-llama/llama-3.1-70b-instruct",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8280,
-                    ContextLimit = 6144,
-                    Created = new DateTime(2023, 7, 22),
+                    Rank = 8335,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2024, 7, 23),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000035m,
-                        Completion = 0.00000065m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "mancer/weaver",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8275,
-                    ContextLimit = 8000,
-                    Created = new DateTime(2023, 8, 2),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000004m,
-                        Completion = 0.00000075m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000072m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000072m),
+                        },
                     },
                 },
 
@@ -7318,13 +8490,37 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8270,
+                    Rank = 8330,
                     ContextLimit = 131072,
                     Created = new DateTime(2024, 8, 28),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000085m,
-                        Completion = 0.00000085m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000085m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000085m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen-2.5-coder-32b-instruct",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8325,
+                    ContextLimit = 32768,
+                    Created = new DateTime(2024, 11, 11),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000066m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                        },
                     },
                 },
 
@@ -7336,13 +8532,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8265,
+                    Rank = 8320,
                     ContextLimit = 4095,
                     Created = new DateTime(2024, 1, 25),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000001m,
-                        Completion = 0.000002m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                        },
                     },
                 },
 
@@ -7354,13 +8553,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8260,
+                    Rank = 8315,
                     ContextLimit = 16385,
                     Created = new DateTime(2023, 8, 28),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000003m,
-                        Completion = 0.000004m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004m),
+                        },
                     },
                 },
 
@@ -7372,13 +8574,39 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8255,
+                    Rank = 8310,
                     ContextLimit = 32768,
                     Created = new DateTime(2024, 10, 22),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000025m,
-                        Completion = 0.000005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000025m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistralai/mistral-large-2407",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8305,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2024, 11, 19),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                        },
                     },
                 },
 
@@ -7390,14 +8618,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8250,
+                    Rank = 8300,
                     ContextLimit = 65536,
                     Created = new DateTime(2024, 4, 17),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000006m,
-                        InputCacheRead = 0.0000002m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                        },
                     },
                 },
 
@@ -7409,14 +8640,39 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8245,
+                    Rank = 8295,
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 2, 26),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000006m,
-                        InputCacheRead = 0.0000002m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-4o-2024-11-20",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8290,
+                    ContextLimit = 128000,
+                    Created = new DateTime(2024, 11, 20),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000125m),
+                        },
                     },
                 },
 
@@ -7428,13 +8684,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8240,
+                    Rank = 8285,
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 8, 30),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000025m,
-                        Completion = 0.00001m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                        },
                     },
                 },
 
@@ -7446,14 +8705,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8235,
+                    Rank = 8280,
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 8, 6),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000025m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.00000125m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000125m),
+                        },
                     },
                 },
 
@@ -7465,21 +8727,27 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8230,
+                    Rank = 8275,
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 5, 13),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000025m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.00000125m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000125m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.00000125m,
-                        Completion = 0.000005m,
-                        InputCacheRead = 0.000000625m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000625m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-4o:batch" },
                 },
@@ -7492,39 +8760,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8225,
+                    Rank = 8270,
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 5, 13),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000005m,
-                        Completion = 0.000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                        },
                     },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/gpt-4-turbo",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8220,
-                    ContextLimit = 128000,
-                    Created = new DateTime(2024, 4, 9),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00001m,
-                        Completion = 0.00003m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.000005m,
-                        Completion = 0.000015m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/gpt-4-turbo:batch" },
                 },
 
                 new AIModelCapabilities
@@ -7535,13 +8781,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8215,
+                    Rank = 8265,
                     ContextLimit = 8191,
                     Created = new DateTime(2023, 5, 28),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00003m,
-                        Completion = 0.00006m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00006m),
+                        },
                     },
                 },
 
@@ -7552,115 +8801,22 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "dots-studio/dots-3-note-preview:free",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "unbiased/pareto-26.10-preview",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
                     Rank = 0,
-                    ContextLimit = 512000,
-                    Created = new DateTime(2026, 8, 14),
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "bytedance-seed/seed-2.0-code",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -5,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 8, 12),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000005m,
-                        Completion = 0.000003m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "poolside/laguna-s-2.1:free",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -10,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 7, 21),
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "poolside/laguna-xs-2.1:free",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -15,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 7, 2),
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "poolside/laguna-xs-2.1",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -20,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 7, 2),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000006m,
-                        Completion = 0.00000012m,
-                        InputCacheRead = 0.00000003m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "poolside/laguna-s-2.1",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -25,
                     ContextLimit = 1048576,
-                    Created = new DateTime(2026, 7, 21),
+                    Created = new DateTime(2026, 10, 1),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000009m,
-                        Completion = 0.00000018m,
-                        InputCacheRead = 0.000000009m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "xiaomi/mimo-v2.5",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -30,
-                    ContextLimit = 1050000,
-                    Created = new DateTime(2026, 4, 22),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000000119m,
-                        Completion = 0.000000238m,
-                        InputCacheRead = 0.00000000255m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000008m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000032m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                        },
                     },
                 },
 
@@ -7673,18 +8829,25 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -35,
+                    Rank = -5,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 3, 10),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000017m,
-                        Completion = 0.00000025m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000017m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000153m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.00000017m,
-                        Completion = 0.00000025m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000017m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000025m),
+                        },
                     },
                     Aliases = new List<string> { "qwen/qwen3.5-9b:batch" },
                 },
@@ -7698,34 +8861,40 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -40,
-                    ContextLimit = 1050000,
+                    Rank = -10,
+                    ContextLimit = 262144,
                     Created = new DateTime(2026, 4, 22),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000003045m,
-                        Completion = 0.000000609m,
-                        InputCacheRead = 0.0000000028m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000048m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000018m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000096m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "arcee-ai/trinity-large-thinking",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    Model = "xiaomi/mimo-v2.5",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -45,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 4, 1),
+                    Rank = -15,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 4, 22),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000025m,
-                        Completion = 0.0000008m,
-                        InputCacheRead = 0.00000006m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000008m),
+                        },
                     },
                 },
 
@@ -7738,34 +8907,93 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -50,
+                    Rank = -20,
                     ContextLimit = 202752,
                     Created = new DateTime(2026, 4, 1),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000012m,
-                        Completion = 0.000004m,
-                        InputCacheRead = 0.00000024m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000012m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000024m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "bytedance-seed/seed-1.6-flash",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "z-ai/glm-5.1",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -55,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2025, 12, 23),
+                    Rank = -25,
+                    ContextLimit = 204800,
+                    Created = new DateTime(2026, 4, 7),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000075m,
-                        Completion = 0.0000003m,
-                        InputCacheRead = 0.000000045m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000014m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000044m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000026m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistralai/mistral-medium-3-5",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -30,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 4, 30),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000075m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000375m),
+                        },
+                    },
+                    Aliases = new List<string> { "mistralai/mistral-medium-3-5:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek/deepseek-v3.2",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -35,
+                    ContextLimit = 163840,
+                    Created = new DateTime(2025, 12, 1),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000026m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000038m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000013m),
+                        },
                     },
                 },
 
@@ -7778,93 +9006,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -60,
+                    Rank = -40,
                     ContextLimit = 200000,
                     Created = new DateTime(2026, 1, 19),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000000605m,
-                        Completion = 0.0000004m,
-                        InputCacheRead = 0.00000001m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek/deepseek-v3.2",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -65,
-                    ContextLimit = 163840,
-                    Created = new DateTime(2025, 12, 1),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000028m,
-                        Completion = 0.00000042m,
-                        InputCacheRead = 0.000000028m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "minimax/minimax-m2.1",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -70,
-                    ContextLimit = 204800,
-                    Created = new DateTime(2025, 12, 23),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000012m,
-                        InputCacheRead = 0.00000003m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "z-ai/glm-4.7",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -75,
-                    ContextLimit = 204800,
-                    Created = new DateTime(2025, 12, 22),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000054m,
-                        Completion = 0.00000198m,
-                        InputCacheRead = 0.000000099m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "bytedance-seed/seed-1.6",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -80,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2025, 12, 23),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000025m,
-                        Completion = 0.000002m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000605m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                        },
                     },
                 },
 
@@ -7877,35 +9029,40 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -85,
+                    Rank = -45,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 12, 9),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000004m,
-                        Completion = 0.000002m,
-                        InputCacheRead = 0.00000004m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000004m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "openai/gpt-5.2-chat",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    Model = "z-ai/glm-4.7",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -90,
-                    ContextLimit = 128000,
-                    Created = new DateTime(2025, 12, 10),
+                    Rank = -50,
+                    ContextLimit = 204800,
+                    Created = new DateTime(2025, 12, 22),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000175m,
-                        Completion = 0.000014m,
-                        InputCacheRead = 0.000000175m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000022m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000011m),
+                        },
                     },
                 },
 
@@ -7918,13 +9075,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -95,
+                    Rank = -55,
                     ContextLimit = 163840,
                     Created = new DateTime(2025, 9, 29),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000027m,
-                        Completion = 0.00000041m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000027m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000041m),
+                        },
                     },
                 },
 
@@ -7937,33 +9097,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -100,
+                    Rank = -60,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 10, 14),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000025m,
-                        Completion = 0.00000075m,
-                        InputCacheRead = 0.00000012m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3-vl-30b-a3b-thinking",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -105,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2025, 10, 6),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000029m,
-                        Completion = 0.000001m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000012m),
+                        },
                     },
                 },
 
@@ -7976,53 +9120,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -110,
+                    Rank = -65,
                     ContextLimit = 163840,
                     Created = new DateTime(2025, 9, 22),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000027m,
-                        Completion = 0.000001m,
-                        InputCacheRead = 0.000000135m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3-next-80b-a3b-thinking",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -115,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2025, 9, 11),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000015m,
-                        Completion = 0.0000012m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "z-ai/glm-4.5v",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -120,
-                    ContextLimit = 65536,
-                    Created = new DateTime(2025, 8, 11),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000006m,
-                        Completion = 0.0000018m,
-                        InputCacheRead = 0.00000011m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000027m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000135m),
+                        },
                     },
                 },
 
@@ -8035,34 +9143,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -125,
+                    Rank = -70,
                     ContextLimit = 204800,
                     Created = new DateTime(2025, 9, 30),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000055m,
-                        Completion = 0.0000022m,
-                        InputCacheRead = 0.00000011m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "z-ai/glm-4.5",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -130,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2025, 7, 25),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000006m,
-                        Completion = 0.0000022m,
-                        InputCacheRead = 0.00000011m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                        },
                     },
                 },
 
@@ -8075,33 +9166,41 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -135,
+                    Rank = -75,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 9, 4),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000006m,
-                        Completion = 0.0000025m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "qwen/qwen3-235b-a22b-thinking-2507",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    Model = "openai/gpt-5-image-mini",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -140,
-                    ContextLimit = 128000,
-                    Created = new DateTime(2025, 7, 25),
+                    Rank = -80,
+                    ContextLimit = 400000,
+                    Created = new DateTime(2025, 10, 16),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000045m,
-                        Completion = 0.0000035m,
-                        InputCacheRead = 0.0000001m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("image_output", AIPriceUnit.Token, 0.000008m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -8114,22 +9213,119 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -145,
+                    Rank = -85,
                     ContextLimit = 32768,
                     Created = new DateTime(2025, 10, 7),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000025m,
-                        Image = 0.0000003m,
-                        ImageOutput = 0.00003m,
-                        Audio = 0.000001m,
-                        InputAudioCache = 0.0000001m,
-                        InputCacheRead = 0.00000003m,
-                        InputCacheWrite = 0.0000000833333333333333m,
-                        InternalReasoning = 0.0000025m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("image_output", AIPriceUnit.Token, 0.00003m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.0000003m),
+                        },
                     },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-5-image",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -90,
+                    ContextLimit = 400000,
+                    Created = new DateTime(2025, 10, 14),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("image_output", AIPriceUnit.Token, 0.00004m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-5-pro",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -95,
+                    ContextLimit = 400000,
+                    Created = new DateTime(2025, 10, 6),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00012m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00006m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/gpt-5-pro:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-5-nano",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -100,
+                    ContextLimit = 400000,
+                    Created = new DateTime(2025, 8, 7),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/gpt-5-nano:batch" },
                 },
 
                 new AIModelCapabilities
@@ -8141,33 +9337,144 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -150,
+                    Rank = -105,
                     ContextLimit = 1048576,
                     Created = new DateTime(2025, 7, 22),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000004m,
-                        Image = 0.0000001m,
-                        Audio = 0.0000003m,
-                        InputAudioCache = 0.00000003m,
-                        InputCacheRead = 0.00000001m,
-                        InputCacheWrite = 0.0000000833333333333333m,
-                        InternalReasoning = 0.0000004m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.00000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.0000001m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.00000005m,
-                        Completion = 0.0000002m,
-                        Image = 0.00000005m,
-                        Audio = 0.00000015m,
-                        InputAudioCache = 0.00000003m,
-                        InputCacheRead = 0.00000001m,
-                        InternalReasoning = 0.0000002m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.00000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
                     },
                     Aliases = new List<string> { "google/gemini-2.5-flash-lite:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "z-ai/glm-4.5v",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -110,
+                    ContextLimit = 65536,
+                    Created = new DateTime(2025, 8, 11),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000018m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000011m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-5-mini",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -115,
+                    ContextLimit = 400000,
+                    Created = new DateTime(2025, 8, 7),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/gpt-5-mini:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "z-ai/glm-4.5",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -120,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2025, 7, 25),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000022m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000011m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3-235b-a22b-thinking-2507",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -125,
+                    ContextLimit = 128000,
+                    Created = new DateTime(2025, 7, 25),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000045m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000035m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -8179,33 +9486,75 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -155,
+                    Rank = -130,
                     ContextLimit = 1048576,
                     Created = new DateTime(2025, 6, 17),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000025m,
-                        Image = 0.0000003m,
-                        Audio = 0.000001m,
-                        InputAudioCache = 0.0000001m,
-                        InputCacheRead = 0.00000003m,
-                        InputCacheWrite = 0.0000000833333333333333m,
-                        InternalReasoning = 0.0000025m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.0000003m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.00000015m,
-                        Completion = 0.00000125m,
-                        Image = 0.00000015m,
-                        Audio = 0.0000005m,
-                        InputAudioCache = 0.0000001m,
-                        InputCacheRead = 0.00000003m,
-                        InternalReasoning = 0.00000125m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
                     },
                     Aliases = new List<string> { "google/gemini-2.5-flash:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-5",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -135,
+                    ContextLimit = 400000,
+                    Created = new DateTime(2025, 8, 7),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000625m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000625m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/gpt-5:batch" },
                 },
 
                 new AIModelCapabilities
@@ -8217,31 +9566,38 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -160,
+                    Rank = -140,
                     ContextLimit = 1048576,
                     Created = new DateTime(2025, 6, 17),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000125m,
-                        Completion = 0.00001m,
-                        Image = 0.00000125m,
-                        Audio = 0.00000125m,
-                        InputAudioCache = 0.000000125m,
-                        InputCacheRead = 0.000000125m,
-                        InputCacheWrite = 0.000000375m,
-                        InternalReasoning = 0.00001m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000375m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.00000125m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000000625m,
-                        Completion = 0.000005m,
-                        Image = 0.000000625m,
-                        Audio = 0.000000625m,
-                        InputAudioCache = 0.000000125m,
-                        InputCacheRead = 0.000000125m,
-                        InternalReasoning = 0.000005m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000625m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000000625m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000000625m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
                     },
                     Aliases = new List<string> { "google/gemini-2.5-pro:batch" },
                 },
@@ -8249,38 +9605,90 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "nousresearch/hermes-3-llama-3.1-70b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    Model = "openai/o3-pro",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
-                    SupportsBatch = false,
+                    SupportsBatch = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -165,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2024, 8, 18),
+                    Rank = -145,
+                    ContextLimit = 200000,
+                    Created = new DateTime(2025, 6, 10),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000007m,
-                        Completion = 0.0000007m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00008m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00004m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/o3-pro:batch" },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "nousresearch/hermes-3-llama-3.1-405b",
+                    Model = "openai/o3",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -150,
+                    ContextLimit = 200000,
+                    Created = new DateTime(2025, 4, 16),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000008m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/o3:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "meta-llama/llama-3.2-3b-instruct",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -170,
+                    Rank = -155,
                     ContextLimit = 131072,
-                    Created = new DateTime(2024, 8, 16),
+                    Created = new DateTime(2024, 9, 25),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000001m,
-                        Completion = 0.000001m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000033m),
+                        },
                     },
                 },
 
@@ -8293,15 +9701,18 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -175,
+                    Rank = -160,
                     ContextLimit = 1050000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.0000002m,
-                        InputCacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -8314,12 +9725,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -180,
+                    Rank = -165,
                     ContextLimit = 256000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000008m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000008m),
+                        },
                     },
                 },
 
@@ -8331,12 +9745,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -185,
+                    Rank = -170,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000004m,
-                        Completion = 0.000008m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000008m),
+                        },
                     },
                 },
 
@@ -8349,12 +9766,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -190,
+                    Rank = -175,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000007m,
-                        Completion = 0.0000014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000007m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000014m),
+                        },
                     },
                 },
 
@@ -8367,7 +9787,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -195,
+                    Rank = -180,
                     ContextLimit = 131072,
                 },
 
@@ -8380,13 +9800,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -200,
+                    Rank = -185,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000009m,
-                        Completion = 0.00000045m,
-                        InputCacheRead = 0.00000009m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000009m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000045m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000009m),
+                        },
                     },
                 },
 
@@ -8399,12 +9822,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -205,
+                    Rank = -190,
                     ContextLimit = 65536,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000015m,
-                        Completion = 0.0000005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                        },
                     },
                 },
 
@@ -8417,7 +9843,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -210,
+                    Rank = -195,
                     ContextLimit = 65536,
                 },
 
@@ -8430,12 +9856,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -215,
+                    Rank = -200,
                     ContextLimit = 6144,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000375m,
-                        Completion = 0.0000075m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000375m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000075m),
+                        },
                     },
                 },
 
@@ -8448,15 +9877,18 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -220,
+                    Rank = -205,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000025m,
-                        Completion = 0.00000125m,
-                        InputCacheRead = 0.00000003m,
-                        InputCacheWrite = 0.0000003m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -8469,15 +9901,18 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -225,
+                    Rank = -210,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000008m,
-                        Completion = 0.000004m,
-                        InputCacheRead = 0.00000008m,
-                        InputCacheWrite = 0.000001m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000008m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000008m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -8490,15 +9925,18 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -230,
+                    Rank = -215,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000003m,
-                        Completion = 0.000015m,
-                        InputCacheRead = 0.0000003m,
-                        InputCacheWrite = 0.00000375m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000375m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -8511,15 +9949,18 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -235,
+                    Rank = -220,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000003m,
-                        Completion = 0.000015m,
-                        InputCacheRead = 0.0000003m,
-                        InputCacheWrite = 0.00000375m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000375m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -8532,15 +9973,18 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -240,
+                    Rank = -225,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000015m,
-                        Completion = 0.000075m,
-                        InputCacheRead = 0.0000015m,
-                        InputCacheWrite = 0.00001875m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000075m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00001875m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -8553,15 +9997,18 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -245,
+                    Rank = -230,
                     ContextLimit = 1000000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00003m,
-                        Completion = 0.00015m,
-                        InputCacheRead = 0.000003m,
-                        InputCacheWrite = 0.0000375m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000375m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -8573,15 +10020,18 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -250,
+                    Rank = -235,
                     ContextLimit = 1000000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00003m,
-                        Completion = 0.00015m,
-                        InputCacheRead = 0.000003m,
-                        InputCacheWrite = 0.0000375m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000375m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -8593,15 +10043,18 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -255,
+                    Rank = -240,
                     ContextLimit = 1000000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00001m,
-                        Completion = 0.00005m,
-                        InputCacheRead = 0.000001m,
-                        InputCacheWrite = 0.0000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -8613,15 +10066,18 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -260,
+                    Rank = -245,
                     ContextLimit = 1000000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00001m,
-                        Completion = 0.00005m,
-                        InputCacheRead = 0.000001m,
-                        InputCacheWrite = 0.0000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -8634,15 +10090,18 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -265,
+                    Rank = -250,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000003m,
-                        Completion = 0.000015m,
-                        InputCacheRead = 0.0000003m,
-                        InputCacheWrite = 0.00000375m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000375m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -8654,7 +10113,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -270,
+                    Rank = -255,
                     ContextLimit = 262144,
                 },
 
@@ -8667,13 +10126,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -275,
+                    Rank = -260,
                     ContextLimit = 32768,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000005m,
-                        Completion = 0.0000008m,
-                        InputCacheRead = 0.00000025m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000008m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                        },
                     },
                 },
 
@@ -8686,7 +10148,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -280,
+                    Rank = -265,
                     ContextLimit = 131072,
                 },
 
@@ -8699,12 +10161,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -285,
+                    Rank = -270,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000008m,
-                        Completion = 0.00000016m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000008m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000016m),
+                        },
                     },
                 },
 
@@ -8717,12 +10182,37 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -290,
+                    Rank = -275,
                     ContextLimit = 131000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000015m,
-                        Completion = 0.00000045m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000045m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "arcee-ai/trinity-large-thinking",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -280,
+                    ContextLimit = 262144,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000008m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000006m),
+                        },
                     },
                 },
 
@@ -8735,12 +10225,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -295,
+                    Rank = -285,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000045m,
-                        Completion = 0.00000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000045m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000015m),
+                        },
                     },
                 },
 
@@ -8753,12 +10246,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -300,
+                    Rank = -290,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000075m,
-                        Completion = 0.0000012m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                        },
                     },
                 },
 
@@ -8771,12 +10267,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -305,
+                    Rank = -295,
                     ContextLimit = 120000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000007m,
-                        Completion = 0.00000028m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000007m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000028m),
+                        },
                     },
                 },
 
@@ -8789,12 +10288,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -310,
+                    Rank = -300,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000007m,
-                        Completion = 0.00000028m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000007m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000028m),
+                        },
                     },
                 },
 
@@ -8807,12 +10309,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -315,
+                    Rank = -305,
                     ContextLimit = 123000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000028m,
-                        Completion = 0.0000011m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000028m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000011m),
+                        },
                     },
                 },
 
@@ -8825,12 +10330,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -320,
+                    Rank = -310,
                     ContextLimit = 30000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000014m,
-                        Completion = 0.00000056m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000014m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000056m),
+                        },
                     },
                 },
 
@@ -8843,12 +10351,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -325,
+                    Rank = -315,
                     ContextLimit = 123000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000042m,
-                        Completion = 0.00000125m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000042m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000125m),
+                        },
                     },
                 },
 
@@ -8861,8 +10372,71 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -330,
+                    Rank = -320,
                     ContextLimit = 65536,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "bytedance-seed/seed-1.6",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -325,
+                    ContextLimit = 262144,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "bytedance-seed/seed-1.6-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -330,
+                    ContextLimit = 262144,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000045m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "bytedance-seed/seed-2.0-code",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -335,
+                    ContextLimit = 262144,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000003m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -8874,8 +10448,28 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -335,
+                    Rank = -340,
                     ContextLimit = 32768,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "cohere/north-mini-code:free",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -345,
+                    ContextLimit = 256000,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -8887,12 +10481,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -340,
+                    Rank = -350,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000125m,
-                        Completion = 0.00000125m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000125m),
+                        },
                     },
                 },
 
@@ -8905,12 +10502,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -345,
+                    Rank = -355,
                     ContextLimit = 64000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000007m,
-                        Completion = 0.0000025m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000007m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                        },
                     },
                 },
 
@@ -8923,12 +10523,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -350,
+                    Rank = -360,
                     ContextLimit = 8192,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000008m,
-                        Completion = 0.0000008m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000008m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000008m),
+                        },
                     },
                 },
 
@@ -8941,12 +10544,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -355,
+                    Rank = -365,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000029m,
-                        Completion = 0.00000029m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000029m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000029m),
+                        },
                     },
                 },
 
@@ -8959,8 +10565,28 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -360,
+                    Rank = -370,
                     ContextLimit = 163840,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "dots-studio/dots-3-note-preview:free",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -375,
+                    ContextLimit = 512000,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -8972,12 +10598,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -365,
+                    Rank = -380,
                     ContextLimit = 32768,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000015m,
-                        Completion = 0.00000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000015m),
+                        },
                     },
                 },
 
@@ -8990,7 +10619,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -370,
+                    Rank = -385,
                     ContextLimit = 1000000,
                 },
 
@@ -9003,16 +10632,19 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -375,
+                    Rank = -390,
                     ContextLimit = 1048576,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000075m,
-                        Completion = 0.0000003m,
-                        Image = 0.000000075m,
-                        Audio = 0.000000075m,
-                        InternalReasoning = 0.0000003m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
                     },
                 },
 
@@ -9025,18 +10657,21 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -380,
+                    Rank = -395,
                     ContextLimit = 1048576,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000004m,
-                        Image = 0.0000001m,
-                        Audio = 0.0000003m,
-                        InputCacheRead = 0.00000001m,
-                        InputCacheWrite = 0.00000008333333333333334m,
-                        InternalReasoning = 0.0000004m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000008333333333333334m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
                     },
                 },
 
@@ -9049,19 +10684,22 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -385,
+                    Rank = -400,
                     ContextLimit = 1048576,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000125m,
-                        Completion = 0.00001m,
-                        Image = 0.00000125m,
-                        Audio = 0.00000125m,
-                        InputAudioCache = 0.000000125m,
-                        InputCacheRead = 0.000000125m,
-                        InputCacheWrite = 0.000000375m,
-                        InternalReasoning = 0.00001m,
-                        WebSearch = 0.014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000375m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
                     },
                 },
 
@@ -9074,7 +10712,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -390,
+                    Rank = -405,
                     ContextLimit = 32768,
                 },
 
@@ -9087,7 +10725,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -395,
+                    Rank = -410,
                     ContextLimit = 131072,
                 },
 
@@ -9100,7 +10738,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -400,
+                    Rank = -415,
                     ContextLimit = 32768,
                 },
 
@@ -9113,12 +10751,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -405,
+                    Rank = -420,
                     ContextLimit = 8192,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000003m,
-                        Completion = 0.00000004m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000004m),
+                        },
                     },
                 },
 
@@ -9131,12 +10772,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -410,
+                    Rank = -425,
                     ContextLimit = 32768,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000006m,
-                        Completion = 0.00000012m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000006m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000012m),
+                        },
                     },
                 },
 
@@ -9149,8 +10793,29 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -415,
+                    Rank = -430,
                     ContextLimit = 8192,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "ibm-granite/granite-4.0-h-micro",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -435,
+                    ContextLimit = 131000,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000017m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000112m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -9162,13 +10827,59 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -420,
+                    Rank = -440,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000005m,
-                        Completion = 0.0000001m,
-                        InputCacheRead = 0.00000005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "inception/mercury-2",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -445,
+                    ContextLimit = 128000,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "inception/mercury-2.5",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -450,
+                    ContextLimit = 260000,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000004m),
+                        },
                     },
                 },
 
@@ -9180,13 +10891,37 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -425,
+                    Rank = -455,
                     ContextLimit = 260000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000004m,
-                        Completion = 0.00000015m,
-                        InputCacheRead = 0.000000004m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000004m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "inception/mercury-3",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -460,
+                    ContextLimit = 1000000,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000035m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                        },
                     },
                 },
 
@@ -9198,13 +10933,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -430,
+                    Rank = -465,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000075m,
-                        Completion = 0.000000625m,
-                        InputCacheRead = 0.000000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000625m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+                        },
                     },
                 },
 
@@ -9217,7 +10955,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -435,
+                    Rank = -470,
                     ContextLimit = 262144,
                 },
 
@@ -9230,13 +10968,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -440,
+                    Rank = -475,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000001m,
-                        Completion = 0.00000003m,
-                        InputCacheRead = 0.000000002m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000002m),
+                        },
                     },
                 },
 
@@ -9248,13 +10989,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -445,
+                    Rank = -480,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000042m,
-                        Completion = 0.0000001232m,
-                        InputCacheRead = 0.0000000084m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000042m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000001232m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000084m),
+                        },
                     },
                 },
 
@@ -9266,7 +11010,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -450,
+                    Rank = -485,
                     ContextLimit = 262144,
                 },
 
@@ -9278,13 +11022,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -455,
+                    Rank = -490,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000042m,
-                        Completion = 0.0000001232m,
-                        InputCacheRead = 0.0000000084m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000042m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000001232m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000084m),
+                        },
                     },
                 },
 
@@ -9296,7 +11043,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -460,
+                    Rank = -495,
                     ContextLimit = 262144,
                 },
 
@@ -9308,7 +11055,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -465,
+                    Rank = -500,
                     ContextLimit = 262144,
                 },
 
@@ -9320,7 +11067,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -470,
+                    Rank = -505,
                     ContextLimit = 262144,
                 },
 
@@ -9332,13 +11079,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -475,
+                    Rank = -510,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000075m,
-                        Completion = 0.000000625m,
-                        InputCacheRead = 0.000000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000625m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+                        },
                     },
                 },
 
@@ -9350,7 +11100,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -480,
+                    Rank = -515,
                     ContextLimit = 262144,
                 },
 
@@ -9363,12 +11113,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -485,
+                    Rank = -520,
                     ContextLimit = 8000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000025m,
-                        Completion = 0.00001m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                        },
                     },
                 },
 
@@ -9381,12 +11134,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -490,
+                    Rank = -525,
                     ContextLimit = 8000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000025m,
-                        Completion = 0.00001m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                        },
                     },
                 },
 
@@ -9398,13 +11154,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -495,
+                    Rank = -530,
                     ContextLimit = 256000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000015m,
-                        Completion = 0.0000006m,
-                        InputCacheRead = 0.00000003m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                        },
                     },
                 },
 
@@ -9417,13 +11176,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -500,
+                    Rank = -535,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000012m,
-                        InputCacheRead = 0.00000006m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000006m),
+                        },
                     },
                 },
 
@@ -9435,13 +11197,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -505,
+                    Rank = -540,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000074m,
-                        Completion = 0.00000296m,
-                        InputCacheRead = 0.00000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000074m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000296m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                        },
                     },
                 },
 
@@ -9454,12 +11219,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -510,
+                    Rank = -545,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000003m,
-                        Completion = 0.00000012m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000012m),
+                        },
                     },
                 },
 
@@ -9472,7 +11240,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -515,
+                    Rank = -550,
                     ContextLimit = 32768,
                 },
 
@@ -9485,8 +11253,62 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -520,
+                    Rank = -555,
                     ContextLimit = 32768,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "liquid/lfm-2.5-2.6b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -560,
+                    ContextLimit = 128000,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000035m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000004m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "liquid/lfm-2.5-2.6b:free",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -565,
+                    ContextLimit = 65536,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "meituan/longcat-2.0",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -570,
+                    ContextLimit = 1048756,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000006m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -9498,12 +11320,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -525,
+                    Rank = -575,
                     ContextLimit = 8192,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000051m,
-                        Completion = 0.00000074m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000051m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000074m),
+                        },
                     },
                 },
 
@@ -9516,12 +11341,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -530,
+                    Rank = -580,
                     ContextLimit = 8192,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000014m,
-                        Completion = 0.00000014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000014m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000014m),
+                        },
                     },
                 },
 
@@ -9534,12 +11362,36 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -535,
+                    Rank = -585,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000345m,
-                        Completion = 0.000000345m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000345m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000345m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "meta-llama/llama-3.2-1b-instruct",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -590,
+                    ContextLimit = 60000,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000027m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000201m),
+                        },
                     },
                 },
 
@@ -9552,7 +11404,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -540,
+                    Rank = -595,
                     ContextLimit = 131072,
                 },
 
@@ -9565,7 +11417,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -545,
+                    Rank = -600,
                     ContextLimit = 131072,
                 },
 
@@ -9578,12 +11430,59 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -550,
+                    Rank = -605,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000048m,
-                        Completion = 0.00000003m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000048m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000003m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "meta/muse-spark-1.2-contributor",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -610,
+                    ContextLimit = 1048576,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000002m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.0025m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "meta/muse-spark-1.3-contributor",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -615,
+                    ContextLimit = 1048576,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000002m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.0025m),
+                        },
                     },
                 },
 
@@ -9595,13 +11494,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -555,
+                    Rank = -620,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000008m,
-                        Completion = 0.00000035m,
-                        InputCacheRead = 0.00000008m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000008m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000035m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000008m),
+                        },
                     },
                 },
 
@@ -9614,12 +11516,123 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -560,
+                    Rank = -625,
                     ContextLimit = 65535,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000062m,
-                        Completion = 0.00000062m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000062m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000062m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "minimax/minimax-01",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -630,
+                    ContextLimit = 1000192,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000011m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "minimax/minimax-m1",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -635,
+                    ContextLimit = 1000000,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000055m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000022m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "minimax/minimax-m2",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -640,
+                    ContextLimit = 204800,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000255m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000102m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "minimax/minimax-m2-her",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -645,
+                    ContextLimit = 65536,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "minimax/minimax-m2.1",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -650,
+                    ContextLimit = 204800,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                        },
                     },
                 },
 
@@ -9632,7 +11645,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -565,
+                    Rank = -655,
                     ContextLimit = 196608,
                 },
 
@@ -9644,7 +11657,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -570,
+                    Rank = -660,
                     ContextLimit = 196608,
                 },
 
@@ -9656,7 +11669,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -575,
+                    Rank = -665,
                     ContextLimit = 1048576,
                 },
 
@@ -9669,13 +11682,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -580,
+                    Rank = -670,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000004m,
-                        Completion = 0.000002m,
-                        InputCacheRead = 0.00000004m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000004m),
+                        },
                     },
                 },
 
@@ -9688,13 +11704,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -585,
+                    Rank = -675,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000003m,
-                        InputCacheRead = 0.00000001m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                        },
                     },
                 },
 
@@ -9706,12 +11725,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -590,
+                    Rank = -680,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000011m,
-                        Completion = 0.00000011m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000011m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000011m),
+                        },
                     },
                 },
 
@@ -9724,7 +11746,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -595,
+                    Rank = -685,
                     ContextLimit = 2824,
                 },
 
@@ -9737,13 +11759,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -600,
+                    Rank = -690,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000006m,
-                        InputCacheRead = 0.0000002m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                        },
                     },
                 },
 
@@ -9756,7 +11781,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -605,
+                    Rank = -695,
                     ContextLimit = 32768,
                 },
 
@@ -9769,13 +11794,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -610,
+                    Rank = -700,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000006m,
-                        InputCacheRead = 0.0000002m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                        },
                     },
                 },
 
@@ -9788,12 +11816,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -615,
+                    Rank = -705,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000135m,
-                        Completion = 0.0000005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000135m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                        },
                     },
                 },
 
@@ -9805,13 +11836,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -620,
+                    Rank = -710,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000025m,
-                        Completion = 0.0000001m,
-                        InputCacheRead = 0.0000000025m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000025m),
+                        },
                     },
                 },
 
@@ -9823,13 +11857,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -625,
+                    Rank = -715,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000025m,
-                        Completion = 0.000001m,
-                        InputCacheRead = 0.000000025m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+                        },
                     },
                 },
 
@@ -9841,7 +11878,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -630,
+                    Rank = -720,
                     ContextLimit = 262144,
                 },
 
@@ -9853,7 +11890,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -635,
+                    Rank = -725,
                     ContextLimit = 262144,
                 },
 
@@ -9865,7 +11902,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -640,
+                    Rank = -730,
                     ContextLimit = 262144,
                 },
 
@@ -9878,12 +11915,36 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -645,
+                    Rank = -735,
                     ContextLimit = 8192,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000014m,
-                        Completion = 0.00000014m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000014m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000014m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "nousresearch/hermes-3-llama-3.1-405b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -740,
+                    ContextLimit = 131072,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                        },
                     },
                 },
 
@@ -9896,8 +11957,29 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -650,
+                    Rank = -745,
                     ContextLimit = 131072,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "nousresearch/hermes-3-llama-3.1-70b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -750,
+                    ContextLimit = 131072,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000007m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000007m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -9909,12 +11991,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -655,
+                    Rank = -755,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000013m,
-                        Completion = 0.0000004m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000013m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                        },
                     },
                 },
 
@@ -9927,12 +12012,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -660,
+                    Rank = -760,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000004m,
-                        Completion = 0.0000004m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                        },
                     },
                 },
 
@@ -9945,8 +12033,33 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -665,
+                    Rank = -765,
                     ContextLimit = 256000,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "nvidia/nemotron-3-super-120b-a12b:free",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -770,
+                    ContextLimit = 262144,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "nvidia/nemotron-3.5-content-safety:free",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -775,
+                    ContextLimit = 128000,
                 },
 
                 new AIModelCapabilities
@@ -9958,7 +12071,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -670,
+                    Rank = -780,
                     ContextLimit = 128000,
                 },
 
@@ -9971,7 +12084,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -675,
+                    Rank = -785,
                     ContextLimit = 131072,
                 },
 
@@ -9984,7 +12097,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -680,
+                    Rank = -790,
                     ContextLimit = 128000,
                 },
 
@@ -9997,18 +12110,24 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -685,
+                    Rank = -795,
                     ContextLimit = 16385,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000005m,
-                        Completion = 0.0000015m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.00000025m,
-                        Completion = 0.00000075m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-3.5-turbo:batch" },
                 },
@@ -10022,12 +12141,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -690,
+                    Rank = -800,
                     ContextLimit = 4095,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000015m,
-                        Completion = 0.000002m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                        },
                     },
                 },
 
@@ -10040,12 +12162,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -695,
+                    Rank = -805,
                     ContextLimit = 8191,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00003m,
-                        Completion = 0.00006m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00006m),
+                        },
                     },
                 },
 
@@ -10058,13 +12183,47 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -700,
+                    Rank = -810,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00001m,
-                        Completion = 0.00003m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00003m),
+                        },
                     },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-4-turbo",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -815,
+                    ContextLimit = 128000,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00003m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/gpt-4-turbo:batch" },
                 },
 
                 new AIModelCapabilities
@@ -10076,12 +12235,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -705,
+                    Rank = -820,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00001m,
-                        Completion = 0.00003m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00003m),
+                        },
                     },
                 },
 
@@ -10094,13 +12256,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -710,
+                    Rank = -825,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000025m,
-                        Completion = 0.00001m,
-                        Audio = 0.00004m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.00004m),
+                        },
                     },
                 },
 
@@ -10113,13 +12278,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -715,
+                    Rank = -830,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000015m,
-                        Completion = 0.0000006m,
-                        WebSearch = 0.0275m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.0275m),
+                        },
                     },
                 },
 
@@ -10132,13 +12300,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -720,
+                    Rank = -835,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000025m,
-                        Completion = 0.00001m,
-                        WebSearch = 0.035m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.035m),
+                        },
                     },
                 },
 
@@ -10151,14 +12322,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -725,
+                    Rank = -840,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000125m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.000000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -10171,21 +12345,27 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -730,
+                    Rank = -845,
                     ContextLimit = 400000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000625m,
-                        Completion = 0.000005m,
-                        InputCacheRead = 0.0000000625m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000625m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000625m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000000625m,
-                        Completion = 0.000005m,
-                        InputCacheRead = 0.0000000625m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000625m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000625m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                     Aliases = new List<string> { "openai/gpt-5-codex:batch" },
                 },
@@ -10199,14 +12379,40 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -735,
+                    Rank = -850,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000125m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.000000125m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-5.2-chat",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -855,
+                    ContextLimit = 128000,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000175m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000014m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000175m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -10219,14 +12425,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -740,
+                    Rank = -860,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000175m,
-                        Completion = 0.000014m,
-                        InputCacheRead = 0.000000175m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000175m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000014m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000175m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
                 },
 
@@ -10239,7 +12448,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -745,
+                    Rank = -865,
                     ContextLimit = 131072,
                 },
 
@@ -10252,8 +12461,74 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -750,
+                    Rank = -870,
                     ContextLimit = 131072,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/o1",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -875,
+                    ContextLimit = 200000,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000075m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000375m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/o1:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/o1-pro",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -880,
+                    ContextLimit = 200000,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0006m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0003m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/o1-pro:batch" },
                 },
 
                 new AIModelCapabilities
@@ -10265,15 +12540,120 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -755,
+                    Rank = -885,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00001m,
-                        Completion = 0.00004m,
-                        InputCacheRead = 0.0000025m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00004m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/o3-mini",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -890,
+                    ContextLimit = 200000,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000011m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000044m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000055m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000055m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000022m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000275m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/o3-mini:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/o3-mini-high",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -895,
+                    ContextLimit = 200000,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000011m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000044m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000055m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000055m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000022m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000275m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/o3-mini-high:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/o4-mini",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -900,
+                    ContextLimit = 200000,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000011m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000044m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000275m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000055m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000022m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001375m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/o4-mini:batch" },
                 },
 
                 new AIModelCapabilities
@@ -10285,15 +12665,52 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -760,
+                    Rank = -905,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000008m,
-                        InputCacheRead = 0.0000005m,
-                        WebSearch = 0.01m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000008m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
                     },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/o4-mini-high",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -910,
+                    ContextLimit = 200000,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000011m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000044m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000275m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000055m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000022m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001375m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "openai/o4-mini-high:batch" },
                 },
 
                 new AIModelCapabilities
@@ -10305,7 +12722,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -765,
+                    Rank = -915,
                     ContextLimit = 1048756,
                 },
 
@@ -10317,13 +12734,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -770,
+                    Rank = -920,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000002m,
-                        Completion = 0.0000004m,
-                        InputCacheRead = 0.0000001m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                        },
                     },
                 },
 
@@ -10336,7 +12756,73 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -775,
+                    Rank = -925,
+                    ContextLimit = 262144,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "poolside/laguna-s-2.1",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -930,
+                    ContextLimit = 1048576,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000009m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000018m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000009m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "poolside/laguna-s-2.1:free",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -935,
+                    ContextLimit = 262144,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "poolside/laguna-xs-2.1",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -940,
+                    ContextLimit = 262144,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000006m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000012m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "poolside/laguna-xs-2.1:free",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -945,
                     ContextLimit = 262144,
                 },
 
@@ -10348,13 +12834,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -780,
+                    Rank = -950,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000002m,
-                        InputCacheRead = 0.00000005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                        },
                     },
                 },
 
@@ -10367,7 +12856,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -785,
+                    Rank = -955,
                     ContextLimit = 262144,
                 },
 
@@ -10380,12 +12869,36 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -790,
+                    Rank = -960,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000002m,
-                        Completion = 0.0000011m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000011m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen-2.5-7b-instruct",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -965,
+                    ContextLimit = 32768,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                        },
                     },
                 },
 
@@ -10398,13 +12911,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -795,
+                    Rank = -970,
                     ContextLimit = 32768,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000104m,
-                        Completion = 0.00000416m,
-                        InputCacheRead = 0.000000208m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000104m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000416m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000208m),
+                        },
                     },
                 },
 
@@ -10417,13 +12933,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -800,
+                    Rank = -975,
                     ContextLimit = 1000000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000026m,
-                        Completion = 0.00000078m,
-                        InputCacheWrite = 0.000000325m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000026m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000078m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000325m),
+                        },
                     },
                 },
 
@@ -10436,13 +12955,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -805,
+                    Rank = -980,
                     ContextLimit = 1000000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000026m,
-                        Completion = 0.00000078m,
-                        InputCacheWrite = 0.0000005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000026m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000078m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000005m),
+                        },
                     },
                 },
 
@@ -10455,13 +12977,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -810,
+                    Rank = -985,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000000325m,
-                        Completion = 0.00000013m,
-                        InputCacheRead = 0.0000000065m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000325m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000013m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000065m),
+                        },
                     },
                 },
 
@@ -10474,12 +12999,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -815,
+                    Rank = -990,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000052m,
-                        Completion = 0.00000208m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000052m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000208m),
+                        },
                     },
                 },
 
@@ -10492,7 +13020,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -820,
+                    Rank = -995,
                     ContextLimit = 32768,
                 },
 
@@ -10505,12 +13033,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -825,
+                    Rank = -1000,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000455m,
-                        Completion = 0.00000182m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000455m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000182m),
+                        },
                     },
                 },
 
@@ -10523,13 +13054,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -830,
+                    Rank = -1005,
                     ContextLimit = 81920,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000002m,
-                        Completion = 0.0000024m,
-                        InputCacheRead = 0.00000008m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000024m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000008m),
+                        },
                     },
                 },
 
@@ -10542,13 +13076,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -835,
+                    Rank = -1010,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000117m,
-                        Completion = 0.000000455m,
-                        InputCacheRead = 0.00000005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000117m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000455m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                        },
                     },
                 },
 
@@ -10561,14 +13098,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -840,
+                    Rank = -1015,
                     ContextLimit = 1000000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000065m,
-                        Completion = 0.00000325m,
-                        InputCacheRead = 0.00000013m,
-                        InputCacheWrite = 0.0000008125m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000065m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000325m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000013m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000008125m),
+                        },
                     },
                 },
 
@@ -10581,7 +13121,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -845,
+                    Rank = -1020,
                     ContextLimit = 1048576,
                 },
 
@@ -10594,14 +13134,17 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -850,
+                    Rank = -1025,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000078m,
-                        Completion = 0.0000039m,
-                        InputCacheRead = 0.000000156m,
-                        InputCacheWrite = 0.000000975m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000078m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000039m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000156m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000975m),
+                        },
                     },
                 },
 
@@ -10614,12 +13157,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -855,
+                    Rank = -1030,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000078m,
-                        Completion = 0.0000039m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000078m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000039m),
+                        },
                     },
                 },
 
@@ -10632,8 +13178,29 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -860,
+                    Rank = -1035,
                     ContextLimit = 262144,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3-next-80b-a3b-thinking",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -1040,
+                    ContextLimit = 262144,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -10645,12 +13212,36 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -865,
+                    Rank = -1045,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000004m,
-                        Completion = 0.000004m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3-vl-30b-a3b-thinking",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -1050,
+                    ContextLimit = 262144,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000029m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                        },
                     },
                 },
 
@@ -10663,12 +13254,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -870,
+                    Rank = -1055,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000104m,
-                        Completion = 0.000000416m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000104m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000416m),
+                        },
                     },
                 },
 
@@ -10681,12 +13275,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -875,
+                    Rank = -1060,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000018m,
-                        Completion = 0.0000021m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000018m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000021m),
+                        },
                     },
                 },
 
@@ -10699,13 +13296,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -880,
+                    Rank = -1065,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000001027m,
-                        Completion = 0.000006162m,
-                        InputCacheWrite = 0.00000128375m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001027m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006162m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000128375m),
+                        },
                     },
                 },
 
@@ -10717,7 +13317,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -885,
+                    Rank = -1070,
                     ContextLimit = 262144,
                 },
 
@@ -10729,14 +13329,39 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -890,
+                    Rank = -1075,
                     ContextLimit = 1000000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000006m,
-                        InputCacheRead = 0.00000025m,
-                        InputCacheWrite = 0.0000025m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "sakana/sakana-namazu",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -1080,
+                    ContextLimit = 262144,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000095m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.007m),
+                        },
                     },
                 },
 
@@ -10749,12 +13374,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -895,
+                    Rank = -1085,
                     ContextLimit = 8192,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000148m,
-                        Completion = 0.00000148m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000148m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000148m),
+                        },
                     },
                 },
 
@@ -10767,12 +13395,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -900,
+                    Rank = -1090,
                     ContextLimit = 16000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000003m,
-                        Completion = 0.000003m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000003m),
+                        },
                     },
                 },
 
@@ -10785,12 +13416,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -905,
+                    Rank = -1095,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000065m,
-                        Completion = 0.00000075m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000065m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000075m),
+                        },
                     },
                 },
 
@@ -10802,7 +13436,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -910,
+                    Rank = -1100,
                     ContextLimit = 1048576,
                 },
 
@@ -10814,8 +13448,30 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -915,
+                    Rank = -1105,
                     ContextLimit = 1000000,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "stepfun/step-3.5-flash",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -1110,
+                    ContextLimit = 262144,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -10827,12 +13483,57 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -920,
+                    Rank = -1115,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000085m,
-                        Completion = 0.0000034m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000085m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000034m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "tencent/hunyuan-a13b-instruct",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -1120,
+                    ContextLimit = 131072,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000014m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000057m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "tencent/hy3-preview",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -1125,
+                    ContextLimit = 262144,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000018m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000006m),
+                        },
                     },
                 },
 
@@ -10844,7 +13545,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -925,
+                    Rank = -1130,
                     ContextLimit = 262144,
                 },
 
@@ -10857,13 +13558,60 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -930,
+                    Rank = -1135,
                     ContextLimit = 65536,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000025m,
-                        Completion = 0.0000005m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                        },
                     },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "thinkingmachines/inkling-2-small:free",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -1140,
+                    ContextLimit = 1048576,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "thinkingmachines/inkling-small:free",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -1145,
+                    ContextLimit = 1048576,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "thinkingmachines/inkling:free",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -1150,
+                    ContextLimit = 1048576,
                 },
 
                 new AIModelCapabilities
@@ -10875,7 +13623,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -935,
+                    Rank = -1155,
                     ContextLimit = 163840,
                 },
 
@@ -10887,31 +13635,38 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -940,
+                    Rank = -1160,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000025m,
-                        Completion = 0.0000075m,
-                        InputCacheRead = 0.00000025m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000075m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                        },
                     },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "unbiased/pareto-26.10-preview",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling,
+                    Model = "upstage/solar-pro-3",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -945,
-                    ContextLimit = 1048576,
+                    Rank = -1165,
+                    ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000008m,
-                        Completion = 0.0000032m,
-                        InputCacheRead = 0.00000003m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+                        },
                     },
                 },
 
@@ -10924,7 +13679,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -950,
+                    Rank = -1170,
                     ContextLimit = 131072,
                 },
 
@@ -10937,12 +13692,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -955,
+                    Rank = -1175,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000012m,
-                        Completion = 0.0000012m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000012m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                        },
                     },
                 },
 
@@ -10955,12 +13713,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -960,
+                    Rank = -1180,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000002m,
-                        Completion = 0.0000006m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                        },
                     },
                 },
 
@@ -10973,7 +13734,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -965,
+                    Rank = -1185,
                     ContextLimit = 1000000,
                 },
 
@@ -10986,7 +13747,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -970,
+                    Rank = -1190,
                     ContextLimit = 256000,
                 },
 
@@ -10999,7 +13760,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -975,
+                    Rank = -1195,
                     ContextLimit = 262144,
                 },
 
@@ -11012,8 +13773,30 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -980,
+                    Rank = -1200,
                     ContextLimit = 262144,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "x-ai/grok-build-0.1",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -1205,
+                    ContextLimit = 256000,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+                        },
+                    },
                 },
 
                 new AIModelCapabilities
@@ -11025,7 +13808,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -985,
+                    Rank = -1210,
                     ContextLimit = 65536,
                 },
 
@@ -11038,13 +13821,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -990,
+                    Rank = -1215,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000003m,
-                        InputCacheRead = 0.00000001m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                        },
                     },
                 },
 
@@ -11057,13 +13843,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -995,
+                    Rank = -1220,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000004m,
-                        Completion = 0.000002m,
-                        InputCacheRead = 0.00000008m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000008m),
+                        },
                     },
                 },
 
@@ -11076,14 +13865,29 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -1000,
+                    Rank = -1225,
                     ContextLimit = 1048576,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000001m,
-                        Completion = 0.000003m,
-                        InputCacheRead = 0.0000002m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                        },
                     },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "xingchen-agi/xing4.0-29b-a4b:free",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -1230,
+                    ContextLimit = 262144,
                 },
 
                 new AIModelCapabilities
@@ -11095,12 +13899,15 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -1005,
+                    Rank = -1235,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000001m,
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000001m),
+                        },
                     },
                 },
 
@@ -11113,7 +13920,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -1010,
+                    Rank = -1240,
                     ContextLimit = 131072,
                 },
 
@@ -11125,13 +13932,16 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -1015,
+                    Rank = -1245,
                     ContextLimit = 32768,
                 }
             };
 
             return Task.FromResult(models);
         }
+
+        /// <inheritdoc/>
+        public override bool SupportsApiModels => true;
 
         /// <inheritdoc/>
         public override async Task<List<string>> RetrieveApiModels()
@@ -11145,7 +13955,7 @@ namespace SmartHopper.Providers.OpenRouter
 
                 var response = await this.openRouterProvider.Call(request).ConfigureAwait(false);
 
-                Debug.WriteLine("[OpenRouterProviderModels] RetrieveApiModels response received: " + (response != null));
+                Logger.For<OpenRouterProviderModels>().Trace("[OpenRouterProviderModels] RetrieveApiModels response received: " + (response != null));
 
                 if (response == null)
                 {
@@ -11168,10 +13978,24 @@ namespace SmartHopper.Providers.OpenRouter
                 foreach (var item in data.OfType<JObject>())
                 {
                     var id = item["id"]?.ToString();
-                    if (!string.IsNullOrWhiteSpace(id))
+                    if (string.IsNullOrWhiteSpace(id))
                     {
-                        models.Add(id);
+                        continue;
                     }
+
+                    // :batch catalog variants are pricing/capability descriptors,
+                    // not request model IDs — the Batch API takes the base slug and
+                    // resolves the variant itself, so offering the suffixed id only
+                    // produces guaranteed model_not_found errors. The base entry
+                    // always exists as its own catalog row; batch capability is
+                    // already flagged on it in the seeded registry via Aliases +
+                    // SupportsBatch. (:free variants stay: they are valid request ids.)
+                    if (id.EndsWith(":batch", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    models.Add(id);
                 }
 
                 return models

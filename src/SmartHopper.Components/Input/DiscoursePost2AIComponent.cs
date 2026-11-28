@@ -38,6 +38,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Input
 {
     /// <summary>
@@ -48,15 +49,15 @@ namespace SmartHopper.Components.Input
     {
         public override Guid ComponentGuid => new Guid("E03028FA-A7D4-41F0-A010-F6EEDE085594");
 
-        public override GH_Exposure Exposure => GH_Exposure.septenary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary | GH_Exposure.obscure;
 
-        protected override Bitmap Icon => Resources.toaidiscoursepost;
+        protected override Bitmap Icon => Resources.DiscoursePost2AI;
 
         public DiscoursePost2AIComponent()
             : base(
                   "Discourse Post to AI",
                   "DiscoursePost2AI",
-                  "Retrieves a Discourse forum post by ID and wraps it into an AIInputPayload for AI processing.",
+                  "Fetch a Discourse forum post by ID from any Discourse forum and package it to wire into any AI output component.",
                   "SmartHopper",
                   "B. Input")
         {
@@ -64,14 +65,14 @@ namespace SmartHopper.Components.Input
 
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Base URL", "U", "Base URL(s) of the Discourse forum (e.g., https://discourse.example.com).", GH_ParamAccess.tree);
-            pManager.AddIntegerParameter("Post ID", "P", "ID(s) of the forum post(s) to retrieve.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Base URL", "U", "Base URL of the Discourse forum (e.g., 'https://discourse.example.com').", GH_ParamAccess.tree);
+            pManager.AddIntegerParameter("Post ID", "P", "Numeric ID(s) of the forum post(s) to fetch.", GH_ParamAccess.tree);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddParameter(new AIInputPayloadParameter(), "Input >", ">", "AIInputPayload(s) containing the retrieved post content.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Post JSON", "J", "Retrieved post content as JSON.", GH_ParamAccess.tree);
+            pManager.AddParameter(new AIInputPayloadParameter(), "Input >", ">", "Packaged forum post content ready to wire into any AI output component's 'Input >' parameter.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Post JSON", "J", "Fetched forum post data in JSON format.", GH_ParamAccess.tree);
         }
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
@@ -156,7 +157,7 @@ namespace SmartHopper.Components.Input
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[DiscoursePost2AIWorker] Error: {ex.Message}");
+                    Logger.For<DiscoursePost2AIWorker>().Exception(ex, $"[DiscoursePost2AIWorker] Error: {ex.Message}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, $"Error retrieving posts: {ex.Message}");
                 }
             }

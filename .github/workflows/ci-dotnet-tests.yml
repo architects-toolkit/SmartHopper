@@ -101,6 +101,7 @@ jobs:
             src/**/*.csproj
             Directory.Build.props
             signing.snk
+            Directory.Build.props
           retention-days: 1
 
   # Job 2: Build and test on both Windows and macOS

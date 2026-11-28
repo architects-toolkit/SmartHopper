@@ -18,20 +18,34 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using Newtonsoft.Json;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.ProviderSdk.AICall.Metrics
 {
+    /// <summary>
+    /// Usage metrics for one AI call. Since <c>smarthopper-models/2</c> the
+    /// measured usage lives in <see cref="Quantities"/> — a free-form
+    /// <c>"&lt;kind&gt;/&lt;measured-unit&gt;" → value</c> dictionary sharing
+    /// the <see cref="AIQuantityKey"/> vocabulary with
+    /// <see cref="AIPriceEntry.Kind"/> — instead of fixed token fields, so
+    /// token-, duration-, character-, item- and invocation-metered usage all
+    /// fit the same shape. Cost estimates are per-currency
+    /// (<see cref="EstimatedCosts"/>); provider-reported billed amounts stay
+    /// separate in <see cref="ReportedCosts"/>.
+    /// </summary>
     public record AIMetrics
     {
         /// <summary>
-        /// Optional human-readable label for this metrics entry, e.g.
-        /// "main", "fallback:ImageToText", "tool:img2text".
-        /// Null for the primary call (serialized as absent, not null).
+        /// Optional human-readable label identifying which call inside a
+        /// component solve produced the usage — e.g. "main" (primary component
+        /// request), "tool:{name}" (direct tool call), "fallback" (request
+        /// preparation/helper call), "passthrough:{name}" (conversion step).
+        /// Null/absent for entries produced without explicit attribution
+        /// (serialized as absent, not null).
         /// </summary>
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public string Role { get; init; }
@@ -59,6 +73,37 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
         public double CompletionTime { get; init; }
 
         /// <summary>
+        /// UTC instant at which the call completed (or at which a batch result
+        /// became available locally). Distinct from <see cref="CompletionTime"/>,
+        /// which is the elapsed duration. Null for metrics produced before
+        /// completion timestamps existed — unknown timestamps are never
+        /// fabricated at restore or display time.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public DateTimeOffset? CompletedAt { get; init; }
+
+        /// <summary>
+        /// Stable identifier of the execution that produced these metrics.
+        /// Synchronous calls get a generated id; batch calls use their customId
+        /// so attribution survives save/reopen. Every replay of a shared result
+        /// carries the same id, letting aggregators deduplicate identical
+        /// provenance instead of charging the call once per placement.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public string ExecutionId { get; init; }
+
+        /// <summary>
+        /// Whether the call ran through the provider's asynchronous batch API.
+        /// <see cref="AICostCalculator"/> prices batch metrics exclusively from
+        /// <see cref="AIModelCapabilities.BatchPricing"/> and everything else
+        /// from <see cref="AIModelCapabilities.Pricing"/> — the two are never
+        /// mixed. Null/absent means non-batch (or unknown, for metrics
+        /// serialized before the flag existed) — treated as regular pricing.
+        /// </summary>
+        [JsonProperty("batch", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? IsBatch { get; init; }
+
+        /// <summary>
         /// Gets or sets the provider used for the AI call.
         /// </summary>
         public string Provider { get; init; }
@@ -68,109 +113,260 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
         /// </summary>
         public string Model { get; init; }
 
-        /// <summary>
-        /// Gets or sets the number of cached input tokens used by the AI call.
-        /// </summary>
-        public int InputTokensCached { get; init; }
+        private Dictionary<string, double> _quantities;
 
         /// <summary>
-        /// Gets or sets the number of input tokens written to the cache by the AI call (Anthropic: cache_creation_input_tokens).
-        /// These are billed at a higher rate than normal input tokens on first write.
+        /// Gets the measured usage quantities: <c>"&lt;kind&gt;/&lt;unit&gt;" → value</c>.
+        /// Decoders record what the provider reported, un-normalized — e.g.
+        /// <c>text_input/token</c>, <c>audio_input/second</c>,
+        /// <c>tool:web_search/invocation</c>. Conversion to billed units happens
+        /// in <see cref="AICostCalculator"/>, never here.
         /// </summary>
-        public int InputTokensCacheWrite { get; init; }
+        [JsonProperty("quantities", NullValueHandling = NullValueHandling.Ignore)]
+        public IReadOnlyDictionary<string, double> Quantities
+        {
+            get => this._quantities;
+            init => this._quantities = value != null
+                ? new Dictionary<string, double>(value, StringComparer.Ordinal)
+                : null;
+        }
+
+        private Dictionary<string, decimal> _reportedCosts;
 
         /// <summary>
-        /// Gets or sets the number of input tokens from the prompt that were used by the AI call.
+        /// Gets the cost reported by the provider itself (e.g. OpenRouter's
+        /// <c>usage.cost</c>), keyed by currency. This is the billed ground
+        /// truth when present — kept distinct from the catalogue-derived
+        /// <see cref="EstimatedCosts"/>.
         /// </summary>
-        public int InputTokensPrompt { get; init; }
+        [JsonProperty("reported_costs", NullValueHandling = NullValueHandling.Ignore)]
+        public IReadOnlyDictionary<string, decimal> ReportedCosts
+        {
+            get => this._reportedCosts;
+            init => this._reportedCosts = value != null
+                ? new Dictionary<string, decimal>(value, StringComparer.Ordinal)
+                : null;
+        }
+
+        private IReadOnlyDictionary<string, decimal> _estimatedCosts;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AIMetrics"/> class.
+        /// </summary>
+        public AIMetrics()
+        {
+        }
+
+        /// <summary>
+        /// Copy constructor: clones the quantity and cost dictionaries so
+        /// <c>with</c> expressions never share mutable storage with the source.
+        /// </summary>
+        /// <param name="original">The metrics to copy.</param>
+        protected AIMetrics(AIMetrics original)
+        {
+            this.Role = original.Role;
+            this.DataCount = original.DataCount;
+            this.IterationsCount = original.IterationsCount;
+            this.FinishReason = original.FinishReason;
+            this.CompletionTime = original.CompletionTime;
+            this.CompletedAt = original.CompletedAt;
+            this.ExecutionId = original.ExecutionId;
+            this.IsBatch = original.IsBatch;
+            this.Provider = original.Provider;
+            this.Model = original.Model;
+            this._quantities = original._quantities != null
+                ? new Dictionary<string, double>(original._quantities, StringComparer.Ordinal)
+                : null;
+            this._reportedCosts = original._reportedCosts != null
+                ? new Dictionary<string, decimal>(original._reportedCosts, StringComparer.Ordinal)
+                : null;
+            this._estimatedCosts = original._estimatedCosts != null
+                ? new Dictionary<string, decimal>(original._estimatedCosts, StringComparer.Ordinal)
+                : null;
+            this.LastEffectiveTotalTokens = original.LastEffectiveTotalTokens;
+        }
+
+        /// <summary>
+        /// Gets the catalogue-derived estimated cost per currency.
+        /// Calculated lazily by <see cref="AICostCalculator"/> from
+        /// <see cref="Quantities"/> and the model's <see cref="AIModelPricing"/>
+        /// entries — never merged across currencies.
+        /// </summary>
+        [JsonProperty("estimated_costs", NullValueHandling = NullValueHandling.Ignore)]
+        public IReadOnlyDictionary<string, decimal> EstimatedCosts
+        {
+            get
+            {
+                this._estimatedCosts ??= AICostCalculator.Calculate(this);
+                return this._estimatedCosts;
+            }
+
+            init => this._estimatedCosts = value;
+        }
+
+        public int LastEffectiveTotalTokens { get; init; }
+
+        /// <summary>Returns the quantity recorded under <c>kind/unit</c>, or 0.</summary>
+        public double Quantity(string kind, AIPriceUnit unit)
+        {
+            if (this.Quantities != null && this.Quantities.TryGetValue(AIQuantityKey.Key(kind, unit), out var v))
+            {
+                return v;
+            }
+
+            return 0d;
+        }
+
+        /// <summary>
+        /// Returns a copy with <c>kind/unit</c> set to <paramref name="value"/>.
+        /// Any previously computed <see cref="EstimatedCosts"/> is invalidated.
+        /// </summary>
+        public AIMetrics WithQuantity(string kind, AIPriceUnit unit, double value)
+        {
+            var quantities = this.Quantities != null
+                ? new Dictionary<string, double>(this.Quantities, StringComparer.Ordinal)
+                : new Dictionary<string, double>(StringComparer.Ordinal);
+            quantities[AIQuantityKey.Key(kind, unit)] = value;
+            return this with { Quantities = quantities, EstimatedCosts = null };
+        }
+
+        /// <summary>
+        /// Returns a copy with <paramref name="value"/> added to the quantity
+        /// recorded under <c>kind/unit</c> (streaming accumulation).
+        /// </summary>
+        public AIMetrics WithAddedQuantity(string kind, AIPriceUnit unit, double value)
+            => this.WithQuantity(kind, unit, this.Quantity(kind, unit) + value);
+
+        /// <summary>Builds a quantities dictionary from (kind, unit, value) triples; zero values are skipped.</summary>
+        public static IReadOnlyDictionary<string, double> QuantitiesOf(params (string kind, AIPriceUnit unit, double value)[] items)
+        {
+            var dict = new Dictionary<string, double>(StringComparer.Ordinal);
+            foreach (var (kind, unit, value) in items)
+            {
+                if (value != 0d)
+                {
+                    dict[AIQuantityKey.Key(kind, unit)] = value;
+                }
+            }
+
+            return dict;
+        }
+
+        /// <summary>Writes <c>kind/unit</c> into the quantities dictionary; used by init-time convenience accessors.</summary>
+        private void SetQuantity(string kind, AIPriceUnit unit, double value)
+        {
+            this._quantities ??= new Dictionary<string, double>(StringComparer.Ordinal);
+            this._quantities[AIQuantityKey.Key(kind, unit)] = value;
+        }
+
+        /// <summary>Gets or init-sets the number of cached input tokens (<c>cache_read/token</c>).</summary>
+        [JsonIgnore]
+        public int InputTokensCached
+        {
+            get => (int)this.Quantity(AIQuantityKey.CacheRead, AIPriceUnit.Token);
+            init => this.SetQuantity(AIQuantityKey.CacheRead, AIPriceUnit.Token, value);
+        }
+
+        /// <summary>Gets or init-sets the number of tokens written to the provider cache (<c>cache_write/token</c>).</summary>
+        [JsonIgnore]
+        public int InputTokensCacheWrite
+        {
+            get => (int)this.Quantity(AIQuantityKey.CacheWrite, AIPriceUnit.Token);
+            init => this.SetQuantity(AIQuantityKey.CacheWrite, AIPriceUnit.Token, value);
+        }
+
+        /// <summary>Gets or init-sets the number of non-cached input tokens (<c>text_input/token</c>).</summary>
+        [JsonIgnore]
+        public int InputTokensPrompt
+        {
+            get => (int)this.Quantity(AIQuantityKey.TextInput, AIPriceUnit.Token);
+            init => this.SetQuantity(AIQuantityKey.TextInput, AIPriceUnit.Token, value);
+        }
 
         /// <summary>
         /// Gets the number of input tokens used by the AI call.
         /// </summary>
+        [JsonIgnore]
         public int InputTokens => this.InputTokensCached + this.InputTokensCacheWrite + this.InputTokensPrompt;
 
-        /// <summary>
-        /// Gets or sets the number of output tokens for reasoning that were used by the AI call.
-        /// </summary>
-        public int OutputTokensReasoning { get; init; }
+        /// <summary>Gets or init-sets the number of hidden reasoning tokens (<c>internal_reasoning/token</c>).</summary>
+        [JsonIgnore]
+        public int OutputTokensReasoning
+        {
+            get => (int)this.Quantity(AIQuantityKey.InternalReasoning, AIPriceUnit.Token);
+            init => this.SetQuantity(AIQuantityKey.InternalReasoning, AIPriceUnit.Token, value);
+        }
 
-        /// <summary>
-        /// Gets or sets the number of output tokens for response generation that were used by the AI call.
-        /// </summary>
-        public int OutputTokensGeneration { get; init; }
+        /// <summary>Gets or init-sets the number of generated output tokens (<c>text_output/token</c>).</summary>
+        [JsonIgnore]
+        public int OutputTokensGeneration
+        {
+            get => (int)this.Quantity(AIQuantityKey.TextOutput, AIPriceUnit.Token);
+            init => this.SetQuantity(AIQuantityKey.TextOutput, AIPriceUnit.Token, value);
+        }
 
         /// <summary>
         /// Gets the number of output tokens used by the AI call.
         /// </summary>
+        [JsonIgnore]
         public int OutputTokens => this.OutputTokensReasoning + this.OutputTokensGeneration;
 
         /// <summary>
         /// Gets the total number of tokens used by the AI call.
         /// </summary>
+        [JsonIgnore]
         public int TotalTokens => this.InputTokens + this.OutputTokens;
 
         /// <summary>
-        /// Gets or sets the estimated number of input tokens (heuristic-based).
+        /// Gets or init-sets the estimated number of input tokens (heuristic-based).
         /// Only populated when actual InputTokens are not provided by the AI provider.
         /// Uses character-length approximation (~3.5 chars/token).
         /// </summary>
-        public int EstimatedInputTokens { get; init; }
+        [JsonIgnore]
+        public int EstimatedInputTokens
+        {
+            get => (int)this.Quantity(AIQuantityKey.EstimatedTextInput, AIPriceUnit.Token);
+            init => this.SetQuantity(AIQuantityKey.EstimatedTextInput, AIPriceUnit.Token, value);
+        }
 
         /// <summary>
-        /// Gets or sets the estimated number of output tokens (heuristic-based).
+        /// Gets or init-sets the estimated number of output tokens (heuristic-based).
         /// Only populated when actual OutputTokens are not provided by the AI provider.
         /// Uses character-length approximation (~3.5 chars/token).
         /// </summary>
-        public int EstimatedOutputTokens { get; init; }
+        [JsonIgnore]
+        public int EstimatedOutputTokens
+        {
+            get => (int)this.Quantity(AIQuantityKey.EstimatedTextOutput, AIPriceUnit.Token);
+            init => this.SetQuantity(AIQuantityKey.EstimatedTextOutput, AIPriceUnit.Token, value);
+        }
 
         /// <summary>
         /// Gets the total estimated tokens (input + output).
         /// </summary>
+        [JsonIgnore]
         public int TotalEstimatedTokens => this.EstimatedInputTokens + this.EstimatedOutputTokens;
 
         /// <summary>
         /// Gets the effective total token count, using the maximum of actual and estimated tokens.
         /// This prevents undercounting when large tool payloads don't report metrics.
         /// </summary>
-        public int EffectiveTotalTokens => System.Math.Max(this.TotalTokens, this.TotalEstimatedTokens);
-
-        public int LastEffectiveTotalTokens { get; init; }
-
-        private decimal? _estimatedCost;
-
-        /// <summary>
-        /// Gets the estimated cost of the AI call in USD.
-        /// Calculated using provider/model pricing from <see cref="AIModelCapabilityRegistry"/>
-        /// and the token buckets tracked by this metrics instance.
-        /// Returns <c>0</c> when pricing is unknown, free, negative, or no tokens are present.
-        /// </summary>
-        [JsonProperty("estimated_cost")]
-        public decimal EstimatedCost
-        {
-            get
-            {
-                if (!this._estimatedCost.HasValue)
-                {
-                    this._estimatedCost = AICostCalculator.Calculate(this);
-                }
-
-                return this._estimatedCost.Value;
-            }
-            init => this._estimatedCost = value;
-        }
+        [JsonIgnore]
+        public int EffectiveTotalTokens => Math.Max(this.TotalTokens, this.TotalEstimatedTokens);
 
         /// <summary>
         /// Gets the context usage percentage (0.0 to 1.0) based on EffectiveTotalTokens and the model's context limit.
         /// Calculated using provider/model from this metrics instance.
         /// Returns null if context limit is unknown or not applicable.
         /// </summary>
+        [JsonIgnore]
         public double? ContextUsagePercent
         {
             get
             {
                 if (string.IsNullOrEmpty(this.Provider) || string.IsNullOrEmpty(this.Model))
                 {
-                    Debug.WriteLine("[AIMetrics.ContextUsagePercent] Missing provider or model");
+                    Logger.For<AIMetrics>().Warning("[AIMetrics.ContextUsagePercent] Missing provider or model");
                     return null;
                 }
 
@@ -180,7 +376,7 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
 
                 if (contextLimit == null || contextLimit.Value <= 0)
                 {
-                    Debug.WriteLine($"[AIMetrics.ContextUsagePercent] No context limit for {this.Provider}/{this.Model}");
+                    Logger.For<AIMetrics>().Trace($"[AIMetrics.ContextUsagePercent] No context limit for {this.Provider}/{this.Model}");
                     return null;
                 }
 
@@ -188,9 +384,9 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
                     ? this.LastEffectiveTotalTokens
                     : this.EffectiveTotalTokens;
                 var usage = (double)effectiveTokens / contextLimit.Value;
-                var roundedUsage = System.Math.Round(usage, 4);
+                var roundedUsage = Math.Round(usage, 4);
 
-                Debug.WriteLine($"[AIMetrics.ContextUsagePercent] Provider: {this.Provider}, Model: {this.Model}, EffectiveTokens: {effectiveTokens}, ContextLimit: {contextLimit.Value}, Usage: {roundedUsage}");
+                Logger.For<AIMetrics>().Trace($"[AIMetrics.ContextUsagePercent] Provider: {this.Provider}, Model: {this.Model}, EffectiveTokens: {effectiveTokens}, ContextLimit: {contextLimit.Value}, Usage: {roundedUsage}");
 
                 return roundedUsage;
             }
@@ -249,10 +445,11 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
         /// <summary>
         /// Returns a new <see cref="AIMetrics"/> that combines the values of this
         /// metrics object with another one, without mutating either instance.
+        /// Quantities sum per key; estimated and reported costs sum per currency.
         /// </summary>
         /// <param name="other">The <see cref="AIMetrics"/> to combine with.</param>
         /// <returns>A new combined <see cref="AIMetrics"/>.</returns>
-        public AIMetrics WithCombined(AIMetrics? other)
+        public AIMetrics WithCombined(AIMetrics other)
         {
             if (other == null)
             {
@@ -267,7 +464,7 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
 
             if (!skipLog)
             {
-                Debug.WriteLine($"[AIMetrics] Combining metrics:\nProvider: {this.Provider} -> {other.Provider}\nModel: {this.Model} -> {other.Model}\nInputTokensPrompt: {this.InputTokensPrompt} -> {this.InputTokensPrompt + other.InputTokensPrompt}\nInputTokensCached: {this.InputTokensCached} -> {this.InputTokensCached + other.InputTokensCached}\nInputTokensCacheWrite: {this.InputTokensCacheWrite} -> {this.InputTokensCacheWrite + other.InputTokensCacheWrite}\nOutputTokensReasoning: {this.OutputTokensReasoning} -> {this.OutputTokensReasoning + other.OutputTokensReasoning}\nOutputTokensGeneration: {this.OutputTokensGeneration} -> {this.OutputTokensGeneration + other.OutputTokensGeneration}\nEstimatedInputTokens: {this.EstimatedInputTokens} -> {this.EstimatedInputTokens + other.EstimatedInputTokens}\nEstimatedOutputTokens: {this.EstimatedOutputTokens} -> {this.EstimatedOutputTokens + other.EstimatedOutputTokens}\nCompletionTime: {this.CompletionTime} -> {this.CompletionTime + other.CompletionTime}\nEstimatedCost: {this.EstimatedCost} -> {this.EstimatedCost + other.EstimatedCost}\nFinishReason: {this.FinishReason} -> {other.FinishReason}");
+                Logger.For<AIMetrics>().Trace($"[AIMetrics] Combining metrics:\nProvider: {this.Provider} -> {other.Provider}\nModel: {this.Model} -> {other.Model}\nQuantities: {this.Quantities?.Count ?? 0} keys -> +{other.Quantities?.Count ?? 0} keys\nCompletionTime: {this.CompletionTime} -> {this.CompletionTime + other.CompletionTime}\nFinishReason: {this.FinishReason} -> {other.FinishReason}");
             }
 
             var dataCount = this.DataCount ?? other.DataCount;
@@ -284,23 +481,77 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
 
             return this with
             {
-                EstimatedCost = this.EstimatedCost + other.EstimatedCost,
+                Quantities = MergeQuantities(this.Quantities, other.Quantities),
+                EstimatedCosts = MergeCosts(this.EstimatedCosts, other.EstimatedCosts),
+                ReportedCosts = MergeCosts(this.ReportedCosts, other.ReportedCosts),
                 Provider = CombineCommaSeparated(this.Provider, other.Provider, "Unknown"),
                 Model = CombineCommaSeparated(this.Model, other.Model),
                 Role = CombineCommaSeparated(this.Role, other.Role),
                 FinishReason = other.FinishReason ?? this.FinishReason,
-                InputTokensPrompt = this.InputTokensPrompt + other.InputTokensPrompt,
-                InputTokensCached = this.InputTokensCached + other.InputTokensCached,
-                InputTokensCacheWrite = this.InputTokensCacheWrite + other.InputTokensCacheWrite,
-                OutputTokensReasoning = this.OutputTokensReasoning + other.OutputTokensReasoning,
-                OutputTokensGeneration = this.OutputTokensGeneration + other.OutputTokensGeneration,
-                EstimatedInputTokens = this.EstimatedInputTokens + other.EstimatedInputTokens,
-                EstimatedOutputTokens = this.EstimatedOutputTokens + other.EstimatedOutputTokens,
                 CompletionTime = this.CompletionTime + other.CompletionTime,
-                LastEffectiveTotalTokens = otherLast,
+                CompletedAt = MaxCompletedAt(this.CompletedAt, other.CompletedAt),
+                ExecutionId = null,
+
+                // Combined entries keep the batch flag only when both sides
+                // agree — a mixed batch/sync sum has no single pricing tier.
+                IsBatch = this.IsBatch == other.IsBatch ? this.IsBatch : null,
+                LastEffectiveTotalTokens = otherLast > 0 ? otherLast : this.LastEffectiveTotalTokens,
                 DataCount = dataCount,
                 IterationsCount = iterationsCount,
             };
+        }
+
+        private static DateTimeOffset? MaxCompletedAt(DateTimeOffset? a, DateTimeOffset? b)
+        {
+            if (!a.HasValue) return b;
+            if (!b.HasValue) return a;
+            return a.Value >= b.Value ? a : b;
+        }
+
+        private static IReadOnlyDictionary<string, double> MergeQuantities(
+            IReadOnlyDictionary<string, double> a,
+            IReadOnlyDictionary<string, double> b)
+        {
+            if (a == null || a.Count == 0)
+            {
+                return b;
+            }
+
+            if (b == null || b.Count == 0)
+            {
+                return a;
+            }
+
+            var merged = new Dictionary<string, double>(a, StringComparer.Ordinal);
+            foreach (var kv in b)
+            {
+                merged[kv.Key] = (merged.TryGetValue(kv.Key, out var cur) ? cur : 0d) + kv.Value;
+            }
+
+            return merged;
+        }
+
+        private static IReadOnlyDictionary<string, decimal> MergeCosts(
+            IReadOnlyDictionary<string, decimal> a,
+            IReadOnlyDictionary<string, decimal> b)
+        {
+            if (a == null || a.Count == 0)
+            {
+                return b;
+            }
+
+            if (b == null || b.Count == 0)
+            {
+                return a;
+            }
+
+            var merged = new Dictionary<string, decimal>(a, StringComparer.Ordinal);
+            foreach (var kv in b)
+            {
+                merged[kv.Key] = (merged.TryGetValue(kv.Key, out var cur) ? cur : 0m) + kv.Value;
+            }
+
+            return merged;
         }
 
         /// <summary>
@@ -346,15 +597,11 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
 
             var providerDefault = string.IsNullOrEmpty(metrics.Provider) || string.Equals(metrics.Provider, "Unknown", System.StringComparison.Ordinal);
             var modelDefault = string.IsNullOrEmpty(metrics.Model);
-            var tokensZero = metrics.InputTokensCached == 0
-                             && metrics.InputTokensCacheWrite == 0
-                             && metrics.InputTokensPrompt == 0
-                             && metrics.OutputTokensReasoning == 0
-                             && metrics.OutputTokensGeneration == 0;
+            var quantitiesEmpty = metrics.Quantities == null || metrics.Quantities.Count == 0;
             var timeZero = metrics.CompletionTime == 0;
             var finishDefault = string.IsNullOrEmpty(metrics.FinishReason);
 
-            return providerDefault && modelDefault && tokensZero && timeZero && finishDefault;
+            return providerDefault && modelDefault && quantitiesEmpty && timeZero && finishDefault;
         }
     }
 }

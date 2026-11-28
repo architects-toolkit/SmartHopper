@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.GhJsonSpec;
+using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
@@ -63,7 +64,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""instructions"": { ""type"": ""string"", ""description"": ""Markdown-formatted reference documentation for the requested topic."" }
                     },
                     ""required"": [""topic"", ""instructions""]
-                }");
+                }",
+                activityLabel: "reading GhJSON reference",
+                resultLabel: "read GhJSON reference");
         }
 
         private async Task<AIReturn> ExecuteAsync(AIToolCall toolCall)
@@ -82,6 +85,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var topic = args["topic"]?.ToString() ?? string.Empty;
 
                 var instructions = await GhJsonSpecLoader.LoadTopicAsync(topic).ConfigureAwait(false);
+                instructions = GhJsonGenerationPolicy.Instructions
+                    + "\nSupplied pivots in imported or replayed documents are preserved; automatic layout fills only missing new-component positions.\n\n"
+                    + instructions;
 
                 var toolResult = new JObject
                 {

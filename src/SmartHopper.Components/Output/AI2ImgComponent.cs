@@ -40,7 +40,7 @@ namespace SmartHopper.Components.Output
         /// Initializes a new instance of the <see cref="AI2ImgComponent"/> class.
         /// </summary>
         public AI2ImgComponent()
-            : base("AI to Image", "AI→Img", "Generate images from AI input payloads", GH_Exposure.secondary)
+            : base("AI to Image", "AI2Img", "Call an image-capable AI provider on the connected input(s) and return a generated image.", GH_Exposure.quarternary)
         {
         }
 
@@ -52,7 +52,7 @@ namespace SmartHopper.Components.Output
         /// <summary>
         /// Gets the component icon.
         /// </summary>
-        protected override Bitmap Icon => Resources.aitoimg;
+        protected override Bitmap Icon => Resources.AI2Img;
 
         /// <summary>
         /// Gets the AI tools used by this component.
@@ -78,15 +78,14 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "Image",
                     NickName = "I",
-                    Description = "Generated image",
+                    Description = "Generated image (connect to Image Viewer to preview or save to disk).",
                     ParamType = typeof(Param_GenericObject),
                     Access = GH_ParamAccess.tree,
                     Extractor = OutputMapping.Single(aiReturn =>
                     {
                         if (aiReturn?.Body?.GetLastAssistantImage() is var imgInteraction && imgInteraction != null)
                         {
-                            var versatile = VersatileImage.FromString(imgInteraction.ImageUrl.ToString());
-                            return new GH_VersatileImage(versatile);
+                            return new GH_VersatileImage(VersatileImage.FromInteraction(imgInteraction));
                         }
 
                         return null;
@@ -100,36 +99,29 @@ namespace SmartHopper.Components.Output
         /// </summary>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Size", "Sz", "Image size (e.g., 1024x1024)", GH_ParamAccess.tree, "1024x1024");
-            pManager.AddTextParameter("Quality", "Q", "Image quality (standard or hd)", GH_ParamAccess.tree, "standard");
-            pManager.AddTextParameter("Style", "St", "Image style (natural or vivid)", GH_ParamAccess.tree, "natural");
+            pManager.AddTextParameter("Size", "Sz", "Target image resolution: explicit dimensions ('1024x1024') or resolution tier ('1K', '2K', '4K'). Each provider maps it to its native size vocabulary.", GH_ParamAccess.tree, "1024x1024");
+            pManager.AddTextParameter("Aspect Ratio", "AR", "Optional aspect ratio as 'W:H' (e.g., '1:1', '16:9', '4:3', '9:16'). Each provider maps it to its native size vocabulary.", GH_ParamAccess.tree, string.Empty);
         }
 
         /// <summary>
-        /// Overrides PrepareInputs to inject Size, Quality, and Style into tool parameters.
+        /// Overrides PrepareInputs to inject Size and Aspect Ratio into tool parameters.
         /// </summary>
         protected override void PrepareInputs(Dictionary<string, object> inputs, ProcessingUnitContext context)
         {
             base.PrepareInputs(inputs, context);
 
-            // Read Size, Quality, and Style from sliced inputs (per-unit)
+            // Read Size and Aspect Ratio from sliced inputs (per-unit)
             var size = "1024x1024";
-            var quality = "standard";
-            var style = "natural";
+            var aspectRatio = string.Empty;
 
             if (inputs.TryGetValue("Size", out var sizeObj) && sizeObj is GH_String sizeStr && !string.IsNullOrWhiteSpace(sizeStr.Value))
             {
                 size = sizeStr.Value;
             }
 
-            if (inputs.TryGetValue("Quality", out var qualityObj) && qualityObj is GH_String qualityStr && !string.IsNullOrWhiteSpace(qualityStr.Value))
+            if (inputs.TryGetValue("Aspect Ratio", out var arObj) && arObj is GH_String arStr && !string.IsNullOrWhiteSpace(arStr.Value))
             {
-                quality = qualityStr.Value;
-            }
-
-            if (inputs.TryGetValue("Style", out var styleObj) && styleObj is GH_String styleStr && !string.IsNullOrWhiteSpace(styleStr.Value))
-            {
-                style = styleStr.Value;
+                aspectRatio = arStr.Value;
             }
 
             if (inputs.TryGetValue("_MergedBody", out var bodyObject) && bodyObject is AIBody body)
@@ -139,7 +131,7 @@ namespace SmartHopper.Components.Output
                     .LastOrDefault(interaction => interaction.Agent == AIAgent.User)?.Content
                     ?? body.GetLastText();
                 inputs["_MergedBody"] = AIBodyBuilder.Create()
-                    .AddImageRequest(prompt, size, quality, style)
+                    .AddImageRequest(prompt, size, aspectRatio)
                     .Build();
             }
         }

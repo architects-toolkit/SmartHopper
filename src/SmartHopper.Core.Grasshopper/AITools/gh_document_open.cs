@@ -23,6 +23,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.FileSystem;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -40,12 +41,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: "gh_document_open",
-                description: "Open a Grasshopper document (.gh or .ghx) from an absolute file path and make it the active document. If the file is already open, it is activated instead of opened twice.",
+                description: "Open a Grasshopper document (.gh or .ghx) from an absolute file path and make it the active document. If the file is already open, it is activated instead of opened twice." + GhDocumentTools.McpDisconnectNote,
                 category: "Canvas.Documents",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
-                        ""filePath"": { ""type"": ""string"", ""description"": ""Absolute path to an existing .gh or .ghx file."" }
+                        ""filePath"": { ""type"": ""string"", ""description"": ""Absolute path to an existing .gh or .ghx file."" },
+                        " + GhDocumentTools.AllowDisconnectSchema + @"
                     },
                     ""required"": [""filePath""]
                 }",
@@ -54,16 +56,28 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "document", "open", "file" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""alreadyOpen"": { ""type"": ""boolean"" }, ""document"": { ""type"": ""object"" } } }",
                 annotations: new AIToolAnnotations(readOnlyHint: false, openWorldHint: true),
-                surfaces: GhDocumentTools.InteractiveSurfaces);
+                surfaces: GhDocumentTools.InteractiveSurfaces,
+                activityLabel: "opening a document",
+                resultLabel: "opened a document");
         }
 
         private static Task<AIReturn> OpenAsync(AIToolCall toolCall)
         {
-            return GhDocumentTools.Run(toolCall, args =>
+            return GhDocumentTools.RunAsync(toolCall, async args =>
             {
                 if (!GrasshopperFilePath.TryNormalize(args["filePath"]?.ToString(), mustExist: true, out var fullPath, out var error))
                 {
                     throw new InvalidOperationException(error);
+                }
+
+                var existing = GhDocumentAccess.FindByPath(fullPath);
+                GhDocumentTools.ThrowIfDisconnectsMcp(toolCall, args, existing);
+                if (existing == null)
+                {
+                    // Opening a new file may run embedded scripts — it needs explicit approval.
+                    await LocalFileAccess.RequireAsync(
+                        fullPath, LocalFileCapability.Execute, "gh_document_open", toolCall.CancellationToken)
+                        .ConfigureAwait(false);
                 }
 
                 var doc = GhDocumentAccess.Open(fullPath, out var alreadyOpen)

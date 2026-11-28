@@ -36,13 +36,12 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-#if DEBUG
 using System.Windows.Forms;
-#endif
 using GH_IO.Serialization;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase.Contracts;
 using SmartHopper.Core.ComponentBase.Cores;
 using SmartHopper.Core.ComponentBase.State;
@@ -51,6 +50,7 @@ using SmartHopper.Core.Diagnostics;
 using SmartHopper.Core.IO;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Core.ComponentBase
@@ -74,6 +74,50 @@ namespace SmartHopper.Core.ComponentBase
         /// and <see cref="HasPersistentOutput"/>.
         /// </summary>
         private readonly Dictionary<string, object> persistentOutputs;
+
+        /// <summary>
+        /// Per-component store mapping processing-unit keys to produced output
+        /// fragments for incremental reuse across runs.
+        /// </summary>
+        private readonly UnitResultStore unitResultStore = new UnitResultStore();
+
+        /// <summary>
+        /// Gets the unit key of the processing unit currently executing, or null
+        /// outside unit execution. Batch queueing uses it to associate customIds
+        /// with the owning unit.
+        /// </summary>
+        protected string CurrentUnitKey { get; private set; }
+
+        /// <summary>
+        /// Unit key of the processing unit currently executing (or just completed),
+        /// consumed by <see cref="OnProcessingUnitComplete"/> to record placement.
+        /// </summary>
+        private string _pendingUnitKey;
+
+        /// <summary>Whether the pending unit was served from the result store.</summary>
+        private bool _pendingUnitReused;
+
+        /// <summary>Whether the last completed unit was a cache hit (provenance replayable).</summary>
+        private bool _lastUnitWasReused;
+
+        /// <summary>Input path of the pending unit.</summary>
+        private GH_Path _pendingUnitPath;
+
+        /// <summary>Item index of the pending unit (item-level topologies).</summary>
+        private int? _pendingUnitItemIndex;
+
+        /// <summary>
+        /// Gets the component's processing-unit result store.
+        /// </summary>
+        protected UnitResultStore ResultStore => this.unitResultStore;
+
+        /// <summary>
+        /// Read-only view of the restored persistent outputs, keyed by output
+        /// parameter name. Derived classes use it during persistence restore to
+        /// inspect the last published trees (e.g. detect orphaned batch
+        /// sentinels before the first solve replays them).
+        /// </summary>
+        protected IReadOnlyDictionary<string, object> PersistentOutputs => this.persistentOutputs;
 
         /// <summary>
         /// Storage for persistent output type information.
@@ -102,13 +146,6 @@ namespace SmartHopper.Core.ComponentBase
         #endregion
 
         #region Properties
-
-        /// <summary>
-        /// Gets or sets a value indicating whether the component should only run when inputs change.
-        /// If true (default), the component will only run when inputs have changed and Run is true.
-        /// If false, the component will run whenever the Run parameter is set to true.
-        /// </summary>
-        public bool RunOnlyOnInputChanges { get; set; } = true;
 
         /// <summary>
         /// Gets the progress information for tracking processing operations.
@@ -185,7 +222,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="newState">The new state.</param>
         private void OnStateManagerStateChanged(ComponentState oldState, ComponentState newState)
         {
-            Debug.WriteLine($"[{this.GetType().Name}] StateManager: {oldState} -> {newState}");
+            Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] StateManager: {oldState} -> {newState}");
 
             // Update component message
             this.Message = this.GetStateMessage();
@@ -216,7 +253,7 @@ namespace SmartHopper.Core.ComponentBase
                 case ComponentState.Processing:
                     if (oldState != ComponentState.Processing)
                     {
-                        Debug.WriteLine($"[{this.GetType().Name}] Resetting async state for fresh Processing transition");
+                        Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] Resetting async state for fresh Processing transition");
                         this.ResetAsyncState();
                         this.ResetProgress();
 
@@ -269,7 +306,7 @@ namespace SmartHopper.Core.ComponentBase
 
                 if (this.StateManager.CurrentState == ComponentState.Processing && this.Workers.Count == 0)
                 {
-                    Debug.WriteLine($"[{this.GetType().Name}] Processing state without workers after delay, forcing ExpireSolution");
+                    Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] Processing state without workers after delay, forcing ExpireSolution");
                     Rhino.RhinoApp.InvokeOnUiThread(() =>
                     {
                         this.ExpireSolution(true);
@@ -289,7 +326,7 @@ namespace SmartHopper.Core.ComponentBase
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             this.RegisterAdditionalInputParams(pManager);
-            pManager.AddBooleanParameter(WellKnownInputs.Run, "R", "Set this parameter to true to run the component.", GH_ParamAccess.item, false);
+            pManager.AddBooleanParameter(WellKnownInputs.Run, "R", "Set to true (or connect a Button) to run the component.", GH_ParamAccess.item, false);
         }
 
         /// <summary>
@@ -324,7 +361,7 @@ namespace SmartHopper.Core.ComponentBase
         {
             if (this.StateManager.CurrentState == ComponentState.Processing)
             {
-                Debug.WriteLine("[StatefulComponentBase] Processing state... jumping to SolveInstance");
+                Logger.For<StatefulComponentBase>().Trace("[StatefulComponentBase] Processing state... jumping to SolveInstance");
                 return;
             }
 
@@ -339,17 +376,39 @@ namespace SmartHopper.Core.ComponentBase
         {
             this.lastDA = DA;
 
+            // Read Run parameter before any early return: every path must observe
+            // it so the first solve after restoration does not mistake a restored
+            // Run=true value for a fresh rising edge.
+            bool runInput = false;
+            DA.GetData(WellKnownInputs.Run, ref runInput);
+            this.run = runInput;
+
+            // Unwired Run? input means the component can never start on its own —
+            // surface a remark so users see why it sits idle (F14).
+            this.UpdateRunInputHint();
+
             // Handle first solve after restoration - clear suppression
             if (this.StateManager.IsSuppressingInputChanges)
             {
-                Debug.WriteLine($"[{this.GetType().Name}] First solve after restoration, clearing suppression");
+                Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] First solve after restoration, clearing suppression");
                 this.StateManager.ClearSuppressionAfterFirstSolve();
 
-                // If we have persistent outputs, stay in Completed state
+                // Adopt the restored Run value as the edge baseline — a persisted
+                // Run=true is resume state, not a new trigger.
+                this.hasPreviousRun = true;
+                this.previousRun = this.run;
+
+                // If we have persistent outputs, stay in the restored state — unless
+                // restoration itself demoted the component to NeedsRun (e.g. orphaned
+                // batch sentinels with no resumable batch or committed result): then
+                // fall through so the normal NeedsRun handler starts work when Run is on.
                 if (this.persistentOutputs.Count > 0)
                 {
-                    this.OnStateCompleted(DA);
-                    return;
+                    if (this.StateManager.CurrentState != ComponentState.NeedsRun)
+                    {
+                        this.OnStateCompleted(DA);
+                        return;
+                    }
                 }
                 else
                 {
@@ -359,16 +418,11 @@ namespace SmartHopper.Core.ComponentBase
                 }
             }
 
-            // Read Run parameter
-            bool runInput = false;
-            DA.GetData(WellKnownInputs.Run, ref runInput);
-            this.run = runInput;
-
             // Note: GH_Button drives volatile data and may not affect PersistentData hashes.
             // Track the last observed Run value to detect button pulses reliably.
             bool runValueChanged = !this.hasPreviousRun || this.previousRun != this.run;
 
-            Debug.WriteLine($"[{this.GetType().Name}] SolveInstance - State: {this.StateManager.CurrentState}, InPreSolve: {this.InPreSolve}, Run: {this.run}");
+            Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] SolveInstance - State: {this.StateManager.CurrentState}, InPreSolve: {this.InPreSolve}, Run: {this.run}");
 
             // Calculate current input hashes
             this.UpdatePendingInputHashes();
@@ -444,11 +498,13 @@ namespace SmartHopper.Core.ComponentBase
             // Get changed inputs using virtual method to allow subclasses to inject virtual inputs
             var changedInputs = this.InputsChanged();
 
-            // When configured to always run, a Run=true pulse should trigger Processing
-            // even if the Run? input is driven by volatile data (e.g. GH_Button).
-            if (!this.RunOnlyOnInputChanges && runValueChanged && this.run)
+            // A Run=false→true edge is an explicit trigger: it starts processing
+            // even when no persistent input changed (e.g. GH_Button volatile data
+            // that never reaches the input hashes). Result reuse decides whether
+            // the run replays cached units or executes — the trigger only starts it.
+            if (runValueChanged && this.run)
             {
-                Debug.WriteLine($"[{this.GetType().Name}] Run value changed to true (volatile-aware), transitioning to Processing");
+                Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] Run value changed to true (volatile-aware), transitioning to Processing");
                 this.StateManager.RequestTransition(ComponentState.Processing, TransitionReason.RunEnabled);
                 return;
             }
@@ -456,26 +512,15 @@ namespace SmartHopper.Core.ComponentBase
             // If only Run parameter changed to false, stay in current state
             if (changedInputs.Count == 1 && changedInputs[0] == WellKnownInputs.Run && !this.run)
             {
-                Debug.WriteLine($"[{this.GetType().Name}] Only Run changed to false, staying in current state");
+                Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] Only Run changed to false, staying in current state");
                 return;
             }
 
             // If only Run parameter changed to true
             if (changedInputs.Count == 1 && changedInputs[0] == WellKnownInputs.Run && this.run)
             {
-                Debug.WriteLine($"[{this.GetType().Name}] Only Run changed to true");
-
-                if (this.RunOnlyOnInputChanges)
-                {
-                    // Default behavior - transition to Waiting
-                    this.StateManager.RequestTransition(ComponentState.Waiting, TransitionReason.RunEnabled);
-                }
-                else
-                {
-                    // Always run when Run is true
-                    this.StateManager.RequestTransition(ComponentState.Processing, TransitionReason.RunEnabled);
-                }
-
+                Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] Only Run changed to true");
+                this.StateManager.RequestTransition(ComponentState.Processing, TransitionReason.RunEnabled);
                 return;
             }
 
@@ -486,7 +531,7 @@ namespace SmartHopper.Core.ComponentBase
                 // regardless of Run parameter value, so user explicitly triggers recalculation
                 if (changedInputs.Contains(WellKnownInputs.AIProvider))
                 {
-                    Debug.WriteLine($"[{this.GetType().Name}] AI Provider changed, forcing transition to NeedsRun");
+                    Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] AI Provider changed, forcing transition to NeedsRun");
                     this.StateManager.CancelDebounce(); // Cancel any pending timer
                     this.StateManager.RequestTransition(ComponentState.NeedsRun, TransitionReason.InputChanged);
                     return;
@@ -494,12 +539,12 @@ namespace SmartHopper.Core.ComponentBase
 
                 if (!this.run)
                 {
-                    Debug.WriteLine($"[{this.GetType().Name}] Inputs changed, starting debounce to NeedsRun");
+                    Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] Inputs changed, starting debounce to NeedsRun");
                     this.StateManager.StartDebounce(ComponentState.NeedsRun, this.GetDebounceTime());
                 }
                 else
                 {
-                    Debug.WriteLine($"[{this.GetType().Name}] Inputs changed with Run=true, starting debounce to Processing");
+                    Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] Inputs changed with Run=true, starting debounce to Processing");
                     this.StateManager.StartDebounce(ComponentState.Processing, this.GetDebounceTime());
                 }
             }
@@ -510,24 +555,64 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         protected override void OnWorkerCompleted()
         {
-            // Commit current hashes as the new baseline
-            this.StateManager.CommitHashes();
+            // Commit the run's own input snapshot — not the live pending values —
+            // so edits that arrived while work was in flight stay pending and
+            // retrigger on the next solve instead of being silently acknowledged.
+            this.StateManager.CommitRunSnapshot();
+
+            // Commit produced unit results (unresolved sentinel fragments are dropped).
+            // While caching is disabled nothing was stored this run; skipping the
+            // commit also preserves the previously committed snapshot instead of
+            // replacing it with an empty one.
+            if (!this.DisableResultCaching)
+            {
+                this.unitResultStore.CommitRun();
+            }
 
             // Cancel any pending debounce
             this.StateManager.CancelDebounce();
 
+            // Promote volatile messages into the persistent keyed dictionary so they
+            // survive the SolveInstance cycles triggered by the final state: worker
+            // collections flushed to the UI, plus runtime messages that bypassed the
+            // collected pipeline (legacy workers calling AddRuntimeMessage directly in
+            // DoWork/SetOutput), which Grasshopper clears on the re-solve. Texts are
+            // deduplicated so a message promoted through the worker path is not stored
+            // twice.
+            var promotedTexts = new HashSet<string>(
+                this.runtimeMessages.Values.Select(v => v.Message),
+                StringComparer.Ordinal);
+            int idx = 0;
+            foreach (var worker in this.Workers)
+            {
+                worker.PromoteCollectedToPersistent((level, msg) =>
+                {
+                    this.StorePersistentRuntimeMessage($"worker_msg_{idx++}", level, msg);
+                    promotedTexts.Add(msg);
+                });
+            }
+
+            var runtimeLevels = new[]
+            {
+                GH_RuntimeMessageLevel.Error,
+                GH_RuntimeMessageLevel.Warning,
+                GH_RuntimeMessageLevel.Remark,
+                GH_RuntimeMessageLevel.Blank,
+            };
+            foreach (var level in runtimeLevels)
+            {
+                foreach (var msg in this.RuntimeMessages(level))
+                {
+                    if (promotedTexts.Add(msg))
+                    {
+                        this.StorePersistentRuntimeMessage($"runtime_msg_{idx++}", level, msg);
+                    }
+                }
+            }
+
             // If any errors were recorded during execution, transition to Error instead of Completed
             if (this.RuntimeMessageLevel == GH_RuntimeMessageLevel.Error)
             {
-                // Promote volatile worker messages to the persistent keyed dictionary so they
-                // survive the next SolveInstance cycle triggered by the Error state transition.
-                int idx = 0;
-                foreach (var worker in this.Workers)
-                {
-                    worker.PromoteCollectedToPersistent((level, msg) =>
-                        this.SetPersistentRuntimeMessage($"worker_msg_{idx++}", level, msg, false));
-                }
-
                 this.StateManager.RequestTransition(ComponentState.Error, TransitionReason.Error);
             }
             else
@@ -536,7 +621,7 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             base.OnWorkerCompleted();
-            Debug.WriteLine("[StatefulComponentBase] Worker completed, expiring solution");
+            Logger.For<StatefulComponentBase>().Trace("[StatefulComponentBase] Worker completed, expiring solution");
             this.ExpireSolution(true);
         }
 
@@ -561,7 +646,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="DA">The data access object.</param>
         protected virtual void OnStateCompleted(IGH_DataAccess DA)
         {
-            Debug.WriteLine($"[{this.GetType().Name}] OnStateCompleted");
+            Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] OnStateCompleted");
 
             this.Message = ComponentState.Completed.ToMessageString();
             this.ApplyPersistentRuntimeMessages();
@@ -578,7 +663,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="DA">The data access object.</param>
         protected virtual void OnStateWaiting(IGH_DataAccess DA)
         {
-            Debug.WriteLine($"[{this.GetType().Name}] OnStateWaiting");
+            Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] OnStateWaiting");
 
             this.ApplyPersistentRuntimeMessages();
 
@@ -594,7 +679,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="DA">The data access object.</param>
         protected virtual void OnStateNeedsRun(IGH_DataAccess DA)
         {
-            Debug.WriteLine($"[{this.GetType().Name}] OnStateNeedsRun");
+            Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] OnStateNeedsRun");
 
             bool runInput = false;
             DA.GetData(WellKnownInputs.Run, ref runInput);
@@ -617,7 +702,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="DA">The data access object.</param>
         protected virtual void OnStateProcessing(IGH_DataAccess DA)
         {
-            Debug.WriteLine($"[{this.GetType().Name}] OnStateProcessing");
+            Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] OnStateProcessing");
 
             // Delegate to AsyncComponentBase
             base.SolveInstance(DA);
@@ -650,9 +735,76 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Called when the component transitions into <see cref="ComponentState.Processing"/>.
         /// Runs after async-state reset and progress reset; override to seed
-        /// processing-specific UI or telemetry.
+        /// processing-specific UI or instrumentation.
         /// </summary>
         protected virtual void OnEnteringProcessing()
+        {
+            // Snapshot the input revision this run is gathered with. Completion
+            // commits this snapshot, keeping later edits pending for a follow-up run.
+            this.StateManager.CaptureRunSnapshot();
+            this.ResetRunResults();
+        }
+
+        /// <summary>
+        /// Gets a value indicating whether this component supports incremental
+        /// per-unit result reuse across runs. Components whose work has side
+        /// effects (file writes, canvas mutations, external fetches) must not
+        /// enable reuse.
+        /// </summary>
+        protected virtual bool SupportsResultReuse => false;
+
+        /// <summary>
+        /// Gets a value indicating whether identical processing units inside a run
+        /// share a single produced result. Only consulted when
+        /// <see cref="SupportsResultReuse"/> is true.
+        /// </summary>
+        protected virtual bool ShareIdenticalResults => true;
+
+        /// <summary>
+        /// Provides the reuse context mixed into every processing-unit key.
+        /// Defaults to the component type name; overrides add execution-shaping
+        /// settings (e.g. provider, model, request parameters).
+        /// </summary>
+        /// <returns>An opaque context string.</returns>
+        protected virtual string GetResultReuseContext() => this.GetType().FullName;
+
+        /// <summary>
+        /// Gets a value indicating whether the current run bypasses the
+        /// committed result snapshot so every unit re-executes its function.
+        /// Within-run sharing between identical units is unaffected. The
+        /// collect-only batch import overrides this: its forced recollection
+        /// must queue fresh sentinel work instead of serving the cache the
+        /// import is meant to replace — otherwise nothing queues, the arm is
+        /// never consumed, and the staged results silently evaporate.
+        /// </summary>
+        protected virtual bool BypassCommittedResultReuse => false;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this component instance
+        /// disables processing-unit result caching. Persisted per instance;
+        /// toggled via the "Cache outputs" context-menu item. Unlike
+        /// <see cref="ClearResultCache"/>, which discards stored results once,
+        /// this option keeps the store fully unused for as long as it is set:
+        /// every processing cycle re-executes every unit instead of replaying
+        /// previously produced results.
+        /// </summary>
+        public bool DisableResultCaching { get; set; }
+
+        /// <summary>
+        /// Resets run-scoped result state when a new processing cycle starts.
+        /// Overrides may skip the reset while resuming persisted in-flight work
+        /// (e.g. a restored batch submission).
+        /// </summary>
+        protected virtual void ResetRunResults()
+        {
+            this.unitResultStore.BeginRun();
+        }
+
+        /// <summary>
+        /// Called by <see cref="ClearResultCache"/> so subclasses can release
+        /// additional cached state (e.g. in-flight batch submissions).
+        /// </summary>
+        protected virtual void OnClearResultCache()
         {
         }
 
@@ -678,7 +830,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="DA">The data access object.</param>
         protected virtual void OnStateCancelled(IGH_DataAccess DA)
         {
-            Debug.WriteLine($"[{this.GetType().Name}] OnStateCancelled");
+            Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] OnStateCancelled");
 
             this.ApplyPersistentRuntimeMessages();
             this.SetPersistentRuntimeMessage("cancelled", GH_RuntimeMessageLevel.Error, "The execution was manually cancelled", false);
@@ -695,7 +847,7 @@ namespace SmartHopper.Core.ComponentBase
             // If a provider change arrived while cancelled, force a re-run request regardless of Run.
             if (changedInputs.Contains(WellKnownInputs.AIProvider))
             {
-                Debug.WriteLine($"[{this.GetType().Name}] OnStateCancelled: AI Provider changed, transitioning to NeedsRun");
+                Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] OnStateCancelled: AI Provider changed, transitioning to NeedsRun");
                 this.StateManager.CancelDebounce();
                 this.StateManager.RequestTransition(ComponentState.NeedsRun, TransitionReason.InputChanged);
                 return;
@@ -714,7 +866,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="DA">The data access object.</param>
         protected virtual void OnStateError(IGH_DataAccess DA)
         {
-            Debug.WriteLine($"[{this.GetType().Name}] OnStateError");
+            Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] OnStateError");
             this.ApplyPersistentRuntimeMessages();
         }
 
@@ -759,6 +911,30 @@ namespace SmartHopper.Core.ComponentBase
         #region Runtime Messages
 
         /// <summary>
+        /// Shows a remark when the <c>Run?</c> input has no wires, so the component does
+        /// not sit silently idle; clears it once the input is wired. The input keeps its
+        /// default <c>false</c> — the remark only explains how to run, never auto-runs.
+        /// </summary>
+        private void UpdateRunInputHint()
+        {
+            const string RunHintKey = "run_input_unwired";
+            var runParam = this.Params.Input.FirstOrDefault(
+                p => string.Equals(p.Name, WellKnownInputs.Run, StringComparison.Ordinal));
+            if (runParam != null && runParam.SourceCount == 0)
+            {
+                this.SetPersistentRuntimeMessage(
+                    RunHintKey,
+                    GH_RuntimeMessageLevel.Remark,
+                    "Connect a toggle or button to 'Run?' to run this component.",
+                    false);
+            }
+            else
+            {
+                this.ClearOnePersistentRuntimeMessage(RunHintKey);
+            }
+        }
+
+        /// <summary>
         /// Adds or updates a runtime message and optionally transitions to Error state.
         /// </summary>
         /// <param name="key">Unique identifier for the message.</param>
@@ -767,7 +943,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="transitionToError">If true and level is Error, transitions to Error state.</param>
         protected void SetPersistentRuntimeMessage(string key, GH_RuntimeMessageLevel level, string message, bool transitionToError = true)
         {
-            Debug.WriteLine($"[{this.GetType().Name}] [PersistentMessage] key='{key}', level={level}, message='{message}'");
+            Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] [PersistentMessage] key='{key}', level={level}, message='{message}'");
             this.runtimeMessages[key] = (level, message);
 
             if (transitionToError && level == GH_RuntimeMessageLevel.Error)
@@ -807,11 +983,26 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
+        /// Stores a message in the persistent dictionary without re-applying it — for
+        /// messages already live on the component this solve (worker collections
+        /// flushed to the UI, or legacy direct <see cref="GH_Component.AddRuntimeMessage"/>
+        /// calls), so they survive the next state transition without being duplicated
+        /// in the current one.
+        /// </summary>
+        /// <param name="key">Unique identifier for the message.</param>
+        /// <param name="level">The message severity level.</param>
+        /// <param name="message">The message content.</param>
+        protected void StorePersistentRuntimeMessage(string key, GH_RuntimeMessageLevel level, string message)
+        {
+            this.runtimeMessages[key] = (level, message);
+        }
+
+        /// <summary>
         /// Applies stored runtime messages to the component.
         /// </summary>
         protected void ApplyPersistentRuntimeMessages()
         {
-            Debug.WriteLine($"[{this.GetType().Name}] Applying {this.runtimeMessages.Count} runtime messages");
+            Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] Applying {this.runtimeMessages.Count} runtime messages");
             foreach (var (level, message) in this.runtimeMessages.Values)
             {
                 this.AddRuntimeMessage(level, message);
@@ -875,15 +1066,16 @@ namespace SmartHopper.Core.ComponentBase
             where T : IGH_Goo
             where U : IGH_Goo
         {
-            var (dataCount, iterationCount) = DataTree.DataTreeProcessor.CalculateProcessingMetrics(trees, options);
+            var effectiveOptions = this.EffectiveProcessingOptions(options);
+            var (dataCount, iterationCount) = DataTree.DataTreeProcessor.CalculateProcessingMetrics(trees, effectiveOptions);
 
             this.SetDataCount(dataCount);
             this.InitializeProgress(iterationCount);
 
             var result = await DataTree.DataTreeProcessor.RunAsync(
                 trees,
-                function,
-                options,
+                this.ApplyResultReuse(function),
+                effectiveOptions,
                 progressCallback: (current, total) =>
                 {
                     this.UpdateProgress(current);
@@ -891,6 +1083,8 @@ namespace SmartHopper.Core.ComponentBase
                 onUnitStart: (path, itemIndex) => this.OnProcessingUnitStart(path, itemIndex),
                 onUnitComplete: (path, targets) => this.OnProcessingUnitComplete(path, targets),
                 token).ConfigureAwait(false);
+
+            this.ReportResultReuse();
 
             // Surface any tree matching messages as persistent runtime messages
             foreach (var message in result.Messages)
@@ -907,6 +1101,7 @@ namespace SmartHopper.Core.ComponentBase
                     transitionToError: message.Severity == SHRuntimeMessageSeverity.Error);
             }
 
+            this.OnProcessingOutputsReady(result.Outputs);
             return result.Outputs;
         }
 
@@ -923,15 +1118,16 @@ namespace SmartHopper.Core.ComponentBase
             CancellationToken token = default)
             where T : IGH_Goo
         {
-            var (dataCount, iterationCount) = DataTree.DataTreeProcessor.CalculateProcessingMetrics(trees, options);
+            var effectiveOptions = this.EffectiveProcessingOptions(options);
+            var (dataCount, iterationCount) = DataTree.DataTreeProcessor.CalculateProcessingMetrics(trees, effectiveOptions);
 
             this.SetDataCount(dataCount);
             this.InitializeProgress(iterationCount);
 
             var result = await DataTree.DataTreeProcessor.RunAsync(
                 trees,
-                function,
-                options,
+                this.ApplyResultReuse(function),
+                effectiveOptions,
                 progressCallback: (current, total) =>
                 {
                     this.UpdateProgress(current);
@@ -939,6 +1135,8 @@ namespace SmartHopper.Core.ComponentBase
                 onUnitStart: (path, itemIndex) => this.OnProcessingUnitStart(path, itemIndex),
                 onUnitComplete: (path, targets) => this.OnProcessingUnitComplete(path, targets),
                 token).ConfigureAwait(false);
+
+            this.ReportResultReuse();
 
             // Surface any tree matching messages as persistent runtime messages
             foreach (var message in result.Messages)
@@ -955,6 +1153,7 @@ namespace SmartHopper.Core.ComponentBase
                     transitionToError: message.Severity == SHRuntimeMessageSeverity.Error);
             }
 
+            this.OnProcessingOutputsReady(result.Outputs);
             return result.Outputs;
         }
 
@@ -968,15 +1167,16 @@ namespace SmartHopper.Core.ComponentBase
             DataTree.ProcessingOptions options,
             CancellationToken token = default)
         {
-            var (dataCount, iterationCount) = DataTree.DataTreeProcessor.CalculateProcessingMetrics(trees, options);
+            var effectiveOptions = this.EffectiveProcessingOptions(options);
+            var (dataCount, iterationCount) = DataTree.DataTreeProcessor.CalculateProcessingMetrics(trees, effectiveOptions);
 
             this.SetDataCount(dataCount);
             this.InitializeProgress(iterationCount);
 
             var result = await DataTree.DataTreeProcessor.RunAsync(
                 trees,
-                function,
-                options,
+                this.ApplyResultReuse(function),
+                effectiveOptions,
                 progressCallback: (current, total) =>
                 {
                     this.UpdateProgress(current);
@@ -984,6 +1184,8 @@ namespace SmartHopper.Core.ComponentBase
                 onUnitStart: (path, itemIndex) => this.OnProcessingUnitStart(path, itemIndex),
                 onUnitComplete: (path, targets) => this.OnProcessingUnitComplete(path, targets),
                 token).ConfigureAwait(false);
+
+            this.ReportResultReuse();
 
             // Surface any tree matching messages as persistent runtime messages
             foreach (var message in result.Messages)
@@ -1000,7 +1202,171 @@ namespace SmartHopper.Core.ComponentBase
                     transitionToError: message.Severity == SHRuntimeMessageSeverity.Error);
             }
 
+            this.OnProcessingOutputsReady(result.Outputs);
             return result;
+        }
+
+        /// <summary>
+        /// Called once per <c>RunProcessingAsync</c> run with the produced output
+        /// trees, keyed by output parameter name. The base implementation is a
+        /// no-op; <see cref="AIStatefulAsyncComponentBase"/> overrides it to capture
+        /// the trees so the parent-owned batch submission handoff can map queued
+        /// sentinels to output parameters without workers passing them explicitly.
+        /// </summary>
+        /// <param name="outputs">Produced output trees keyed by parameter name.</param>
+        /// <typeparam name="U">Output goo type.</typeparam>
+        protected virtual void OnProcessingOutputsReady<U>(IReadOnlyDictionary<string, GH_Structure<U>> outputs)
+            where U : IGH_Goo
+        {
+        }
+
+        /// <summary>
+        /// Derives the effective processing options for a run. When identical-result
+        /// sharing is disabled via Settings, planner-level identical-branch grouping
+        /// must also be off — otherwise branches are collapsed before the result
+        /// store ever sees them and the Share=false contract is silently broken.
+        /// </summary>
+        /// <param name="options">The component-declared processing options.</param>
+        /// <returns>The effective options to use for metrics and scheduling.</returns>
+        private DataTree.ProcessingOptions EffectiveProcessingOptions(DataTree.ProcessingOptions options)
+        {
+            if (options == null
+                || !this.SupportsResultReuse
+                || this.ShareIdenticalResults
+                || !options.GroupIdenticalBranches)
+            {
+                return options;
+            }
+
+            return new DataTree.ProcessingOptions
+            {
+                Topology = options.Topology,
+                OnlyMatchingPaths = options.OnlyMatchingPaths,
+                GroupIdenticalBranches = false,
+            };
+        }
+
+        /// <summary>
+        /// Wraps a processing-unit function with incremental result reuse when the
+        /// component opts in via <see cref="SupportsResultReuse"/>.
+        /// </summary>
+        /// <typeparam name="T">Input goo type.</typeparam>
+        /// <typeparam name="U">Output goo type.</typeparam>
+        /// <param name="function">The unit function to wrap.</param>
+        /// <returns>The wrapped (or original) function.</returns>
+        private Func<Dictionary<string, List<T>>, Task<Dictionary<string, List<U>>>> ApplyResultReuse<T, U>(
+            Func<Dictionary<string, List<T>>, Task<Dictionary<string, List<U>>>> function)
+            where T : IGH_Goo
+            where U : IGH_Goo
+        {
+            if (!this.SupportsResultReuse)
+            {
+                return function;
+            }
+
+            this.unitResultStore.ConfigureRun(this.GetResultReuseContext(), this.ShareIdenticalResults);
+
+            // Caching disabled still needs the full run-scoped bookkeeping —
+            // unit keys, stored fragments and sentinel resolution are how batch
+            // completion counts resolved work. Only the committed lookup is
+            // bypassed, and CommitRun is skipped at completion, so nothing new
+            // is persisted for future runs.
+            var bypassCommitted = this.BypassCommittedResultReuse || this.DisableResultCaching;
+
+            return async inputs =>
+            {
+                var unitKey = this.unitResultStore.ComputeUnitKey(inputs);
+                this.CurrentUnitKey = unitKey;
+                this._pendingUnitKey = unitKey;
+                this._pendingUnitReused = false;
+                try
+                {
+                    if (this.unitResultStore.TryGetFragment(unitKey, includeCommitted: !bypassCommitted, out var cached))
+                    {
+                        if (TryCastFragment<U>(cached, out var typed))
+                        {
+                            this._pendingUnitReused = true;
+                            return typed;
+                        }
+
+                        // Stored fragment no longer matches expected output types — drop it.
+                        this.unitResultStore.Evict(unitKey);
+                    }
+
+                    var produced = await function(inputs).ConfigureAwait(false);
+                    this.unitResultStore.StoreFragment(
+                        unitKey,
+                        produced?.ToDictionary(
+                            kvp => kvp.Key,
+                            kvp => kvp.Value?.Cast<IGH_Goo>().ToList()));
+                    return produced;
+                }
+                finally
+                {
+                    this.CurrentUnitKey = null;
+                }
+            };
+        }
+
+        /// <summary>
+        /// Attempts to cast a stored fragment back to the expected output type.
+        /// Returns false when any item cannot be cast — the entry is then evicted
+        /// and the unit re-executes instead of returning malformed output.
+        /// </summary>
+        private static bool TryCastFragment<U>(
+            Dictionary<string, List<IGH_Goo>> fragment,
+            out Dictionary<string, List<U>> typed)
+            where U : IGH_Goo
+        {
+            typed = null;
+            if (fragment == null)
+            {
+                return false;
+            }
+
+            var converted = new Dictionary<string, List<U>>(StringComparer.Ordinal);
+            foreach (var kvp in fragment)
+            {
+                var items = new List<U>();
+                if (kvp.Value != null)
+                {
+                    foreach (var item in kvp.Value)
+                    {
+                        if (item == null)
+                        {
+                            items.Add(default);
+                        }
+                        else if (item is U u)
+                        {
+                            items.Add(u);
+                        }
+                        else
+                        {
+                            return false;
+                        }
+                    }
+                }
+
+                converted[kvp.Key] = items;
+            }
+
+            typed = converted;
+            return true;
+        }
+
+        /// <summary>
+        /// Emits a persistent remark when the current run reused cached unit results.
+        /// </summary>
+        private void ReportResultReuse()
+        {
+            if (this.unitResultStore.RunReusedCount > 0)
+            {
+                this.SetPersistentRuntimeMessage(
+                    "result_reuse",
+                    GH_RuntimeMessageLevel.Remark,
+                    $"Reused {this.unitResultStore.RunReusedCount} of {this.unitResultStore.RunUnitCount} result(s) — no new execution for them.",
+                    false);
+            }
         }
 
         /// <summary>
@@ -1012,6 +1378,8 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="itemIndex">The item index within the current branch for item-level topologies; null otherwise.</param>
         protected virtual void OnProcessingUnitStart(GH_Path path, int? itemIndex = null)
         {
+            this._pendingUnitPath = path;
+            this._pendingUnitItemIndex = itemIndex;
         }
 
         /// <summary>
@@ -1023,7 +1391,31 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="targetPaths">All paths that received the unit's output.</param>
         protected virtual void OnProcessingUnitComplete(GH_Path inputPath, List<GH_Path> targetPaths)
         {
+            this._lastUnitWasReused = this._pendingUnitReused;
+            this.LastCompletedUnitKey = this._pendingUnitKey;
+            this._pendingUnitReused = false;
+
+            if (this._pendingUnitKey != null)
+            {
+                this.unitResultStore.RecordPlacement(
+                    this._pendingUnitKey,
+                    inputPath ?? this._pendingUnitPath,
+                    this._pendingUnitItemIndex,
+                    targetPaths,
+                    this._lastUnitWasReused);
+                this._pendingUnitKey = null;
+            }
         }
+
+        /// <summary>
+        /// Whether the unit that just completed was served from the result store
+        /// (true) or freshly executed (false). Consumed by overrides to replay
+        /// stored execution provenance for cache hits.
+        /// </summary>
+        protected bool LastUnitWasReused => this._lastUnitWasReused;
+
+        /// <summary>The unit key of the last completed unit, if reuse tracking is active.</summary>
+        protected string LastCompletedUnitKey { get; private set; }
 
         #endregion
 
@@ -1100,6 +1492,18 @@ namespace SmartHopper.Core.ComponentBase
                 var persistence = new GHPersistenceService();
                 persistence.WriteOutputsV2(writer, this, outputsByGuid);
 
+                // Persist the committed processing-unit result cache
+                var cacheJson = this.unitResultStore.SerializeCommitted();
+                if (cacheJson != null)
+                {
+                    writer.SetString(PersistenceKeys.ResultCache, cacheJson.ToString(Newtonsoft.Json.Formatting.None));
+                }
+
+                if (this.DisableResultCaching)
+                {
+                    writer.SetBoolean(PersistenceKeys.DisableResultCaching, true);
+                }
+
                 return true;
             }
             catch
@@ -1160,16 +1564,35 @@ namespace SmartHopper.Core.ComponentBase
                         if (v2Outputs.TryGetValue(p.InstanceGuid, out var tree))
                         {
                             this.persistentOutputs[p.Name] = tree;
-                            Debug.WriteLine($"[StatefulComponentBase] [Read] Restored output '{p.Name}' paths={tree.PathCount}");
+                            Logger.For<StatefulComponentBase>().Trace($"[StatefulComponentBase] [Read] Restored output '{p.Name}' paths={tree.PathCount}");
                         }
                     }
                 }
+                // Restore the committed processing-unit result cache
+                if (reader.ItemExists(PersistenceKeys.ResultCache))
+                {
+                    try
+                    {
+                        this.unitResultStore.RestoreCommitted(
+                            JObject.Parse(reader.GetString(PersistenceKeys.ResultCache)));
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.For<StatefulComponentBase>().Warning($"[StatefulComponentBase] [Read] Result cache restore failed, ignoring: {ex.Message}");
+                    }
+                }
+
+                if (reader.ItemExists(PersistenceKeys.DisableResultCaching))
+                {
+                    this.DisableResultCaching = reader.GetBoolean(PersistenceKeys.DisableResultCaching);
+                }
+
                 // Legacy (pre-V2) restore was retired in the ComponentBase deep refactor.
                 // Files saved with the V2 schema (i.e. anything from the public release line)
                 // restore through ReadOutputsV2 above. Pre-V2 alpha files lose persistent
                 // outputs on first open; users must re-run those components once.
 
-                Debug.WriteLine($"[StatefulComponentBase] [Read] Restored with {this.persistentOutputs.Count} outputs");
+                Logger.For<StatefulComponentBase>().Trace($"[StatefulComponentBase] [Read] Restored with {this.persistentOutputs.Count} outputs");
 
                 return true;
             }
@@ -1186,7 +1609,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="DA">The data access object.</param>
         protected virtual void RestorePersistentOutputs(IGH_DataAccess DA)
         {
-            Debug.WriteLine("[StatefulComponentBase] Restoring persistent outputs");
+            Logger.For<StatefulComponentBase>().Trace("[StatefulComponentBase] Restoring persistent outputs");
 
             for (int i = 0; i < this.Params.Output.Count; i++)
             {
@@ -1203,7 +1626,7 @@ namespace SmartHopper.Core.ComponentBase
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[StatefulComponentBase] Failed to restore '{param.Name}': {ex.Message}");
+                    Logger.For<StatefulComponentBase>().Exception(ex, $"[StatefulComponentBase] Failed to restore '{param.Name}': {ex.Message}");
                 }
             }
         }
@@ -1274,7 +1697,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="paramName">Name of the parameter.</param>
         /// <param name="value">Value to store.</param>
         /// <param name="DA">The data access object.</param>
-        protected void SetPersistentOutput(string paramName, object value, IGH_DataAccess DA)
+        protected virtual void SetPersistentOutput(string paramName, object value, IGH_DataAccess DA)
         {
             try
             {
@@ -1308,7 +1731,7 @@ namespace SmartHopper.Core.ComponentBase
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[StatefulComponentBase] Failed to set output '{paramName}': {ex.Message}");
+                Logger.For<StatefulComponentBase>().Exception(ex, $"[StatefulComponentBase] Failed to set output '{paramName}': {ex.Message}");
             }
         }
 
@@ -1561,77 +1984,13 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
-        /// Computes a deterministic hash for a single volatile data item.
-        /// Avoids using object.GetHashCode(), which is not stable across sessions for many types.
+        /// Computes a deterministic hash for a single volatile data item via the central
+        /// semantic fingerprint. Settings/parameters are fingerprinted by content so
+        /// changes inside Extras or other structured values are detected.
         /// </summary>
         private static int StableVolatileItemHash(object item)
         {
-            if (item == null)
-            {
-                return 0;
-            }
-
-            if (item is IGH_Goo goo)
-            {
-                object scriptValue = null;
-                try
-                {
-                    if (goo.IsValid)
-                    {
-                        scriptValue = goo.ScriptVariable();
-                    }
-                }
-                catch
-                {
-                    scriptValue = null;
-                }
-
-                int typeHash = StableStringHash(goo.GetType().FullName);
-                int valueHash = StableVolatileValueHash(scriptValue ?? goo.ToString());
-                return CombineHashCodes(typeHash, valueHash);
-            }
-
-            return StableVolatileValueHash(item);
-        }
-
-        /// <summary>
-        /// Computes a deterministic hash for common primitive/script values.
-        /// </summary>
-        private static int StableVolatileValueHash(object value)
-        {
-            if (value == null)
-            {
-                return 0;
-            }
-
-            unchecked
-            {
-                switch (value)
-                {
-                    case int i:
-                        return i;
-                    case long l:
-                        return CombineHashCodes((int)l, (int)(l >> 32));
-                    case bool b:
-                        return b ? 1 : 0;
-                    case double d:
-                        {
-                            long bits = BitConverter.DoubleToInt64Bits(d);
-                            return CombineHashCodes((int)bits, (int)(bits >> 32));
-                        }
-
-                    case float f:
-                        {
-                            int bits = BitConverter.SingleToInt32Bits(f);
-                            return bits;
-                        }
-
-                    case string s:
-                        return StableStringHash(s);
-                    default:
-                        return StableStringHash(value.ToString());
-                }
-            }
+            return StableStringHash(SemanticFingerprint.Of(item, strict: false));
         }
 
         /// <summary>
@@ -1706,13 +2065,46 @@ namespace SmartHopper.Core.ComponentBase
             this.StateManager.RequestTransition(ComponentState.Cancelled, TransitionReason.Cancelled);
         }
 
-#if DEBUG
         /// <summary>
-        /// Appends debug menu items.
+        /// Clears all cached/persisted outputs and processing-unit results, cancels
+        /// any in-flight work, and marks the component for re-execution. When Run
+        /// remains true the component starts processing again on the next solve.
         /// </summary>
+        public void ClearResultCache()
+        {
+            this.RequestTaskCancellation();
+            this.unitResultStore.ClearAll();
+            this.persistentOutputs.Clear();
+            this.OnClearResultCache();
+            this.StateManager.ForceState(ComponentState.NeedsRun);
+            this.ExpireSolution(true);
+        }
+
+        /// <summary>
+        /// Appends component menu items, including result-cache actions.
+        /// </summary>
+        /// <param name="menu">The menu to append to.</param>
         public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
         {
             base.AppendAdditionalMenuItems(menu);
+            Menu_AppendSeparator(menu);
+            Menu_AppendItem(menu, "Clear output cache", (s, e) => this.ClearResultCache());
+
+            if (this.SupportsResultReuse)
+            {
+                var cacheItem = new ToolStripMenuItem("Cache outputs")
+                {
+                    Checked = !this.DisableResultCaching,
+                    CheckOnClick = true,
+                    ToolTipText = "Re-use previously produced results for unchanged inputs. Uncheck to always execute fresh.",
+                };
+                cacheItem.Click += (s, e) =>
+                {
+                    this.DisableResultCaching = !cacheItem.Checked;
+                };
+                menu.Items.Add(cacheItem);
+            }
+#if DEBUG
             Menu_AppendSeparator(menu);
             Menu_AppendItem(menu, $"Debug: State = {this.StateManager.CurrentState}", null);
             Menu_AppendItem(menu, "Debug: Force Completed", (s, e) =>
@@ -1730,9 +2122,8 @@ namespace SmartHopper.Core.ComponentBase
                 this.StateManager.Reset();
                 this.ExpireSolution(true);
             });
-        }
-
 #endif
+        }
 
         #endregion
     }

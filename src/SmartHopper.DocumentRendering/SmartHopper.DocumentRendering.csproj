@@ -1,0 +1,33 @@
+<!--
+  SmartHopper - AI-powered Grasshopper Plugin
+  Copyright (C) 2024-2026 Marc Roca Musach
+
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+
+  This library is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>SmartHopper.DocumentRendering</AssemblyName>
+    <!-- RID restore so the packaging target can publish per-RID outputs with natives. -->
+    <RuntimeIdentifiers>win-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
+    <!-- Isolated implementation assembly: loaded through a dedicated AssemblyLoadContext
+         by SmartHopper.DocumentProcessing. It is never referenced at compile time.
+         Strong-named like every own assembly by the shared build props. -->
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="PDFtoImage" Version="5.4.0" />
+  </ItemGroup>
+</Project>

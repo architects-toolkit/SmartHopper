@@ -117,6 +117,7 @@ namespace SmartHopper.Core.IO.Codecs
             json["turnId"] = interaction.TurnId;
             json["time"] = interaction.Time.ToString("O");
             json["agent"] = interaction.Agent.ToString();
+            json["source"] = EncodeSource(interaction.SourceReference);
 
             switch (interaction)
             {
@@ -133,8 +134,7 @@ namespace SmartHopper.Core.IO.Codecs
                     json["revisedPrompt"] = img.RevisedPrompt;
                     json["originalPrompt"] = img.OriginalPrompt;
                     json["imageSize"] = img.ImageSize;
-                    json["imageQuality"] = img.ImageQuality;
-                    json["imageStyle"] = img.ImageStyle;
+                    json["aspectRatio"] = img.AspectRatio;
                     json["mimeType"] = img.MimeType;
                     break;
 
@@ -153,6 +153,30 @@ namespace SmartHopper.Core.IO.Codecs
                     json["arguments"] = toolResult.Arguments?.ToString(Formatting.None);
                     json["reasoning"] = toolResult.Reasoning;
                     json["result"] = toolResult.Result?.ToString(Formatting.None);
+                    if (toolResult.Images != null && toolResult.Images.Count > 0)
+                    {
+                        var images = new JArray();
+                        foreach (var image in toolResult.Images)
+                        {
+                            if (image == null)
+                            {
+                                continue;
+                            }
+
+                            images.Add(new JObject
+                            {
+                                ["imageData"] = image.ImageData,
+                                ["mimeType"] = image.MimeType,
+                                ["sendToModel"] = image.SendToModel,
+                                ["width"] = image.Width,
+                                ["height"] = image.Height,
+                                ["source"] = EncodeSource(image.SourceReference),
+                            });
+                        }
+
+                        json["images"] = images;
+                    }
+
                     break;
 
                 case AIInteractionToolCall toolCall:
@@ -213,8 +237,7 @@ namespace SmartHopper.Core.IO.Codecs
                     RevisedPrompt = json.Value<string>("revisedPrompt"),
                     OriginalPrompt = json.Value<string>("originalPrompt"),
                     ImageSize = json.Value<string>("imageSize") ?? "1024x1024",
-                    ImageQuality = json.Value<string>("imageQuality") ?? "standard",
-                    ImageStyle = json.Value<string>("imageStyle") ?? "vivid",
+                    AspectRatio = json.Value<string>("aspectRatio"),
                     MimeType = json.Value<string>("mimeType")
                 },
                 "audio" => new AIInteractionAudio
@@ -237,7 +260,8 @@ namespace SmartHopper.Core.IO.Codecs
                     Name = json.Value<string>("name"),
                     Arguments = json.Value<string>("arguments") != null ? JObject.Parse(json.Value<string>("arguments")) : null,
                     Reasoning = json.Value<string>("reasoning"),
-                    Result = json.Value<string>("result") != null ? JObject.Parse(json.Value<string>("result")) : null
+                    Result = json.Value<string>("result") != null ? JObject.Parse(json.Value<string>("result")) : null,
+                    Images = DecodeImages(json),
                 },
                 "documentEvent" => new AIInteractionDocumentEvent
                 {
@@ -263,9 +287,44 @@ namespace SmartHopper.Core.IO.Codecs
                 interaction = interaction.WithTurnId(turnId);
                 interaction = interaction.WithTime(DateTime.TryParse(timeStr, out var time) ? time : DateTime.UtcNow);
                 interaction = interaction.WithAgent(agent);
+                interaction = interaction.WithSourceReference(DecodeSource(json["source"] as JObject));
             }
 
             return interaction;
+        }
+
+        private static JObject EncodeSource(SourceContentReference source)
+        {
+            return SourceContentReferenceJsonCodec.Encode(source);
+        }
+
+        private static SourceContentReference DecodeSource(JObject json)
+        {
+            return SourceContentReferenceJsonCodec.Decode(json);
+        }
+
+        private static List<ToolResultImage> DecodeImages(JObject json)
+        {
+            var images = new List<ToolResultImage>();
+            if (json["images"] is not JArray array)
+            {
+                return images;
+            }
+
+            foreach (var item in array.OfType<JObject>())
+            {
+                images.Add(new ToolResultImage
+                {
+                    ImageData = item.Value<string>("imageData"),
+                    MimeType = item.Value<string>("mimeType") ?? "image/png",
+                    SendToModel = item.Value<bool>("sendToModel"),
+                    Width = item.Value<int?>("width"),
+                    Height = item.Value<int?>("height"),
+                    SourceReference = DecodeSource(item["source"] as JObject),
+                });
+            }
+
+            return images;
         }
     }
 }

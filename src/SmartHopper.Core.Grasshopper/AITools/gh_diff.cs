@@ -22,6 +22,7 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using GhJSON.Core;
 using GhJSON.Core.DiffOperations;
+using GhJSON.Core.SchemaModels;
 using GhJSON.Core.Serialization;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -29,6 +30,7 @@ using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -65,7 +67,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "canvas", "components", "diff", "patch", "read-only", "ghjson" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghpatch"": { ""type"": ""string"", ""description"": ""Serialized `.ghpatch` document describing differences."" }, ""hasChanges"": { ""type"": ""boolean"" }, ""componentOpCount"": { ""type"": ""integer"" }, ""connectionOpCount"": { ""type"": ""integer"" }, ""groupOpCount"": { ""type"": ""integer"" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true),
+                activityLabel: "comparing canvas changes",
+                resultLabel: "compared canvas changes");
         }
 
         private async Task<AIReturn> GhDiffToolAsync(AIToolCall toolCall)
@@ -75,6 +79,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Request = toolCall,
             };
 
+            var ghjsonReported = false;
             try
             {
                 // Local tool: skip metrics validation (provider/model/finish_reason not required)
@@ -106,15 +111,25 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                var leftDoc = GhJson.FromJson(leftJson);
-                var rightDoc = GhJson.FromJson(rightJson);
+                GhJsonDocument leftDoc;
+                GhJsonDocument rightDoc;
+                try
+                {
+                    leftDoc = GhJson.FromJson(leftJson);
+                    rightDoc = GhJson.FromJson(rightJson);
+                }
+                catch (Exception parseEx)
+                {
+                    ghjsonReported = true;
+                    throw;
+                }
 
-                Debug.WriteLine("[gh_diff] Diffing documents...");
+                Logger.For<gh_diff>().Trace("[gh_diff] Diffing documents...");
                 var diffResult = GhJson.Diff(leftDoc, rightDoc, options);
 
                 var patchJson = GhJson.PatchToJson(diffResult.Patch, new WriteOptions { Indented = false });
 
-                Debug.WriteLine($"[gh_diff] Diff complete: {diffResult.ComponentOpCount} component ops, {diffResult.ConnectionOpCount} connection ops, {diffResult.GroupOpCount} group ops");
+                Logger.For<gh_diff>().Trace($"[gh_diff] Diff complete: {diffResult.ComponentOpCount} component ops, {diffResult.ConnectionOpCount} connection ops, {diffResult.GroupOpCount} group ops");
 
                 var toolResult = new JObject
                 {
@@ -134,7 +149,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[gh_diff] Error: {ex.Message}");
+                Logger.For<gh_diff>().Exception(ex, $"[gh_diff] Error: {ex.Message}");
+                if (!ghjsonReported)
+                {
+                }
+
                 output.CreateError(ex.Message);
                 return output;
             }

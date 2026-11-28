@@ -1,67 +1,35 @@
 # Components
 
-Grasshopper components that form the user-facing interface for SmartHopper.
+Grasshopper components live in `src/SmartHopper.Components/` and build on the shared base classes in `src/SmartHopper.Core/ComponentBase/`.
 
----
+> For the visual end-user component catalog with screenshots, visit **[docs.smarthopper.xyz/docs/components](https://docs.smarthopper.xyz/docs/components)**.
 
-## Metadata
+## Ribbon panels (`SmartHopper` tab)
 
-| Property | Value |
-| --- | --- |
-| **Source Code** | `src/SmartHopper.Core.Grasshopper/` |
-| **Since Version** | ? |
-| **Last Updated** | 2026-06-14 |
-| **Documentation Maintainer** | Devin AI |
+| Panel | Subcategory string | Docs |
+| --- | --- | --- |
+| **AI, Settings & Metrics** | `A. AI` | [AI Components](./AI/index.md) |
+| **Input** | `B. Input` | [Input Components](./Input/index.md) |
+| **Output** | `C. Output` | [Output Components](./Output/index.md) |
+| **GhJSON** | `D. GhJSON` | [Canvas & GhJSON Components](./Grasshopper/index.md) |
+| **Forums** | `E. Forums` | [Knowledge Components](./Knowledge/index.md) |
+| **Documents** | `F. Documents` | [Knowledge Components](./Knowledge/index.md) |
+| **Media** | `G. Media` | [Audio & Media Components](./Audio/index.md) |
+| **JSON** | `H. JSON` | [JSON Components](./JSON/index.md) |
+| **Text & Lists** | `I. Text & Lists` | [AI Components](./AI/index.md) |
+| **Script** | `J. Script` | [AI Components](./AI/index.md) |
 
-_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
+Specialized components use `GH_Exposure.obscure` to stay dropdown-only (the unexpanded ribbon shows ~50 core icons); every component remains searchable from the canvas and inside its panel dropdown. Custom parameter types (`AIInputPayloadParameter`, `VersatileImageParameter`, `VersatileAudioParameter`) use `GH_Exposure.hidden` and never appear in the ribbon.
 
----
+## Base class hierarchy & architecture
 
-## Why Read This?
+- [ComponentBase reference](./ComponentBase/index.md) — `AsyncComponentBase`, `StatefulComponentBase`, `SelectingComponentBase`, `SelectingStatefulComponentBase`, `ProviderComponentBase`, `AIProviderComponentBase`, `AIStatefulAsyncComponentBase`, `AISelectingStatefulAsyncComponentBase`, `AIInputAdapterBase`, and `AIOutputAdapterBase`
+- [Output persistence (`IO`)](./IO/index.md) — versioned persistence for component outputs across `.gh` file saves and state transitions
+- [Test components](./Test/index.md) — `src/SmartHopper.Components.Test/` (Debug-only components for tests requiring Rhino/Grasshopper runtime)
 
-This page explains the organization and behavior of all SmartHopper Grasshopper components. Understanding the component architecture helps you navigate the hierarchy and apply best practices when building or extending components.
+## Example: Implementing an Output Adapter
 
-**You should read this if you:**
-
-- Want to understand the SmartHopper component architecture
-- Need to find specific component categories
-- Are developing new components
-
----
-
-## End-User Guide
-
-### Purpose
-
-Expose AI capabilities (chat, list/text generation, image generation, canvas utilities) as standard GH components.
-
-### Key locations
-
-- `src/SmartHopper.Components/` — production components
-- `src/SmartHopper.Components.Test/` — test-only components (not built in Release)
-- [Component bases](./ComponentBase/index.md) in `src/SmartHopper.Core/ComponentBase/` — full hierarchy and per-class docs (AsyncComponentBase, StatefulComponentBase, AIProviderComponentBase, AIStatefulAsyncComponentBase, Selecting* bases, AIInputAdapterBase, AIOutputAdapterBase, ComponentStateManager, BatchSentinel, …).
-  - AI catalog: [AI Components](./AI/index.md)
-  - JSON components: [JSON](./JSON/index.md)
-  - Test components: [Test](./Test/index.md)
-  - [IO](./IO/index.md) — safe, versioned persistence for component outputs
-
-### Behavior
-
-- Components construct `AIBody`, select provider/model, and execute `AIRequestCall`.
-- Metrics and errors are surfaced on outputs and runtime messages.
-- Supports both button and toggle Run patterns; debounce and state transitions manage re-execution.
-
-### Best practices
-
-- Set `RunOnlyOnInputChanges` appropriately for your component.
-- Ensure UI changes occur on Rhino's UI thread.
-- Validate tool schemas and model capabilities; give clear, actionable errors.
-
----
-
-## Developer Reference
-
-Components derive from bases in `src/SmartHopper.Core/ComponentBase/`. The most common starting point for an AI output component is `AIOutputAdapterBase`, which wires an `AIInputPayload` input and maps the provider response:
+Output components derive from `AIOutputAdapterBase`, which registers `Input >`, `Settings`, `Run?`, and `Metrics` automatically and decodes branch results through `GetOutputMappings()`:
 
 ```csharp
 using System;
@@ -75,8 +43,9 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 public class MyAIOutputComponent : AIOutputAdapterBase
 {
     public MyAIOutputComponent()
-        : base("My AI", "MYAI", "Description", GH_Exposure.primary)
-    { }
+        : base("My AI", "MYAI", "Call the AI provider on the connected input(s) and return text.", GH_Exposure.primary)
+    {
+    }
 
     public override Guid ComponentGuid => new Guid("YOUR-GUID-HERE");
 
@@ -95,36 +64,16 @@ public class MyAIOutputComponent : AIOutputAdapterBase
             {
                 ParamName = "Response",
                 NickName = "R",
-                Description = "AI response",
+                Description = "AI-generated text response.",
                 ParamType = typeof(Param_String),
                 Access = GH_ParamAccess.tree,
                 Extractor = OutputMapping.Single(aiReturn =>
                 {
                     var text = aiReturn?.Body?.GetLastAssistantText();
-                    return string.IsNullOrWhiteSpace(text) ? null : new GH_String(text);
-                })
-            }
+                    return string.IsNullOrWhiteSpace(text) ? null : new GH_String(text.Trim());
+                }),
+            },
         };
     }
 }
-
 ```
-
-Configure component re-execution behavior by setting `RunOnlyOnInputChanges` in the constructor:
-
-```csharp
-public MyAIComponent()
-    : base("My AI", "MYAI", "Description", "SmartHopper", "AI")
-{
-    this.RunOnlyOnInputChanges = false; // re-execute when provider/model changes
-}
-
-```
-
----
-
-## Architecture & Design
-
-- Components construct `AIBody`, select provider/model, and execute `AIRequestCall`.
-- Metrics and errors are surfaced on outputs and runtime messages.
-- Supports both button and toggle Run patterns; debounce and state transitions manage re-execution.

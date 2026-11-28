@@ -33,6 +33,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Hosting;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -80,7 +81,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""properties"": {
                         ""text"": { ""type"": ""string"", ""description"": ""The text to evaluate"" },
                         ""question"": { ""type"": ""string"", ""description"": ""The true/false question to evaluate"" },
-                        ""fallback"": { ""type"": ""boolean"", ""description"": ""Optional fallback value to use when AI response cannot be parsed as true/false. If not provided, the result will be null for unparsable responses"" }
+                        ""fallback"": { ""type"": ""boolean"", ""description"": ""Optional fallback value to use when AI response cannot be parsed as true/false. If not provided, the result will be null for unparsable responses"" },
+                        ""contextFilter"": { ""type"": ""string"", ""description"": ""Optional context-provider filter controlling which context providers feed the request (e.g., 'time,file', '-time', '*', '-*')."" }
                     },
                     ""required"": [""text"", ""question"" ]
                 }",
@@ -91,7 +93,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "text", "boolean", "data-processing", "read-only" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""boolean"", ""description"": ""Boolean evaluation result or fallback value."" } } }",
                 annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
-                surfaces: AIToolSurface.Direct | AIToolSurface.Batch);
+                surfaces: AIToolSurface.Direct | AIToolSurface.Batch,
+                activityLabel: "evaluating text",
+                resultLabel: "evaluated text");
         }
 
         /// <summary>
@@ -123,8 +127,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 provider: toolCall.Provider,
                 model: toolCall.Model,
                 body: requestBody,
-                endpoint: this.toolName,
+                origin: this.toolName,
                 capability: this.toolCapabilityRequirements);
+
+            // Forward per-request parameters (extras, sampling, timeout) to the provider call
+            if (toolCall.Parameters != null)
+            {
+                request.Parameters = toolCall.Parameters;
+            }
             return request;
         }
 
@@ -146,7 +156,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                Debug.WriteLine("[TextTools] Running Text2Boolean tool");
+                Logger.For<text2boolean>().Trace("[TextTools] Running Text2Boolean tool");
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.GetArgumentsOrEmpty();
@@ -159,21 +169,21 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(question))
                 {
-                    Debug.WriteLine($"[TextTools.Text2Boolean] Missing required parameters - text: '{text ?? "null"}', question: '{question ?? "null"}'");
+                    Logger.For<text2boolean>().Warning($"[TextTools.Text2Boolean] Missing required parameters - text: '{text ?? "null"}', question: '{question ?? "null"}'");
                     output.CreateError("Missing required parameters");
                     return output;
                 }
 
-                Debug.WriteLine($"[TextTools.Text2Boolean] System prompt: {this.systemPrompt}");
-                Debug.WriteLine($"[TextTools.Text2Boolean] User prompt: {request.Body?.Interactions?.LastOrDefault()}");
-                Debug.WriteLine($"[TextTools.Text2Boolean] Fallback value: '{fallback?.ToString() ?? "null"}'");
+                Logger.For<text2boolean>().Trace($"[TextTools.Text2Boolean] System prompt: {this.systemPrompt}");
+                Logger.For<text2boolean>().Trace($"[TextTools.Text2Boolean] User prompt: {request.Body?.Interactions?.LastOrDefault()}");
+                Logger.For<text2boolean>().Trace($"[TextTools.Text2Boolean] Fallback value: '{fallback?.ToString() ?? "null"}'");
 
                 // Execute the pre-built request
                 var result = await request.Exec().ConfigureAwait(false);
 
                 if (!result.Success)
                 {
-                    Debug.WriteLine($"[TextTools.Text2Boolean] AI call failed. Messages: {result.Messages?.Count ?? 0}");
+                    Logger.For<text2boolean>().Warning($"[TextTools.Text2Boolean] AI call failed. Messages: {result.Messages?.Count ?? 0}");
 
                     // Propagate structured messages from AI call
                     output.Messages = result.Messages;
@@ -181,11 +191,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
-                Debug.WriteLine($"[TextTools.Text2Boolean] AI response: '{response}'");
+                Logger.For<text2boolean>().Trace($"[TextTools.Text2Boolean] AI response: '{response}'");
 
                 // Centralized parse + fallback resolution (shared with batch path).
                 var toolResult = BooleanResultResolver.BuildToolResult(response, fallback);
-                Debug.WriteLine($"[TextTools.Text2Boolean] Resolved: {toolResult}");
+                Logger.For<text2boolean>().Trace($"[TextTools.Text2Boolean] Resolved: {toolResult}");
 
                 var toolBody = AIBodyBuilder.Create()
                     .AddToolResult(toolResult, id: toolInfo?.Id, name: this.toolName, metrics: result.Metrics, messages: result.Messages)
@@ -196,7 +206,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[TextTools] Error in Text2Boolean: {ex.Message}");
+                Logger.For<text2boolean>().Exception(ex, $"[TextTools] Error in Text2Boolean: {ex.Message}");
 
                 output.CreateError($"Error: {ex.Message}");
                 return output;

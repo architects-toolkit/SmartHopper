@@ -34,10 +34,16 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Core.ComponentBase;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Test.Misc
 {
     public class TestStatefulTreePrimeCalculatorComponent : StatefulComponentBase
     {
+        /// <summary>
+        /// Local, deterministic calculation — safe to reuse per-unit results.
+        /// </summary>
+        protected override bool SupportsResultReuse => true;
+
         public override Guid ComponentGuid => new Guid("E2DB56F0-C597-432C-9774-82DF431CC848");
 
         protected override Bitmap Icon => null;
@@ -98,7 +104,7 @@ namespace SmartHopper.Components.Test.Misc
                     var branch = this._inputTree.get_Branch(path);
                     var resultBranch = new List<GH_Number>();
 
-                    Debug.WriteLine($"[TestStatefulTreePrimeCalculatorWorker] DoWorkAsync - Processing path {path}");
+                    Logger.For<TestStatefulTreePrimeCalculatorWorker>().Trace($"[TestStatefulTreePrimeCalculatorWorker] DoWorkAsync - Processing path {path}");
 
                     foreach (var item in branch)
                     {
@@ -110,7 +116,7 @@ namespace SmartHopper.Components.Test.Misc
                             long result = await this.CalculateNthPrime(n, token).ConfigureAwait(false);
                             resultBranch.Add(new GH_Number(result));
 
-                            Debug.WriteLine($"[TestStatefulTreePrimeCalculatorWorker] DoWorkAsync - Calculating nth prime for {n}: {result}");
+                            Logger.For<TestStatefulTreePrimeCalculatorWorker>().Trace($"[TestStatefulTreePrimeCalculatorWorker] DoWorkAsync - Calculating nth prime for {n}: {result}");
                         }
                     }
 

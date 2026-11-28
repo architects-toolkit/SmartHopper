@@ -69,6 +69,17 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
         protected string RequestedModel => this.model ?? string.Empty;
 
         /// <inheritdoc/>
+        public virtual string? Origin { get; set; }
+
+        /// <summary>
+        /// Gets or sets the wire endpoint path resolved for this request.
+        /// Providers resolve this during <c>PreCallAsync</c> preparation (for example,
+        /// "/chat/completions" or "/models/{model}:generateContent") and it is sent to
+        /// the provider API as-is. Callers must not write semantic labels here — use
+        /// <see cref="Origin"/> for provenance. A non-empty value set by the caller is
+        /// treated as an explicit wire-path override (for example backoffice requests
+        /// such as "/models").
+        /// </summary>
         public string Endpoint { get; set; }
 
         /// <inheritdoc/>
@@ -109,6 +120,21 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
         /// (for example, Grasshopper canvas utilities like gh_put or gh_get).
         /// </summary>
         public bool SkipMetricsValidation { get; set; }
+
+        /// <summary>
+        /// Per-execution memoization of media-conversion results produced during request
+        /// preparation (keyed by media content, context and helper provider/model). Sessions
+        /// share one instance per run so repeated preparations of the same evidence within
+        /// that run do not pay conversion costs twice; when null, each preparation uses a
+        /// call-scoped cache. Never a global store — the cache is bound to this request's run.
+        /// </summary>
+        public System.Collections.Concurrent.ConcurrentDictionary<string, string> PreparationCache { get; set; }
+
+        /// <summary>
+        /// Gets the request-level messages stored on this request (excludes dynamically
+        /// computed validation output). Used when detaching execution copies.
+        /// </summary>
+        protected IReadOnlyList<SHRuntimeMessage> StoredMessages => this.PrivateMessages;
 
         /// <summary>
         /// Backing field for ForceToolCall. When true, user explicitly wants to force a tool call.
@@ -265,7 +291,13 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
         /// <summary>
         /// Initializes the call request.
         /// </summary>
-        public virtual void Initialize(string provider, string model, AIBody body, string endpoint, AICapability capability = AICapability.TextOutput, string? toolFilter = null)
+        /// <param name="provider">Provider ID to use.</param>
+        /// <param name="model">Model name to target.</param>
+        /// <param name="body">Request body.</param>
+        /// <param name="origin">Semantic provenance label for this request (tool name, component tag); stored on <see cref="Origin"/>.</param>
+        /// <param name="capability">Desired capabilities for this request.</param>
+        /// <param name="toolFilter">Optional tool filter expression.</param>
+        public virtual void Initialize(string provider, string model, AIBody body, string? origin, AICapability capability = AICapability.TextOutput, string? toolFilter = null)
         {
             AIBody finalBody = body ?? AIBody.Empty;
 
@@ -278,7 +310,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
 
             this.Provider = provider;
             this.Model = model;
-            this.Endpoint = endpoint ?? string.Empty;
+            this.Origin = origin;
             this.Body = finalBody;
             this.Capability = capability;
 
@@ -292,7 +324,13 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
         /// <summary>
         /// Initializes the call request.
         /// </summary>
-        public virtual void Initialize(string provider, string model, List<IAIInteraction> interactions, string endpoint, AICapability capability = AICapability.TextOutput, string? toolFilter = null)
+        /// <param name="provider">Provider ID to use.</param>
+        /// <param name="model">Model name to target.</param>
+        /// <param name="interactions">Interactions to seed the request body with.</param>
+        /// <param name="origin">Semantic provenance label for this request (tool name, component tag); stored on <see cref="Origin"/>.</param>
+        /// <param name="capability">Desired capabilities for this request.</param>
+        /// <param name="toolFilter">Optional tool filter expression.</param>
+        public virtual void Initialize(string provider, string model, List<IAIInteraction> interactions, string? origin, AICapability capability = AICapability.TextOutput, string? toolFilter = null)
         {
             var builder = AIBodyBuilder.Create();
             if (interactions != null)
@@ -306,7 +344,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
             }
 
             var body = builder.Build();
-            this.Initialize(provider, model, body, endpoint ?? string.Empty, capability);
+            this.Initialize(provider, model, body, origin, capability);
         }
 
         /// <summary>

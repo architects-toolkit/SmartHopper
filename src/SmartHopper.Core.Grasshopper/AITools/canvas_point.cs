@@ -27,6 +27,7 @@ using SmartHopper.Infrastructure.Interaction;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -99,7 +100,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     destructiveHint: false,
                     idempotentHint: true,
                     openWorldHint: false,
-                    title: "Point at Canvas"));
+                    title: "Point at Canvas"),
+                activityLabel: "reading canvas position",
+                resultLabel: "read canvas position");
         }
 
         private async Task<AIReturn> CanvasPointAsync(AIToolCall toolCall)
@@ -137,7 +140,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"[canvas_point] Presenter failed: {ex.Message}");
+                        Logger.For<canvas_point>().Exception(ex, $"[canvas_point] Presenter failed: {ex.Message}");
                     }
                 }
 

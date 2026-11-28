@@ -39,6 +39,122 @@ namespace SmartHopper.Infrastructure.Tests
     [Collection("AIToolManager")]
     public class AIToolManagerExecutionTests
     {
+        /// <summary>Provider/model output cannot widen a host request scope or invoke a disabled tool.</summary>
+        [Theory]
+        [InlineData("*", "*", true, true)]
+        [InlineData("Private.Read", "*", true, true)]
+        [InlineData("Public", "*", true, false)]
+        [InlineData("* -Private.Read", "*", true, false)]
+        [InlineData("-*", "*", true, false)]
+        [InlineData("*", "Public", true, true)]
+        [InlineData("Private.Read", "-*", true, true)]
+        [InlineData("*", "*", false, false)]
+        public async Task ExecuteTool_EnforcesAuthorization(string originFilter, string bodyFilter, bool enabled, bool expected)
+        {
+            this.ResetTools();
+            var executed = false;
+            AIToolManager.RegisterTool(new AITool("scope_echo", "Scoped tool", "Private.Read", "{}", request =>
+            {
+                executed = true;
+                var result = new AIReturn();
+                result.SetBody(AIBodyBuilder.Create().WithTurnId(System.Guid.NewGuid().ToString("N"))
+                    .AddText(AIAgent.ToolResult, "executed").Build());
+                return Task.FromResult(result);
+            }, enabled: enabled));
+            var call = new AIToolCall
+            {
+                Provider = "test",
+                Model = "test-model",
+                Body = AIBodyBuilder.Create().WithTurnId(System.Guid.NewGuid().ToString("N"))
+                    .WithToolFilter(bodyFilter).Add(new AIInteractionToolCall
+                    {
+                        Id = "scope-call",
+                        Name = "scope_echo",
+                        Arguments = new JObject(),
+                    }).Build(),
+            };
+            call.InvocationContext.ToolScopeFilter = originFilter;
+
+            var returned = await AIToolManager.ExecuteTool(call).ConfigureAwait(false);
+            Assert.Equal(expected, executed);
+            if (!expected)
+            {
+                Assert.True(returned.Messages.Exists(message => message.Severity == SHRuntimeMessageSeverity.Error));
+            }
+        }
+
+        /// <summary>Progressive discovery remains callable when it was added outside the category filter.</summary>
+        [Fact]
+        public async Task ExecuteTool_ProgressiveDiscovery_PreservesEligibleScope()
+        {
+            this.ResetTools();
+            for (var i = 0; i < 13; i++)
+            {
+                AIToolManager.RegisterTool(new AITool("eligible_" + i, "Eligible", "Private.Read", "{}",
+                    _ => Task.FromResult(new AIReturn())));
+            }
+
+            var executed = false;
+            AIToolManager.RegisterTool(new AITool("search_tools", "Discovery", "Assistant.Meta", "{}", _ =>
+            {
+                executed = true;
+                return Task.FromResult(new AIReturn());
+            }));
+            var call = new AIToolCall { Provider = "test", Model = "test-model" };
+            call.FromToolCallInteraction(new AIInteractionToolCall { Id = "discover", Name = "search_tools", Arguments = new JObject() });
+            call.InvocationContext.ToolScopeFilter = "Private.Read";
+            await AIToolManager.ExecuteTool(call).ConfigureAwait(false);
+            Assert.True(executed);
+
+            executed = false;
+            call.InvocationContext = null!;
+            await AIToolManager.ExecuteTool(call).ConfigureAwait(false);
+            Assert.False(executed, "missing host authorization context must fail closed");
+        }
+
+        /// <summary>Registry revocation and scope changes during async setup are honored before execution.</summary>
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task ExecuteTool_RechecksAuthorizationAfterUndoSetup(bool replaceRegistration)
+        {
+            this.ResetTools();
+            var executed = false;
+            var call = new AIToolCall { Provider = "test", Model = "test-model" };
+            call.FromToolCallInteraction(new AIInteractionToolCall { Id = "revoke", Name = "revoke_tool", Arguments = new JObject() });
+            call.InvocationContext.ToolScopeFilter = "*";
+            AIToolManager.RegisterTool(new AIMutatingTool("revoke_tool", "Revoked", "Private.Read", "{}", _ =>
+            {
+                executed = true;
+                return Task.FromResult(new AIReturn());
+            }));
+            MutationUndoCoordinator.Current = new RecordingUndoCoordinator
+            {
+                BeforeBegin = () =>
+                {
+                    if (replaceRegistration)
+                    {
+                        AIToolManager.RegisterTool(new AITool("revoke_tool", "Disabled", "Private.Read", "{}",
+                            _ => Task.FromResult(new AIReturn()), enabled: false));
+                    }
+                    else
+                    {
+                        call.InvocationContext.ToolScopeFilter = "-*";
+                    }
+                },
+            };
+            try
+            {
+                var result = await AIToolManager.ExecuteTool(call).ConfigureAwait(false);
+                Assert.False(executed);
+                Assert.Contains(result.Messages, message => message.Message?.Contains("no longer authorized") == true);
+            }
+            finally
+            {
+                MutationUndoCoordinator.Current = null;
+            }
+        }
+
         #region ExecuteTool Validation
 
 #if NET7_WINDOWS
@@ -530,10 +646,14 @@ namespace SmartHopper.Infrastructure.Tests
 
         private sealed class RecordingUndoCoordinator : IMutationUndoCoordinator
         {
+            /// <summary>Gets or sets a policy change simulated while undo setup is awaited.</summary>
+            public System.Action? BeforeBegin { get; set; }
+
             public RecordingUndoScope Scope { get; } = new RecordingUndoScope();
 
             public Task<IMutationUndoScope> BeginAsync(string toolName, System.Threading.CancellationToken cancellationToken)
             {
+                this.BeforeBegin?.Invoke();
                 return Task.FromResult<IMutationUndoScope>(this.Scope);
             }
         }

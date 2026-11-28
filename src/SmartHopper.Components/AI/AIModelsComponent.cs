@@ -34,7 +34,9 @@ using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.AI
 {
     /// <summary>
@@ -50,12 +52,12 @@ namespace SmartHopper.Components.AI
         /// <summary>
         /// Gets the icon for this component.
         /// </summary>
-        protected override Bitmap Icon => Resources.aimodels;
+        protected override Bitmap Icon => Resources.AIModels;
 
         /// <summary>
         /// Gets the exposure level of this component in the ribbon.
         /// </summary>
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {
@@ -74,11 +76,10 @@ namespace SmartHopper.Components.AI
             : base(
                   "AI Models",
                   "AIModels",
-                  "Retrieve the list of available models from the selected AI provider.",
+                  "List the AI models available from the selected provider.\nRight-click the component to choose which provider to query.",
                   "SmartHopper",
                   "A. AI")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         /// <summary>
@@ -88,7 +89,7 @@ namespace SmartHopper.Components.AI
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             // Override to suppress the Metrics output
-            pManager.AddTextParameter("Models", "M", "List of available model names from the selected provider", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Models", "M", "Available model names reported by the selected AI provider.", GH_ParamAccess.tree);
         }
 
         /// <summary>
@@ -195,7 +196,7 @@ namespace SmartHopper.Components.AI
                             ?? "Error occurred while retrieving models";
                         this._result["Success"] = false;
                         this._result["Error"] = errMsg;
-                        Debug.WriteLine("[AIModelsComponent] " + errMsg);
+                        Logger.For<AIModelsWorker>().Trace("[AIModelsComponent] " + errMsg);
                         return;
                     }
 
@@ -233,14 +234,14 @@ namespace SmartHopper.Components.AI
                     if (resultJson["warning"]?.ToString() is string warnMsg && !string.IsNullOrWhiteSpace(warnMsg))
                     {
                         this._result["Warning"] = warnMsg;
-                        Debug.WriteLine("[AIModelsComponent] " + warnMsg);
+                        Logger.For<AIModelsWorker>().Trace("[AIModelsComponent] " + warnMsg);
                     }
                 }
                 catch (Exception ex)
                 {
                     this._result["Success"] = false;
                     this._result["Error"] = ex.Message;
-                    Debug.WriteLine("[AIModelsComponent] Error: " + ex.Message);
+                    Logger.For<AIModelsWorker>().Exception(ex, "[AIModelsComponent] Error: " + ex.Message);
                 }
             }
 
@@ -260,17 +261,17 @@ namespace SmartHopper.Components.AI
 
                         if (this._result.TryGetValue("Info", out var info) && info is string infoMsg)
                         {
-                            this._parent.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, infoMsg);
+                            this.CollectMessage(SHRuntimeMessageSeverity.Info, infoMsg);
                         }
 
                         if (this._result.TryGetValue("Warning", out var warn) && warn is string warnMsg)
                         {
-                            this._parent.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, warnMsg);
+                            this.CollectMessage(SHRuntimeMessageSeverity.Warning, warnMsg);
                         }
 
                         if (this._result.TryGetValue("Error", out var err) && err is string errMsg)
                         {
-                            this._parent.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, errMsg);
+                            this.CollectMessage(SHRuntimeMessageSeverity.Error, errMsg);
                         }
 
                         message = "Models output set successfully";
@@ -285,7 +286,7 @@ namespace SmartHopper.Components.AI
                     var err = this._result.TryGetValue("Error", out var errObj) && errObj is string errMsg
                         ? errMsg
                         : "Error occurred while retrieving models";
-                    this._parent.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, err);
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, err);
                     message = err;
                 }
             }

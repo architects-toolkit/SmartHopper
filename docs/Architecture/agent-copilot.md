@@ -8,9 +8,9 @@ SmartHopper WebChat can propose explicit plans and all supported AI-driven canva
 
 | Property | Value |
 | --- | --- |
-| **Source Code** | `src/SmartHopper.Infrastructure/Consent/`, `src/SmartHopper.Core/UI/Chat/`, `src/SmartHopper.Core.Grasshopper/AITools/` |
-| **Since Version** | 2.1.0 |
-| **Last Updated** | 2026-09-13 |
+| **Source Code** | `src/SmartHopper.Infrastructure/Consent/`, `src/SmartHopper.Infrastructure/AICall/Subagents/`, `src/SmartHopper.Core/UI/Chat/`, `src/SmartHopper.Core.Grasshopper/AITools/` |
+| **Since Version** | 2.0.0 |
+| **Last Updated** | 2026-11-01 |
 | **Documentation Maintainer** | Devin AI |
 
 ---
@@ -23,9 +23,9 @@ Read this when changing plan approval, tool exposure, graphical canvas review, o
 
 For non-trivial multi-step work, the assistant may show a plan card. Approving it permits the assistant to continue with that approach; it does not approve later canvas edits.
 
-While working, the assistant can maintain a live task plan in a persistent panel docked under the autonomy overlay, listing each task as pending, in progress, or completed with a progress indicator. The panel updates in place as work advances and keeps its final state until replaced or reset.
+While working, the assistant can maintain a live task plan as a native card in the transcript, listing each task as pending, in progress, or completed with a progress indicator. The card updates in place as work advances and keeps its final state until replaced or reset.
 
-The assistant may also ask the user a blocking question mid-run (`ask_user`), showing 2–4 answer options plus a free-text field, and may point at components or canvas regions (`canvas_point`) with a replayable highlight.
+The assistant may also ask the user a blocking question mid-run (`ask_user`), showing 2–4 answer options plus a free-text field in a question card, and may point at components or canvas regions (`canvas_point`) — a replay action on the transcript row pans, zooms and highlights the target.
 
 Each concrete canvas mutation is reviewed separately. Structural and component-state changes are painted on the live canvas and listed as selectable changes. Apply accepts the selected subset; Reject or Cancel leaves the rejected subset unchanged.
 
@@ -55,6 +55,10 @@ The same graphical review applies when a mutating tool is triggered by WebChat, 
 | `CanvasPointerRequest` | Replayable pan/zoom/highlight target for `canvas_point` |
 | `ICanvasPointerPresenter` | UI adapter that renders the pointer card (canvas owned by Core.Grasshopper) |
 | `CanvasPointerBridge` | Process-wide handler seam letting chat replay a pointer without Grasshopper references |
+| `ISubagentHost` | Per-session conductor contract carried on `MutationInvocationContext` |
+| `SubagentHost` | Owns the session's subagents; launches child `ConversationSession` runs and raises `RunFinished` |
+| `Subagent`/`SubagentRun` | Worker record plus one run per instruction; `Delivered` tracks whether the outcome reached the conductor |
+| `SubagentRunReport` | Terminal-run payload handed to the chat host (evidence line + wake trigger) |
 
 ### Execution flow
 
@@ -73,7 +77,7 @@ caller -> AIToolCall / mutation operation
 ### Tool surfaces
 
 - Existing ordinary tools default to all surfaces for compatibility.
-- `plan_propose`, `plan_tasks`, and `ask_user` are Chat-only and are rejected by MCP and batch execution.
+- `plan_propose`, `plan_tasks`, `ask_user`, and the four conductor tools (`spawn_subagent`, `send_to_subagent`, `wait_subagents`, `list_subagents`) are Chat-only and are rejected by MCP and batch execution.
 - `AIMutatingTool` excludes Batch by default.
 - Surface checks occur both when formatting/discovering tools and immediately before execution.
 
@@ -87,11 +91,25 @@ Every `AIMutatingTool` is wrapped by the host undo coordinator. Existing operati
 
 Consent is invocation-scoped rather than conversation-scoped because SmartHopper has several mutation callers. UI is separated through presenters: WebChat renders plan cards, while Core.Grasshopper owns GhJSON-aware canvas overlays. Low-level helpers such as `ScriptModifier`, `CanvasAccess`, and `GhJsonGrasshopper` remain apply primitives and must not open consent UI themselves.
 
-Task plan visualization rides the same invocation-context presenter seam as consent but never blocks on a decision. `plan_tasks` sends a complete `TaskPlan` snapshot on every call; the WebChat presenter renders it into the persistent `#task-plan-panel` docked under the autonomy overlay so progress is visible without scrolling the transcript. Because no consent is involved, the tool call returns immediately after the update is queued.
+Task plan visualization rides the same invocation-context presenter seam as consent but never blocks on a decision. `plan_tasks` sends a complete `TaskPlan` snapshot on every call; the WebChat presenter renders it as a native `card:task_plan` interaction (id `sh-task-plan`, upserted in place) inside the vendored chat-ui view — structured plugin surfaces travel as canonical parts/cards rather than DOM injections, so progress stays visible without leaving the transcript. Because no consent is involved, the tool call returns immediately after the update is queued.
 
-`ask_user` uses the same seam in the blocking direction: the tool awaits the presenter's `Task` until the user picks an option, submits free text, or the run's cancellation token fires. `canvas_point` is the Grasshopper-side counterpart — the tool executes the pan/zoom/highlight via `CanvasPointerService` on the Rhino UI thread, registers the request by pointer id, and the WebChat card replays it through `CanvasPointerBridge` so `SmartHopper.Core` never references Grasshopper APIs.
+`ask_user` uses the same seam in the blocking direction: the tool awaits the presenter's `Task` until the user picks an option, submits free text, or the run's cancellation token fires — the card is a native `card:question`. `canvas_point` is the Grasshopper-side counterpart — the tool executes the pan/zoom/highlight via `CanvasPointerService` on the Rhino UI thread, registers the request by pointer id, and the transcript row's `canvas_pointer` action replays it through `CanvasPointerBridge` so `SmartHopper.Core` never references Grasshopper APIs. Plan consent renders as a native `card:approval`.
+
+Subagents ride the same invocation-context channel without a presenter: `MutationInvocationContext.SubagentHost` carries the session's `ISubagentHost` into every tool call, so the conductor tools resolve their owning host the way consent proposals resolve their presenter. Each `spawn_subagent` clones the parent request (provider, model, endpoint, tool filter minus the conductor tools — a depth cap of 1) into a child `ConversationSession` that receives **no presenters and no subagent host**: consent-gated canvas mutations fail closed (`Unavailable`) and workers cannot spawn recursively. A finished run raises `SubagentHost.RunFinished`; WebChat then appends a visible evidence line and, when no turn is in flight, drives a wake turn whose transcript keeps a terse user marker while the full worker report rides as a system interaction. `wait_subagents` marks a run `Delivered` when its outcome is collected inline, which is what suppresses the automatic wake. Runs are in-memory (they do not survive a Rhino restart), bounded to `MaxSubagents`/`MaxConcurrentRuns` (8 each), and cancelled when the chat closes.
+
+`send_to_subagent` no longer fails while the worker is mid-run: `mode: "queue"` (the default) parks the instruction in the worker's `PendingInstructions` FIFO, and `KickNext` dequeues the head into a new run the moment the current run settles — results still flow through the same `RunFinished` → evidence → wake pipeline. `mode: "on-the-fly"` steers the live run instead: the instruction is appended to the child session when no tool call is pending (a user message must not split a call/result pair), so the worker reads it at its next provider call; unsafe sends fall back to queue semantics. A steer that lands inside the last provider call's window is guaranteed a continuation run at settle — the host detects any trailing user text the finished run did not produce itself. Pending instructions surface in the chat's outgoing queue panel (`PendingItems` → `meta.agent` rows, `PendingChanged` re-renders) and accept the shared row actions via `TryApplyPendingAction` (remove/edit/promote). `send_to_subagent` results report `delivery` (`started`/`queued`/`steered`) and `pending_count` so the conductor sees where its instruction landed.
 
 Plan approval and mutation approval are deliberately separate. A textual plan cannot authorize a later concrete graph whose arguments or affected objects may differ.
+
+Placement preserves supplied GhJSON pivots exactly, including `(0,0)`. Only new components without pivots run through the shared compact layout (`CanvasNewComponentLayout` → `GhJsonGrasshopper.ComputeLayout`: dependency-graph order, measured bounds, port alignment, wire corridors, collision resolution). Matching live instance GUIDs without a pivot keep their current position. In mixed documents, authored/live objects are fixed anchors: connected pivotless components are positioned relative to them, not below them. A single anchor translates its compact island; multiple anchors blend translations by inverse graph distance, followed by collision avoidance that moves only unfixed nodes. Only disconnected, unanchored parts use `autoOffset` to avoid existing canvas content. Layout runs before review, with `PutOptions.AutoOffset` disabled once missing pivots are baked, so staged preview ghosts match the accepted placement.
+
+Compact layout is the default, not a tool mode: GhJSON core and refinement stages share 28-unit edge gaps; disconnected islands use a 48-unit vertical gap. `gh_tidy_up` explicitly rearranges selected existing objects through the same pipeline. Generating new GhJSON must never emit `pivot` fields: tool descriptions, assistant/MCP guidance, reference responses, and generation prompts carry that rule. `gh_generate` also removes model-emitted pivots after normalization; imported/replayed documents never pass through this generation-only policy.
+
+After anchor fitting, shared GhJSON constraint groups align single-connection input/output leaves and compatible chains using measured wire grips. Groups move together to preserve feasible alignment through collision handling; fixed pivots, object separation, and horizontal-wire clearance take priority over incompatible alignments. Named ports and parallel wires retain distinct endpoint geometry. Neither placement nor Tidy Up implements a separate alignment algorithm.
+
+Development builds consume the adjacent `ghjson-dotnet` checkout through `UseLocalGhJsonSource`. `GhJsonSourceRoot` defaults to that sibling directory and can be overridden as an MSBuild property or environment variable to validate a specific checkout/worktree. Before shipping package-only builds, release the updated GhJSON APIs and update the plugin's package references; the older package fallback does not provide the required placement support.
+
+The hidden `TEST-GH-LAYOUT` component checks off-canvas measured placement, including indexed/named input-port alignment, output-leaf alignment and a fixed central component. These runtime checks belong to `SmartHopper.Components.Test`, not Rhino-dependent CI unit tests, and require an explicit run in Grasshopper.
 
 Category and tag labels (e.g. `Planning`, `planning`) are descriptive only. `AIToolSurface` is the access-control contract used for MCP and batch isolation.
 

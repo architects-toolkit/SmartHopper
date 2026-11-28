@@ -210,7 +210,10 @@ var hasImageOut = capabilities.HasFlag(AICapability.ImageOutput);
 
 Validation checks that every `Default` composite is satisfied by the same model's declared constituent flags. `Text2Speech` therefore requires `SpeechOutput`, while `Text2Audio` requires `AudioOutput`.
 
+Pricing refresh is entries-first only (`smarthopper-models/2`): `tools/ProviderModelPricing.psm1` parses and emits `AIModelPricing` `Entries` (`AIPriceEntry` kind/unit/amount) for `Pricing`/`BatchPricing` and maps the OpenRouter snake_case rate surface onto `(kind, unit)` keys. Flat-field pricing in seed tables fails validation loudly; the deterministic module tests in `tools/tests/ProviderModelPricing.Tests.ps1` run in the `check-provider-models` workflow.
+
 ### Error Handling
+
 | --- | --- | --- |
 | `InvalidOperationException` | Capability check failed unexpectedly | Verify enum values aren't corrupted |
 | Model not in list | Model lacks required capability | Check capability flags in model registration |

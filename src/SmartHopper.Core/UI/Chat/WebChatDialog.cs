@@ -27,6 +27,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Eto.Drawing;
@@ -35,6 +36,8 @@ using Newtonsoft.Json;
 using Rhino;
 using Rhino.UI;
 using SmartHopper.Infrastructure.AICall.Sessions;
+using SmartHopper.Infrastructure.AICall.Subagents;
+using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AICall.Utilities;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
@@ -45,6 +48,8 @@ using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AICall.Utilities;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Documents;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Streaming;
 
 namespace SmartHopper.Core.UI.Chat
@@ -64,26 +69,57 @@ namespace SmartHopper.Core.UI.Chat
         private readonly HtmlChatRenderer _htmlRenderer = new HtmlChatRenderer();
         private bool _webViewInitialized;
         private TaskCompletionSource<bool> _webViewInitializedTcs = new TaskCompletionSource<bool>();
+
+        // Per-document bridge session token: minted on every HTML load and echoed back
+        // by the page on each sh:///clipboard:// event, so a foreign document cannot
+        // drive the privileged host bridge.
+        private string _documentSession = string.Empty;
         private ConversationSession _currentSession = null!;
 
         // Tracks the active Grasshopper document and canvas changes between AI responses (null when unavailable).
         private readonly IChatDocumentTracker? _documentTracker = ChatDocumentTracking.CreateTracker();
         private System.Threading.CancellationTokenSource? _currentCts;
-        private string? _pendingUserMessage;
+        private volatile string? _pendingUserMessage;
 
-        // Image attachments selected via the attach button. Held C#-side (the sh:// URL
-        // scheme cannot carry base64 payloads); the WebView only renders thumbnail chips.
-        private readonly List<PendingImage> _pendingAttachments = new List<PendingImage>();
-        private List<PendingImage>? _attachmentsForNextSend;
+        // Subagent orchestration: the host owns this session's background workers and
+        // reports finished runs back so the transcript gains an evidence line and the
+        // conversation wakes when idle (the "conductor" pattern).
+        private SubagentHost? _subagentHost;
+        private readonly object _subagentReportsGate = new object();
+        private readonly List<SubagentRunReport> _pendingSubagentReports = new List<SubagentRunReport>();
+        private readonly HashSet<SubagentRun> _subagentEvidencedRuns = new HashSet<SubagentRun>();
+        private int _subagentDrainActive;
+        private int _turnInFlight;
+        private int _subagentWakeChain;
+        private volatile bool _dialogClosed;
+        private const int MaxSubagentWakeChain = 5;
+
+        // Serializes ProcessAIInteraction: user sends and subagent wake turns must
+        // never run the session's turn loop concurrently.
+        private readonly SemaphoreSlim _turnGate = new SemaphoreSlim(1, 1);
+
+        // Source evidence stays C#-side; the WebView receives only display names and thumbnails.
+        private readonly List<PendingAttachment> _pendingAttachments = new List<PendingAttachment>();
+        private volatile List<PendingAttachment>? _attachmentsForNextSend;
+        private CancellationTokenSource? _attachmentStagingCts;
+        private int _attachmentsPreparing;
         private bool _supportsImageInput = true;
+
+        // Outgoing session queue: sends that arrive while a turn owns the session
+        // (or while another send is already staged) wait FIFO instead of clobbering
+        // _pendingUserMessage. The head is promoted when the turn settles, and the
+        // WebView mirrors the merged queue — user sends plus per-worker queued
+        // instructions from the subagent host — through the toolkit's queue panel.
+        private readonly object _messageQueueGate = new object();
+        private readonly List<QueuedChatMessage> _messageQueue = new List<QueuedChatMessage>();
 
         private const int MaxAttachmentBytes = 15 * 1024 * 1024;
         private const int MaxAttachments = 4;
 
         /// <summary>
-        /// A user-selected image waiting to be sent with the next message.
+        /// A user-selected document or image waiting to be sent with the next message.
         /// </summary>
-        private sealed class PendingImage
+        private sealed class PendingAttachment
         {
             /// <summary>Gets a stable identifier shared with the WebView chip element.</summary>
             public string Id { get; } = Guid.NewGuid().ToString("N");
@@ -91,11 +127,60 @@ namespace SmartHopper.Core.UI.Chat
             /// <summary>Gets or sets the original file name.</summary>
             public string FileName { get; set; } = string.Empty;
 
-            /// <summary>Gets or sets the sniffed MIME type (e.g. "image/png").</summary>
-            public string MimeType { get; set; } = "image/png";
+            /// <summary>Gets or sets the ordered source evidence for this attachment.</summary>
+            public IReadOnlyList<IAIInteraction> Interactions { get; set; } = Array.Empty<IAIInteraction>();
 
-            /// <summary>Gets or sets the base64-encoded image data.</summary>
-            public string ImageData { get; set; } = string.Empty;
+            /// <summary>Gets or sets an optional bounded image preview, never PDF bytes or a local path.</summary>
+            public string ThumbnailDataUri { get; set; } = string.Empty;
+
+            /// <summary>Gets or sets whether the reader reported incomplete visual coverage.</summary>
+            public bool HasIncompleteVisualCoverage { get; set; }
+        }
+
+        /// <summary>
+        /// A user message held in the outgoing queue while a turn owns the session.
+        /// Attachments are staged at enqueue time so they follow the queued send.
+        /// </summary>
+        private sealed class QueuedChatMessage
+        {
+            /// <summary>Gets the stable identifier shared with the queue-panel row.</summary>
+            public string Id { get; } = Guid.NewGuid().ToString("N");
+
+            /// <summary>Gets or sets the message text.</summary>
+            public string Text { get; set; } = string.Empty;
+
+            /// <summary>Gets or sets the source attachments staged when the message was queued.</summary>
+            public List<PendingAttachment>? Attachments { get; set; }
+
+            /// <summary>Gets or sets the attribution rendered as the panel byline (null for user-typed sends).</summary>
+            public string? Author { get; set; }
+
+            /// <summary>Gets the enqueue time as Unix milliseconds for the toolkit QueuedMessage.createdAt.</summary>
+            public long EnqueuedAtMs { get; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        }
+
+        /// <summary>
+        /// The serialized row pushed to the toolkit's queue panel. Agent-injected
+        /// entries carry <c>meta.agent</c> (rendered as a muted byline); user sends
+        /// may carry <c>meta.author</c> when an attribution is known.
+        /// </summary>
+        private sealed class QueuePanelItem
+        {
+            /// <summary>Gets or sets the row identifier the panel echoes back on actions.</summary>
+            [Newtonsoft.Json.JsonProperty("id")]
+            public string Id { get; set; } = string.Empty;
+
+            /// <summary>Gets or sets the text shown in the row and submitted on dequeue.</summary>
+            [Newtonsoft.Json.JsonProperty("text")]
+            public string Text { get; set; } = string.Empty;
+
+            /// <summary>Gets or sets the enqueue time in Unix milliseconds.</summary>
+            [Newtonsoft.Json.JsonProperty("createdAt")]
+            public long CreatedAt { get; set; }
+
+            /// <summary>Gets or sets the byline metadata (<c>{ agent }</c> or <c>{ author }</c>); omitted when null.</summary>
+            [Newtonsoft.Json.JsonProperty("meta", NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
+            public object? Meta { get; set; }
         }
 
         // Keeps last-rendered HTML per DOM key to make upserts idempotent and avoid redundant DOM work
@@ -133,6 +218,25 @@ namespace SmartHopper.Core.UI.Chat
 
         private const int MAX_CONCURRENT_SCRIPTS = 4;
 
+        /// <summary>
+        /// User-role marker persisted into session history when an autonomy-continue
+        /// consent is approved: records that the run stopped at the autonomous budgets
+        /// and that continuing was authorized, then retriggers processing as a normal
+        /// user turn with a fresh budget window.
+        /// </summary>
+        private const string AutonomyContinueMarker =
+            "The agent reached its autonomous run limits and stopped. The user approved continuing — resume the task.";
+
+        /// <summary>
+        /// Id of the currently pending autonomy-continue consent card (<c>autonomy-N</c>),
+        /// or null when none is awaiting a decision. Cleared when the card resolves or a
+        /// new turn supersedes it.
+        /// </summary>
+        private string? _pendingAutonomyConsentId;
+
+        /// <summary>Sequence suffix for autonomy-continue consent ids (one card per prompt).</summary>
+        private int _autonomyConsentSeq;
+
         // Status text to apply after the document is fully loaded
         private string _pendingStatusAfter = "Ready";
 
@@ -155,7 +259,7 @@ namespace SmartHopper.Core.UI.Chat
         [Conditional("DEBUG")]
         private static void DebugLog(string message)
         {
-            Debug.WriteLine(message);
+            Logger.For<PendingAttachment>().Trace(message);
         }
 
         /// <summary>
@@ -170,16 +274,16 @@ namespace SmartHopper.Core.UI.Chat
             {
                 this._generateGreeting = generateGreeting;
 
-                // Vision capability: unknown models stay enabled (provider validates);
-                // models known to lack image input get the attach button disabled.
+                // Attachment acceptance is independent of vision: central preparation
+                // checks confirmed capabilities and applies the configured helper policy.
                 try
                 {
                     var caps = AIModelCapabilityRegistry.Instance.GetCapabilities(request?.Provider, request?.Model);
-                    this._supportsImageInput = caps == null || caps.HasCapability(AICapability.ImageInput);
+                    this._supportsImageInput = caps?.HasCapability(AICapability.ImageInput) == true;
                 }
                 catch
                 {
-                    this._supportsImageInput = true;
+                    this._supportsImageInput = false;
                 }
 
                 var mainWindow = RhinoEtoApp.MainWindow;
@@ -198,7 +302,17 @@ namespace SmartHopper.Core.UI.Chat
                 this._webView = new WebView();
                 this._webView.DocumentLoaded += this.WebView_DocumentLoaded;
                 this._webView.DocumentLoading += this.WebView_DocumentLoading;
+                this._webView.OpenNewWindow += this.WebView_OpenNewWindow;
                 this.Content = this._webView;
+
+                // Subagent host before the session so conductor tools resolve it
+                // through the session's invocation context.
+                this._subagentHost = new SubagentHost(request);
+                this._subagentHost.RunFinished += this.OnSubagentRunFinished;
+
+                // Worker-pending instructions share the outgoing queue panel —
+                // re-render whenever the host's pending lists change.
+                this._subagentHost.PendingChanged += (_, __) => this.PushQueueToView();
 
                 // Create the session after the WebView so its consent presenter can render plan cards.
                 this._currentSession = new ConversationSession(
@@ -208,7 +322,9 @@ namespace SmartHopper.Core.UI.Chat
                     consentPresenter: new WebChatPlanConsentPresenter(this),
                     taskPlanPresenter: new WebChatTaskPlanPresenter(this),
                     canvasPointerPresenter: new WebChatCanvasPointerPresenter(this),
-                    userQuestionPresenter: new WebChatUserQuestionPresenter(this));
+                    userQuestionPresenter: new WebChatUserQuestionPresenter(this),
+                    ghJsonArtifactPresenter: new WebChatGhJsonArtifactPresenter(this),
+                    subagentHost: this._subagentHost);
 
                 // If the user drags/resizes the dialog while we are rendering/upserting messages,
                 // defer DOM work to keep Rhino/Eto responsive.
@@ -856,6 +972,28 @@ namespace SmartHopper.Core.UI.Chat
             {
                 RhinoApp.InvokeOnUiThread(() =>
                 {
+                    // Only the embedded chat document may activate the privileged bridge.
+                    // A foreign URI means navigation slipped past DocumentLoading — keep the
+                    // bridge uninitialized (pending work stays queued forever, fail closed)
+                    // and drop any DOM work queued for the previous document.
+                    if (!WebChatNavigationPolicy.IsTrustedDocumentUri(e?.Uri))
+                    {
+                        DebugLog($"[WebChatDialog] Refusing bridge activation for untrusted document: {e?.Uri}");
+                        this._webViewInitialized = false;
+                        this._domUpdateQueue.Clear();
+                        this._keyedDomUpdateQueue.Clear();
+                        this._keyedDomUpdateLatest.Clear();
+                        try
+                        {
+                            this._lastDomHtmlByKey.Clear();
+                        }
+                        catch
+                        {
+                        }
+
+                        return;
+                    }
+
                     this._webViewInitialized = true;
                     try
                     {
@@ -877,19 +1015,19 @@ namespace SmartHopper.Core.UI.Chat
                     // Reflect status in web UI
                     try
                     {
-                        this.ExecuteScript($"setStatus({JsonConvert.SerializeObject(this._pendingStatusAfter ?? "Ready")}); setProcessing(false);");
+                        this.PushTurnSettledUiState(this._pendingStatusAfter ?? "Ready");
                     }
                     catch
                     {
                     }
 
-                    // Reflect image-input capability on the attach button
+                    // Text-only models may consume document evidence through configured fallback.
                     try
                     {
                         var tooltip = this._supportsImageInput
-                            ? "Attach image"
-                            : "The selected model does not support image input";
-                        this.ExecuteScript($"setAttachEnabled({(this._supportsImageInput ? "true" : "false")}, {JsonConvert.SerializeObject(tooltip)});");
+                            ? "Attach an image or PDF"
+                            : "Attach an image or PDF; visual evidence requires a configured vision helper";
+                        this.ExecuteScript($"setAttachEnabled(true, {JsonConvert.SerializeObject(tooltip)});");
                     }
                     catch
                     {
@@ -1072,7 +1210,9 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="statusAfter">Status text to set after loading completes.</param>
         private void LoadInitialHtmlIntoWebView(bool showProgress, bool setWebViewInitialized, string statusBefore = "Loading chat UI...", string statusAfter = "Ready")
         {
-            var html = this._htmlRenderer.GetInitialHtml();
+            // Mint a fresh bridge token for this document instance before rendering.
+            this._documentSession = Guid.NewGuid().ToString("N");
+            var html = this._htmlRenderer.GetInitialHtml(this._documentSession);
 
             // Each time we (re)load HTML, reset readiness and TCS; readiness will be set on DocumentLoaded
             this._webViewInitialized = false;
@@ -1087,6 +1227,9 @@ namespace SmartHopper.Core.UI.Chat
                     // On macOS, Eto.Forms WKWebViewHandler.LoadHtml() calls WKWebView.LoadFileUrl()
                     // which only accepts file:// URIs. Pass null on non-Windows to use about:blank origin;
                     // the JS-to-C# bridge uses WKUserContentController message handlers, not origin.
+                    // On Windows the base URI is never navigated to: the handler serves the HTML
+                    // through an embedded HttpListener on an ephemeral loopback port, so the loaded
+                    // document URI is http://localhost:<port>/ (see WebChatNavigationPolicy).
                     Uri baseUri = IsWindows
                         ? new Uri("https://smarthopper.local/")
                         : null;
@@ -1116,7 +1259,7 @@ namespace SmartHopper.Core.UI.Chat
                     try
                     {
                         this.ReplayFullHistoryToWebView();
-                        this.ExecuteScript("setStatus('Ready'); setProcessing(false);");
+                        this.PushTurnSettledUiState("Ready");
                         this._initialHistoryReplayTcs.TrySetResult(true);
                     }
                     catch (Exception rex)
@@ -1148,6 +1291,8 @@ namespace SmartHopper.Core.UI.Chat
         private async Task ProcessAIInteraction()
         {
             var turnCompleted = false;
+            await this._turnGate.WaitAsync().ConfigureAwait(false);
+            Interlocked.Exchange(ref this._turnInFlight, 1);
             try
             {
                 DebugLog("[WebChatDialog] Processing AI interaction with existing session reuse");
@@ -1175,6 +1320,25 @@ namespace SmartHopper.Core.UI.Chat
                 // Record document switches and canvas changes since the last AI response before the user message.
                 await this.AppendDocumentEventsAsync(tracker => tracker.CollectChanges()).ConfigureAwait(false);
 
+                // A real user turn breaks the subagent wake chain, so automatic
+                // continuation turns get a fresh budget after the user speaks.
+                if (!string.IsNullOrWhiteSpace(this._pendingUserMessage) || this._attachmentsForNextSend != null)
+                {
+                    Interlocked.Exchange(ref this._subagentWakeChain, 0);
+                }
+
+                // A real user turn supersedes any autonomy-continue card still
+                // awaiting a decision — the user moved on, so the prompt resolves
+                // as dismissed. Subagent wake turns leave it pending: the consent
+                // stays actionable while automatic continuation does the work.
+                if (this._pendingAutonomyConsentId != null && !string.IsNullOrWhiteSpace(this._pendingUserMessage))
+                {
+                    var staleConsentId = this._pendingAutonomyConsentId;
+                    this._pendingAutonomyConsentId = null;
+                    this.RunWhenWebViewReady(() => this.ExecuteScript(
+                        $"resolveAutonomyContinue({JsonConvert.SerializeObject(staleConsentId)});"));
+                }
+
                 // Add the pending user message to the session
                 if (!string.IsNullOrWhiteSpace(this._pendingUserMessage))
                 {
@@ -1187,20 +1351,15 @@ namespace SmartHopper.Core.UI.Chat
                     this._pendingUserMessage = null; // Clear after adding
                 }
 
-                // Append staged image attachments as user-role image interactions so
-                // vision-capable models receive them as real image input
+                // Preserve page order and provenance; adaptation happens only at submission.
                 if (this._attachmentsForNextSend != null)
                 {
-                    foreach (var image in this._attachmentsForNextSend)
+                    foreach (var attachment in this._attachmentsForNextSend)
                     {
-                        this._currentSession.AddInteraction(new AIInteractionImage
+                        foreach (var interaction in attachment.Interactions)
                         {
-                            Agent = AIAgent.User,
-                            ImageData = image.ImageData,
-                            MimeType = image.MimeType,
-                            OriginalPrompt = image.FileName,
-                            TurnId = userTurnId,
-                        });
+                            this._currentSession.AddInteraction(interaction.WithTurnId(userTurnId));
+                        }
                     }
 
                     this._attachmentsForNextSend = null;
@@ -1260,7 +1419,7 @@ namespace SmartHopper.Core.UI.Chat
                 try
                 {
                     this.AddSystemMessage($"Error: {ex.Message}", "error");
-                    this.RunWhenWebViewReady(() => this.ExecuteScript("setStatus('Error'); setProcessing(false);"));
+                    this.PushTurnSettledUiState("Error");
                     this.BuildAndEmitSnapshot();
                 }
                 catch (Exception rex)
@@ -1272,21 +1431,40 @@ namespace SmartHopper.Core.UI.Chat
             {
                 try
                 {
-                    this._currentCts?.Cancel();
+                    try
+                    {
+                        this._currentCts?.Cancel();
+                    }
+                    catch (Exception rex)
+                    {
+                        DebugLog($"[WebChatDialog] Error in ProcessAIInteraction: {rex.Message}");
+                    }
+
+                    this._currentCts?.Dispose();
+                    this._currentCts = null;
+
+                    // The canvas state after this AI response is the baseline for the next change summary.
+                    await this.RebaselineDocumentAsync().ConfigureAwait(false);
                 }
-                catch (Exception rex)
+                finally
                 {
-                    DebugLog($"[WebChatDialog] Error in ProcessAIInteraction: {rex.Message}");
+                    // The turn loop is over — release the gate even when teardown above
+                    // throws, or every later send and subagent wake would wait forever.
+                    Interlocked.Exchange(ref this._turnInFlight, 0);
+                    this._turnGate.Release();
                 }
 
-                this._currentCts?.Dispose();
-                this._currentCts = null;
-
-                // The canvas state after this AI response is the baseline for the next change summary.
-                await this.RebaselineDocumentAsync().ConfigureAwait(false);
-
-                // Leave processing state: re-enable input/send, disable cancel in the web UI
-                this.RunWhenWebViewReady(() => this.ExecuteScript("setProcessing(false);"));
+                // Leave processing state: re-enable input/send, disable cancel in the web UI.
+                // While subagents still run, the status explains that the chat resumes on its own.
+                var runningSubagents = this._subagentHost?.RunningCount ?? 0;
+                if (runningSubagents > 0)
+                {
+                    this.PushTurnSettledUiState($"{runningSubagents} subagent(s) working — the chat resumes when they report back");
+                }
+                else
+                {
+                    this.PushTurnSettledUiState(null);
+                }
 
                 // Fire-and-forget: suggested prompt chips render when the special turn resolves.
                 if (turnCompleted)
@@ -1294,7 +1472,194 @@ namespace SmartHopper.Core.UI.Chat
                     _ = this.GenerateSuggestedPromptsAsync();
                 }
 
+                // A queued user send is promoted before the wake drain so real
+                // user input always wins over automatic continuation.
+                this.TryPromoteQueuedMessage();
+
+                // A report that arrived mid-turn gets its evidence line and wake turn now.
+                this.ScheduleSubagentDrain();
+
+                // If the run stopped on the autonomy budgets, offer the
+                // continue/stop approval card before the chat goes idle.
+                this.MaybePromptAutonomyContinue();
+
                 // Keep the session alive for reuse - do not set to null
+            }
+        }
+
+        /// <summary>
+        /// Handles a finished subagent run: queues the report and schedules a drain.
+        /// Fired by <see cref="SubagentHost"/> on the worker's background thread.
+        /// </summary>
+        private void OnSubagentRunFinished(object? sender, SubagentRunReport report)
+        {
+            if (report == null || this._dialogClosed)
+            {
+                return;
+            }
+
+            lock (this._subagentReportsGate)
+            {
+                this._pendingSubagentReports.Add(report);
+            }
+
+            this.ScheduleSubagentDrain();
+        }
+
+        /// <summary>
+        /// Runs <see cref="DrainSubagentReportsAsync"/> on a background thread unless a
+        /// drain is already in flight; reports that arrive during a drain reschedule it.
+        /// </summary>
+        private void ScheduleSubagentDrain()
+        {
+            if (this._dialogClosed || Interlocked.CompareExchange(ref this._subagentDrainActive, 1, 0) != 0)
+            {
+                return;
+            }
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await this.DrainSubagentReportsAsync().ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    DebugLog($"[WebChatDialog] Subagent report drain error: {ex.Message}");
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref this._subagentDrainActive, 0);
+                    lock (this._subagentReportsGate)
+                    {
+                        if (this._pendingSubagentReports.Count > 0)
+                        {
+                            this.ScheduleSubagentDrain();
+                        }
+                    }
+                }
+            });
+        }
+
+        /// <summary>
+        /// Drains queued subagent reports while no turn owns the session. Each report
+        /// leaves an evidence line in the transcript; undelivered runs (not collected
+        /// through <c>wait_subagents</c>) additionally wake the conversation with a
+        /// terse user marker plus a system report the model reads as context. A queued
+        /// user send always wins over a wake so the assistant answers the user first;
+        /// automatic continuation is capped at <see cref="MaxSubagentWakeChain"/>
+        /// consecutive turns and resets whenever a real user turn runs.
+        /// </summary>
+        private async Task DrainSubagentReportsAsync()
+        {
+            while (true)
+            {
+                if (this._dialogClosed || Volatile.Read(ref this._turnInFlight) == 1)
+                {
+                    // A live turn owns the session; its completion reschedules this drain.
+                    return;
+                }
+
+                if (this.HasPendingUserInput)
+                {
+                    return;
+                }
+
+                List<SubagentRunReport> batch;
+                lock (this._subagentReportsGate)
+                {
+                    if (this._pendingSubagentReports.Count == 0)
+                    {
+                        return;
+                    }
+
+                    batch = new List<SubagentRunReport>(this._pendingSubagentReports);
+                    this._pendingSubagentReports.Clear();
+                }
+
+                // Append under the turn gate: session history is a plain list, so
+                // evidence/marker writes must serialize with a user send's AddInteraction.
+                // The user-message check is re-done inside the gate so a send that was
+                // queued mid-drain always wins over a wake.
+                await this._turnGate.WaitAsync().ConfigureAwait(false);
+                try
+                {
+                    if (this._dialogClosed || this.HasPendingUserInput)
+                    {
+                        // Requeue the batch untouched; the user turn's finally reschedules us.
+                        lock (this._subagentReportsGate)
+                        {
+                            this._pendingSubagentReports.InsertRange(0, batch);
+                        }
+
+                        return;
+                    }
+
+                    // Evidence line once per run — the transcript records when the
+                    // interaction landed even when the result was already collected.
+                    foreach (var report in batch)
+                    {
+                        if (this._subagentEvidencedRuns.Add(report.Run))
+                        {
+                            this._currentSession.AddInteraction(new AIInteractionRuntimeMessage
+                            {
+                                Severity = SHRuntimeMessageSeverity.Info,
+                                Content = $"Subagent '{report.Label}' finished ({report.StatusText}).",
+                            });
+                        }
+                    }
+
+                    var undelivered = batch.Where(r => !r.Run.Delivered).ToList();
+                    if (undelivered.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    if (Volatile.Read(ref this._subagentWakeChain) >= MaxSubagentWakeChain)
+                    {
+                        // Park the reports: a real user turn resets the chain and
+                        // reschedules this drain through ProcessAIInteraction's finally.
+                        lock (this._subagentReportsGate)
+                        {
+                            this._pendingSubagentReports.InsertRange(0, undelivered);
+                        }
+
+                        this._currentSession.AddInteraction(new AIInteractionRuntimeMessage
+                        {
+                            Severity = SHRuntimeMessageSeverity.Warning,
+                            Content = $"More than {MaxSubagentWakeChain} consecutive subagent wake-ups — send a message to let them resume.",
+                        });
+                        return;
+                    }
+
+                    var wakeTurnId = InteractionUtility.GenerateTurnId();
+                    foreach (var report in undelivered)
+                    {
+                        this._currentSession.AddInteraction(new AIInteractionText
+                        {
+                            Agent = AIAgent.User,
+                            TurnId = wakeTurnId,
+                            Content = $"Subagent '{report.Label}' finished with status {report.StatusText} — its report follows. Continue the task.",
+                        });
+                        this._currentSession.AddInteraction(new AIInteractionText
+                        {
+                            Agent = AIAgent.System,
+                            TurnId = wakeTurnId,
+                            Content = report.Error != null
+                                ? $"Subagent '{report.Label}' failed: {report.Error}"
+                                : $"Subagent '{report.Label}' result:\n{report.Result}",
+                        });
+                        report.Run.Delivered = true;
+                    }
+
+                    Interlocked.Increment(ref this._subagentWakeChain);
+                }
+                finally
+                {
+                    this._turnGate.Release();
+                }
+
+                await this.ProcessAIInteraction().ConfigureAwait(false);
             }
         }
 
@@ -1354,7 +1719,7 @@ namespace SmartHopper.Core.UI.Chat
             // For fidelity, history is fully replayed elsewhere. Keep this method minimal to maintain compatibility.
             try
             {
-                this.RunWhenWebViewReady(() => this.ExecuteScript("setStatus('Ready'); setProcessing(false);"));
+                this.PushTurnSettledUiState("Ready");
 
                 try
                 {
@@ -1412,29 +1777,46 @@ namespace SmartHopper.Core.UI.Chat
                     return;
                 }
 
-                DebugLog($"[WebChatDialog] Navigation URI: {uri} (scheme: {uri.Scheme})");
+                DebugLog($"[WebChatDialog] Navigation scheme: {uri.Scheme}");
 
                 if (uri.Scheme.Equals("sh", StringComparison.OrdinalIgnoreCase))
                 {
                     DebugLog($"[WebChatDialog] Intercepting sh:// scheme, cancelling navigation");
                     e.Cancel = true;
                     var query = ParseQueryString(uri.Query);
+                    var docToken = query.TryGetValue("doc", out var dt) ? dt : string.Empty;
+                    if (!WebChatNavigationPolicy.BridgeTokenMatches(this._documentSession, docToken))
+                    {
+                        DebugLog($"[WebChatDialog] Rejected sh:// event: document token mismatch");
+                        return;
+                    }
+
                     var type = (query.TryGetValue("type", out var t) ? t : string.Empty).ToLowerInvariant();
                     DebugLog($"[WebChatDialog] sh:// event type: '{type}', query params: {string.Join(", ", query.Keys)}");
 
                     switch (type)
                     {
+                        case "external_image":
+                            if (query.TryGetValue("id", out var imageId) && query.TryGetValue("url", out var imageUrl))
+                            {
+                                Application.Instance?.AsyncInvoke(() => _ = this.ResolveExternalImageAsync(imageId, imageUrl));
+                            }
+
+                            break;
                         case "send":
                             {
                                 var text = query.TryGetValue("text", out var txt) ? txt : string.Empty;
-                                DebugLog($"[WebChatDialog] Handling send event, text length: {text.Length}");
+                                var sendNow = query.TryGetValue("now", out var nv)
+                                    && (string.Equals(nv, "1", StringComparison.Ordinal)
+                                        || string.Equals(nv, "true", StringComparison.OrdinalIgnoreCase));
+                                DebugLog($"[WebChatDialog] Handling send event, text length: {text.Length}, now: {sendNow}");
 
                                 // Defer to next UI tick to avoid executing scripts during navigation event
                                 Application.Instance?.AsyncInvoke(() =>
                                 {
                                     try
                                     {
-                                        this.SendMessage(text);
+                                        this.SendMessage(text, sendNow);
                                     }
                                     catch (Exception ex)
                                     {
@@ -1484,7 +1866,15 @@ namespace SmartHopper.Core.UI.Chat
                                 var requestId = query.TryGetValue("id", out var id) ? id : string.Empty;
                                 var approved = query.TryGetValue("decision", out var decision) &&
                                     string.Equals(decision, "approve", StringComparison.OrdinalIgnoreCase);
-                                Application.Instance?.AsyncInvoke(() => this.ResolvePlanConsent(requestId, approved));
+                                if (requestId.StartsWith("autonomy-", StringComparison.Ordinal))
+                                {
+                                    Application.Instance?.AsyncInvoke(() => this.ResolveAutonomyConsent(requestId, approved));
+                                }
+                                else
+                                {
+                                    Application.Instance?.AsyncInvoke(() => this.ResolvePlanConsent(requestId, approved));
+                                }
+
                                 break;
                             }
 
@@ -1500,6 +1890,23 @@ namespace SmartHopper.Core.UI.Chat
                                     catch (Exception ex)
                                     {
                                         DebugLog($"[WebChatDialog] Deferred ReplayCanvasPointer error: {ex.Message}");
+                                    }
+                                });
+                                break;
+                            }
+
+                        case "ghjson_place":
+                            {
+                                var artifactId = query.TryGetValue("id", out var aid) ? aid : string.Empty;
+                                Application.Instance?.AsyncInvoke(() =>
+                                {
+                                    try
+                                    {
+                                        this.PlaceGhJsonArtifact(artifactId);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        DebugLog($"[WebChatDialog] Deferred PlaceGhJsonArtifact error: {ex.Message}");
                                     }
                                 });
                                 break;
@@ -1544,6 +1951,28 @@ namespace SmartHopper.Core.UI.Chat
                                     catch (Exception ex)
                                     {
                                         DebugLog($"[WebChatDialog] Deferred ExtendAutonomyLimits error: {ex.Message}");
+                                    }
+                                });
+                                break;
+                            }
+
+                        case "queue":
+                            {
+                                var queueAction = query.TryGetValue("action", out var qa) ? qa : string.Empty;
+                                var queueId = query.TryGetValue("id", out var qid2) ? qid2 : string.Empty;
+                                var queueText = query.TryGetValue("text", out var qt) ? qt : null;
+                                DebugLog($"[WebChatDialog] Handling queue event, action: {queueAction}, id: {queueId}");
+
+                                // Defer to next UI tick to avoid executing scripts during navigation event
+                                Application.Instance?.AsyncInvoke(() =>
+                                {
+                                    try
+                                    {
+                                        this.HandleQueueAction(queueAction, queueId, queueText);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        DebugLog($"[WebChatDialog] Deferred HandleQueueAction error: {ex.Message}");
                                     }
                                 });
                                 break;
@@ -1614,6 +2043,13 @@ namespace SmartHopper.Core.UI.Chat
                     // Handle copy-to-clipboard from JS
                     e.Cancel = true;
                     var query = ParseQueryString(uri.Query);
+                    var docToken = query.TryGetValue("doc", out var dt) ? dt : string.Empty;
+                    if (!WebChatNavigationPolicy.BridgeTokenMatches(this._documentSession, docToken))
+                    {
+                        DebugLog($"[WebChatDialog] Rejected clipboard:// event: document token mismatch");
+                        return;
+                    }
+
                     var text = query.TryGetValue("text", out var t) ? t : string.Empty;
                     DebugLog($"[WebChatDialog] Clipboard text length: {text.Length}");
                     try
@@ -1638,9 +2074,32 @@ namespace SmartHopper.Core.UI.Chat
                         DebugLog($"[WebChatDialog] Clipboard handling error: {ex.Message}");
                     }
                 }
+                else if (!this._webViewInitialized && WebChatNavigationPolicy.IsTrustedDocumentUri(uri))
+                {
+                    // The embedded document itself is loading. Eto's Windows handler serves
+                    // LoadHtml content over a loopback HttpListener (http://localhost:<port>/);
+                    // other handlers report about:blank, file: or the https base URI. Allow it
+                    // only while a document load is pending — after initialization every
+                    // non-bridge navigation still routes to the system browser or is blocked.
+                    DebugLog($"[WebChatDialog] Allowing embedded document navigation: {uri.Host}");
+                }
                 else
                 {
-                    DebugLog($"[WebChatDialog] Allowing normal navigation to: {uri}");
+                    // Nothing but the embedded document may load inside the privileged WebView.
+                    // External web links open in the system browser instead.
+                    e.Cancel = true;
+                    if (WebChatNavigationPolicy.IsExternalLink(uri))
+                    {
+                        DebugLog($"[WebChatDialog] Routing external navigation to system browser: {uri.Host}");
+                        if (e.IsMainFrame)
+                        {
+                            this.OpenExternalLink(uri);
+                        }
+                    }
+                    else
+                    {
+                        DebugLog($"[WebChatDialog] Blocked navigation to non-web URI: {uri.Scheme}");
+                    }
                 }
             }
             catch (Exception ex)
@@ -1649,10 +2108,55 @@ namespace SmartHopper.Core.UI.Chat
             }
         }
 
+        /// <summary>
+        /// Routes window.open / target=_blank requests to the system browser so no
+        /// secondary privileged WebView window is ever created for foreign content.
+        /// </summary>
+        private void WebView_OpenNewWindow(object? sender, WebViewNewWindowEventArgs e)
+        {
+            try
+            {
+                e.Cancel = true;
+                if (e?.Uri != null && WebChatNavigationPolicy.IsExternalLink(e.Uri))
+                {
+                    DebugLog($"[WebChatDialog] New window request routed to system browser: {e.Uri.Host}");
+                    this.OpenExternalLink(e.Uri);
+                }
+            }
+            catch (Exception ex)
+            {
+                DebugLog($"[WebChatDialog] WebView_OpenNewWindow error: {ex.Message}");
+            }
+        }
+
+        /// <summary>Opens an http(s) link in the system default browser.</summary>
+        private void OpenExternalLink(Uri uri)
+        {
+            try
+            {
+                Application.Instance?.AsyncInvoke(() =>
+                {
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
+                    }
+                    catch (Exception ex)
+                    {
+                        DebugLog($"[WebChatDialog] OpenExternalLink failed: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                DebugLog($"[WebChatDialog] OpenExternalLink marshal error: {ex.Message}");
+            }
+        }
+
         private void CancelChat()
         {
             try
             {
+                this._attachmentStagingCts?.Cancel();
                 this._currentCts?.Cancel();
                 DebugLog("[WebChatDialog] Cancellation requested");
             }
@@ -1667,10 +2171,12 @@ namespace SmartHopper.Core.UI.Chat
         /// </summary>
         private void OnDialogClosing()
         {
+            this._dialogClosed = true;
             try
             {
                 DebugLog("[WebChatDialog] Dialog closing, cancelling ongoing AI calls");
                 this.CancelChat();
+                this._subagentHost?.Dispose();
                 this._documentTracker?.Dispose();
             }
             catch (Exception ex)
@@ -1887,70 +2393,262 @@ namespace SmartHopper.Core.UI.Chat
 #endif
 
         /// <summary>
-        /// Opens a native file picker and stages selected images as pending attachments.
-        /// Image bytes stay C#-side; the WebView only receives thumbnail chips via script.
+        /// Opens the native attachment picker and stages source evidence asynchronously.
         /// </summary>
-        private void ShowAttachDialog()
+        private async void ShowAttachDialog()
         {
-            if (!this._supportsImageInput)
-            {
-                this.AddSystemMessage("The selected model does not support image input.", "warning");
-                return;
-            }
+            await this.StageSelectedAttachmentsAsync().ConfigureAwait(true);
+        }
 
-            using var dialog = new System.Windows.Forms.OpenFileDialog
-            {
-                Filter = "Image files (*.png;*.jpg;*.jpeg;*.webp;*.gif;*.bmp)|*.png;*.jpg;*.jpeg;*.webp;*.gif;*.bmp",
-                Title = "Attach image",
-                Multiselect = true,
-                CheckFileExists = true,
-            };
-
-            if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
+        /// <summary>Stages a bounded batch without blocking the UI or submitting incomplete attachments.</summary>
+        private async Task StageSelectedAttachmentsAsync()
+        {
+            if (this._dialogClosed || Interlocked.CompareExchange(ref this._attachmentsPreparing, 1, 0) != 0)
             {
                 return;
             }
 
-            foreach (var path in dialog.FileNames ?? Enumerable.Empty<string>())
+            using var cancellation = new CancellationTokenSource();
+            this._attachmentStagingCts = cancellation;
+            try
             {
-                if (this._pendingAttachments.Count >= MaxAttachments)
+                using var dialog = new Eto.Forms.OpenFileDialog
                 {
-                    this.AddSystemMessage($"At most {MaxAttachments} images can be attached per message.", "warning");
+                    Title = "Attach images or PDF documents",
+                    MultiSelect = true,
+                };
+                dialog.Filters.Add(new FileDialogFilter("Images and PDF documents", ".pdf", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"));
+                if (dialog.ShowDialog(this) != DialogResult.Ok)
+                {
+                    return;
+                }
+
+                cancellation.CancelAfter(TimeSpan.FromMinutes(2));
+                var paths = dialog.Filenames.ToArray();
+                this.ExecuteScript("setAttachmentPreparation(true); setAttachEnabled(false, 'Preparing attachments');");
+                foreach (var path in paths)
+                {
+                    cancellation.Token.ThrowIfCancellationRequested();
+                    var available = false;
+                    Application.Instance.Invoke(() => available = !this._dialogClosed && this._pendingAttachments.Count < MaxAttachments);
+                    if (!available)
+                    {
+                        this.AddSystemMessage($"At most {MaxAttachments} files can be attached per message.", "warning");
+                        break;
+                    }
+
+                    try
+                    {
+                        var pending = await Task.Run(
+                            () => PrepareAttachmentAsync(path, cancellation.Token),
+                            cancellation.Token).ConfigureAwait(false);
+                        cancellation.Token.ThrowIfCancellationRequested();
+                        Application.Instance.Invoke(() =>
+                        {
+                            if (this._dialogClosed || cancellation.IsCancellationRequested)
+                            {
+                                return;
+                            }
+
+                            var visualBytes = System.Linq.Enumerable.Concat(this._pendingAttachments, new[] { pending })
+                                .SelectMany(attachment => attachment.Interactions)
+                                .OfType<AIInteractionImage>()
+                                .Sum(image => (long)(image.ImageData?.Length ?? 0));
+                            if (visualBytes > 64L * 1024 * 1024)
+                            {
+                                this.AddSystemMessage("The selected attachments exceed the 64 MB visual-evidence budget. Attach fewer documents or select fewer pages using File to AI.", "warning");
+                                return;
+                            }
+
+                            this._pendingAttachments.Add(pending);
+                            if (pending.HasIncompleteVisualCoverage)
+                            {
+                                this.AddSystemMessage("An attached document has incomplete visual coverage. Its available text and coverage warnings are retained.", "warning");
+                            }
+
+                            this.ExecuteScript(
+                                $"addAttachmentChip({JsonConvert.SerializeObject(pending.Id)}, {JsonConvert.SerializeObject(pending.FileName)}, {JsonConvert.SerializeObject(pending.ThumbnailDataUri)});");
+                        });
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        var reason = ex is InvalidDataException
+                            ? ex.Message
+                            : "The selected file could not be read or converted.";
+                        this.AddSystemMessage($"Could not prepare '{Path.GetFileName(path)}'. {reason}", "warning");
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                if (!this._dialogClosed)
+                {
+                    this.AddSystemMessage("Attachment preparation was cancelled. Files already prepared remain attached.", "warning");
+                }
+            }
+            catch (Exception)
+            {
+                if (!this._dialogClosed)
+                {
+                    this.AddSystemMessage("The attachment picker could not be opened.", "warning");
+                }
+            }
+            finally
+            {
+                this._attachmentStagingCts = null;
+                Interlocked.Exchange(ref this._attachmentsPreparing, 0);
+                if (!this._dialogClosed)
+                {
+                    Application.Instance.AsyncInvoke(() =>
+                    {
+                        if (!this._dialogClosed && Volatile.Read(ref this._attachmentsPreparing) == 0)
+                        {
+                            this.ExecuteScript("setAttachmentPreparation(false); setAttachEnabled(true, 'Attach an image or PDF');");
+                        }
+                    });
+                }
+            }
+        }
+
+        /// <summary>Reads a bounded snapshot and prepares canonical evidence without making an AI call.</summary>
+        private static async Task<PendingAttachment> PrepareAttachmentAsync(string path, CancellationToken ct)
+        {
+            using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true);
+            using var snapshot = new MemoryStream();
+            var buffer = new byte[81920];
+            while (true)
+            {
+                var count = await input.ReadAsync(buffer.AsMemory(0, Math.Min(buffer.Length, MaxAttachmentBytes + 1 - (int)snapshot.Length)), ct).ConfigureAwait(false);
+                if (count == 0)
+                {
                     break;
                 }
 
+                snapshot.Write(buffer, 0, count);
+                if (snapshot.Length > MaxAttachmentBytes)
+                {
+                    throw new InvalidDataException($"The attachment exceeds the {MaxAttachmentBytes / (1024 * 1024)} MB limit.");
+                }
+            }
+
+            ct.ThrowIfCancellationRequested();
+            var bytes = snapshot.ToArray();
+            var name = Path.GetFileName(path);
+            var isPdf = bytes.Length >= 5 && bytes[0] == '%' && bytes[1] == 'P'
+                && bytes[2] == 'D' && bytes[3] == 'F' && bytes[4] == '-';
+            if (isPdf)
+            {
+                return await PreparePdfAttachmentAsync(bytes, name, ct).ConfigureAwait(false);
+            }
+
+            if (!TrySniffImageMime(bytes, out var mime))
+            {
+                throw new InvalidDataException("Only supported images and PDF documents can be attached.");
+            }
+
+            var encoded = Convert.ToBase64String(bytes);
+            var image = new AIInteractionImage
+            {
+                Agent = AIAgent.User,
+                ImageData = encoded,
+                MimeType = mime,
+                OriginalPrompt = name,
+                SourceReference = new SourceContentReference
+                {
+                    DocumentId = "sha256-" + Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(),
+                    SourceName = name,
+                    AssetId = "image",
+                    Kind = SourceContentKind.Image,
+                },
+            };
+            return new PendingAttachment
+            {
+                FileName = name,
+                Interactions = new IAIInteraction[] { image },
+                // Bounded preview: full base64 can reach 15 MiB — cap like the PDF
+                // preview path (original bytes live only in Interactions).
+                ThumbnailDataUri = encoded.Length <= 500000
+                    ? $"data:{mime};base64,{encoded}"
+                    : "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j3ioAAAAASUVORK5CYII=",
+            };
+        }
+
+        /// <summary>Uses the shared file tool on a private snapshot; PDF bytes and paths never enter the WebView.</summary>
+        private static async Task<PendingAttachment> PreparePdfAttachmentAsync(byte[] bytes, string name, CancellationToken ct)
+        {
+            var temporaryPath = Path.Combine(Path.GetTempPath(), $"smarthopper-attachment-{Guid.NewGuid():N}.pdf");
+            try
+            {
+                await File.WriteAllBytesAsync(temporaryPath, bytes, ct).ConfigureAwait(false);
+                var call = new AIToolCall { Endpoint = "file2md" };
+                call.FromToolCallInteraction(new AIInteractionToolCall
+                {
+                    Id = Guid.NewGuid().ToString("N"),
+                    Name = "file2md",
+                    Arguments = new Newtonsoft.Json.Linq.JObject
+                    {
+                        ["filePath"] = temporaryPath,
+                        ["extractImages"] = true,
+                        ["describeImages"] = false,
+                    },
+                });
+                var returned = await call.Exec(ct).ConfigureAwait(false);
+                ct.ThrowIfCancellationRequested();
+                var result = ToolCallResult.FromAIReturn(returned);
+                if (!result.Success || result.Result == null)
+                {
+                    throw new InvalidDataException("PDF preparation failed. Use File to AI for page selection or conversion diagnostics.");
+                }
+
+                var document = DocumentEvidenceJsonCodec.Decode(result.Result, result.Images);
+                if (document == null)
+                {
+                    throw new InvalidDataException("The document reader returned no page evidence.");
+                }
+
+                if (!document.Pages.Any(page => !string.IsNullOrWhiteSpace(page.ExtractedText) || !string.IsNullOrWhiteSpace(page.Markdown))
+                    && !document.Images.Any(image => image.SendToModel && !string.IsNullOrEmpty(image.ImageData)))
+                {
+                    throw new InvalidDataException("The document contains no usable text or rendered pages. Check the PDF renderer and conversion diagnostics.");
+                }
+
+                document = document with
+                {
+                    SourceName = name,
+                    Images = document.Images.Select(image => image with
+                    {
+                        SourceReference = image.SourceReference == null
+                            ? new SourceContentReference { DocumentId = document.DocumentId, SourceName = name, Kind = SourceContentKind.Image }
+                            : image.SourceReference with { SourceName = name },
+                    }).ToArray(),
+                };
+                var interactions = DocumentEvidenceInteractionBuilder.Build(document, result.Result["content"]?.ToString() ?? string.Empty);
+                var preview = document.Images.FirstOrDefault(image => image.SendToModel && image.ImageData?.Length <= 500000);
+                return new PendingAttachment
+                {
+                    FileName = name,
+                    Interactions = interactions,
+                    HasIncompleteVisualCoverage = !document.Coverage.IsComplete,
+                    ThumbnailDataUri = preview == null
+                        ? "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j3ioAAAAASUVORK5CYII="
+                        : $"data:{preview.MimeType};base64,{preview.ImageData}",
+                };
+            }
+            finally
+            {
                 try
                 {
-                    var fileInfo = new FileInfo(path);
-                    if (fileInfo.Length > MaxAttachmentBytes)
-                    {
-                        this.AddSystemMessage($"Skipped '{Path.GetFileName(path)}': larger than {MaxAttachmentBytes / (1024 * 1024)} MB.", "warning");
-                        continue;
-                    }
-
-                    var bytes = File.ReadAllBytes(path);
-                    if (!TrySniffImageMime(bytes, out var mimeType))
-                    {
-                        this.AddSystemMessage($"Skipped '{Path.GetFileName(path)}': not a supported image format.", "warning");
-                        continue;
-                    }
-
-                    var pending = new PendingImage
-                    {
-                        FileName = Path.GetFileName(path),
-                        MimeType = mimeType,
-                        ImageData = Convert.ToBase64String(bytes),
-                    };
-                    this._pendingAttachments.Add(pending);
-
-                    var dataUri = $"data:{pending.MimeType};base64,{pending.ImageData}";
-                    this.ExecuteScript(
-                        $"addAttachmentChip({JsonConvert.SerializeObject(pending.Id)}, {JsonConvert.SerializeObject(pending.FileName)}, {JsonConvert.SerializeObject(dataUri)});");
+                    File.Delete(temporaryPath);
                 }
-                catch (Exception ex)
+                catch (IOException)
                 {
-                    DebugLog($"[WebChatDialog] Attach '{path}' failed: {ex.Message}");
-                    this.AddSystemMessage($"Could not attach '{Path.GetFileName(path)}'.", "warning");
+                }
+                catch (UnauthorizedAccessException)
+                {
                 }
             }
         }
@@ -2030,11 +2728,20 @@ namespace SmartHopper.Core.UI.Chat
         /// <summary>
         /// Handles a user message submitted from the WebView.
         /// </summary>
-        private void SendMessage(string text)
+        /// <param name="text">The message text.</param>
+        /// <param name="sendNow">When true (Ctrl/Cmd+Enter), the message jumps the outgoing
+        /// queue and is sent immediately — a live turn is interrupted so it submits next.</param>
+        private void SendMessage(string text, bool sendNow = false)
         {
             try
             {
-                DebugLog($"[WebChatDialog] SendMessage called with text length: {text?.Length ?? 0}");
+                DebugLog($"[WebChatDialog] SendMessage called with text length: {text?.Length ?? 0}, sendNow: {sendNow}");
+                if (Volatile.Read(ref this._attachmentsPreparing) != 0)
+                {
+                    this.AddSystemMessage("Please wait for attachment preparation to finish, or cancel it before sending.", "warning");
+                    return;
+                }
+
                 var trimmed = text?.Trim() ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(trimmed) && this._pendingAttachments.Count == 0)
                 {
@@ -2042,14 +2749,71 @@ namespace SmartHopper.Core.UI.Chat
                     return;
                 }
 
-                // Store the user message before processing
-                // The observer will render it when AddInteraction() is called on the session
-                this._pendingUserMessage = trimmed;
-                this._attachmentsForNextSend = this._pendingAttachments.Count > 0
-                    ? new List<PendingImage>(this._pendingAttachments)
-                    : null;
-                this._pendingAttachments.Clear();
+                var enqueued = false;
+                var jumped = false;
+                lock (this._messageQueueGate)
+                {
+                    // While a turn owns the session (or a send is already staged for
+                    // it), the message waits FIFO in the outgoing queue instead of
+                    // clobbering the staged send — the head is promoted as soon as
+                    // the turn settles.
+                    if (this.IsSendQueueEngaged)
+                    {
+                        var entry = new QueuedChatMessage
+                        {
+                            Text = trimmed,
+                            Attachments = this._pendingAttachments.Count > 0
+                                ? new List<PendingAttachment>(this._pendingAttachments)
+                                : null,
+                        };
+                        if (sendNow)
+                        {
+                            // "Send now" jumps the queue: it lands at the head so it
+                            // is the next turn — the live turn is interrupted below.
+                            this._messageQueue.Insert(0, entry);
+                            jumped = true;
+                        }
+                        else
+                        {
+                            this._messageQueue.Add(entry);
+                        }
+
+                        this._pendingAttachments.Clear();
+                        enqueued = true;
+                    }
+                    else
+                    {
+                        // Store the user message before processing
+                        // The observer will render it when AddInteraction() is called on the session
+                        this._pendingUserMessage = trimmed;
+                        this._attachmentsForNextSend = this._pendingAttachments.Count > 0
+                            ? new List<PendingAttachment>(this._pendingAttachments)
+                            : null;
+                        this._pendingAttachments.Clear();
+                    }
+                }
+
                 this.ExecuteScript("clearAttachments();");
+
+                if (enqueued)
+                {
+                    DebugLog($"[WebChatDialog] SendMessage: turn busy, message {(jumped ? "jumped to queue head" : "queued")}");
+                    this.PushQueueToView();
+
+                    if (jumped)
+                    {
+                        this.PromoteQueueHeadNow();
+                    }
+                    else
+                    {
+                        // Covers the settle race: a turn that ended between the engaged
+                        // check and the enqueue leaves nothing behind to promote the
+                        // message, so try immediately.
+                        this.TryPromoteQueuedMessage();
+                    }
+
+                    return;
+                }
 
                 // Immediately reflect processing state in UI to disable input/send and enable cancel
                 this.RunWhenWebViewReady(() => this.ExecuteScript("setProcessing(true);"));
@@ -2073,6 +2837,307 @@ namespace SmartHopper.Core.UI.Chat
             catch (Exception ex)
             {
                 DebugLog($"[WebChatDialog] SendMessage(text) error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// True while a send must wait in the outgoing queue rather than stage
+        /// directly: a turn is in flight, a send is already staged for
+        /// <see cref="ProcessAIInteraction"/>, or earlier sends are still queued
+        /// (queue FIFO order must be preserved). Call under <see cref="_messageQueueGate"/>.
+        /// </summary>
+        private bool IsSendQueueEngaged =>
+            Volatile.Read(ref this._turnInFlight) == 1
+            || !string.IsNullOrWhiteSpace(this._pendingUserMessage)
+            || this._attachmentsForNextSend != null
+            || this._messageQueue.Count > 0;
+
+        /// <summary>
+        /// True while a user send is staged (<see cref="_pendingUserMessage"/>/
+        /// <see cref="_attachmentsForNextSend"/>) or waiting in the outgoing queue —
+        /// subagent wake turns always yield to real user input.
+        /// </summary>
+        private bool HasPendingUserInput
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(this._pendingUserMessage) || this._attachmentsForNextSend != null)
+                {
+                    return true;
+                }
+
+                lock (this._messageQueueGate)
+                {
+                    return this._messageQueue.Count > 0;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Promotes the head of the outgoing queue to the staged send when no turn
+        /// owns the session, then starts <see cref="ProcessAIInteraction"/> — the
+        /// same one-shot path a direct send takes. No-ops while a turn is in
+        /// flight, a send is already staged, the queue is empty, or the dialog is
+        /// closed.
+        /// </summary>
+        /// <returns>True when a queued message was staged for submission.</returns>
+        private bool TryPromoteQueuedMessage()
+        {
+            QueuedChatMessage? next;
+            lock (this._messageQueueGate)
+            {
+                if (this._dialogClosed
+                    || Volatile.Read(ref this._turnInFlight) == 1
+                    || !string.IsNullOrWhiteSpace(this._pendingUserMessage)
+                    || this._attachmentsForNextSend != null
+                    || this._messageQueue.Count == 0)
+                {
+                    return false;
+                }
+
+                next = this._messageQueue[0];
+                this._messageQueue.RemoveAt(0);
+
+                // Stage exactly like SendMessage's one-shot path: ProcessAIInteraction
+                // consumes _pendingUserMessage/_attachmentsForNextSend on its thread.
+                this._pendingUserMessage = next.Text;
+                this._attachmentsForNextSend = next.Attachments;
+            }
+
+            DebugLog($"[WebChatDialog] Promoted queued message id={next.Id}");
+            this.PushQueueToView();
+            this.RunWhenWebViewReady(() => this.ExecuteScript("setProcessing(true);"));
+            Task.Run(async () =>
+            {
+                try
+                {
+                    await this.ProcessAIInteraction().ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    DebugLog($"[WebChatDialog] Queued ProcessAIInteraction error: {ex.Message}");
+                }
+            });
+            return true;
+        }
+
+        /// <summary>
+        /// Sends the head of the outgoing queue now: when a turn owns the session it
+        /// is interrupted via <see cref="CancelChat"/> — the canceled turn's
+        /// <see cref="ProcessAIInteraction"/> finally promotes the head on settle,
+        /// exactly like a natural turn end. When nothing is in flight the head
+        /// promotes immediately through <see cref="TryPromoteQueuedMessage"/>.
+        /// </summary>
+        private void PromoteQueueHeadNow()
+        {
+            if (Volatile.Read(ref this._turnInFlight) == 1)
+            {
+                this.CancelChat();
+                return;
+            }
+
+            this.TryPromoteQueuedMessage();
+        }
+
+        /// <summary>
+        /// Pushes the "a turn just ended" UI state through the DOM queue, deciding at
+        /// drain time whether the chat is really idle. Turn-end emissions (observer
+        /// <c>OnFinal</c>/<c>OnError</c>, the turn finally, a mid-turn notification)
+        /// can drain after a queued send already staged the next turn — a literal
+        /// <c>setProcessing(false)</c> there would flip the composer back to Send and
+        /// hide Stop while the new turn is live. Re-checking engagement when the
+        /// queued action runs makes every writer emit the current truth instead.
+        /// </summary>
+        /// <param name="statusWhenIdle">
+        /// Status text applied only when nothing owns the session at drain time;
+        /// null emits no status change.
+        /// </param>
+        internal void PushTurnSettledUiState(string? statusWhenIdle)
+        {
+            this.RunWhenWebViewReady(() =>
+            {
+                if (this._dialogClosed)
+                {
+                    return;
+                }
+
+                string script;
+                lock (this._messageQueueGate)
+                {
+                    if (this.IsSendQueueEngaged)
+                    {
+                        script = "setProcessing(true);";
+                    }
+                    else
+                    {
+                        var status = statusWhenIdle != null
+                            ? $"setStatus({JsonConvert.SerializeObject(statusWhenIdle)}); "
+                            : string.Empty;
+                        script = $"{status}setProcessing(false);";
+                    }
+                }
+
+                this.ExecuteScript(script);
+            });
+        }
+
+        /// <summary>
+        /// Applies a queue-panel action reported through
+        /// <c>sh://event?type=queue&amp;action=…&amp;id=…</c>: <c>remove</c> drops
+        /// the entry, <c>edit</c> replaces its text (<paramref name="text"/>),
+        /// <c>submit-now</c> moves it to the head and sends it now (interrupting a
+        /// live turn), and <c>send-next</c> sends the queue head now — fired by
+        /// Enter on an empty composer, which carries no row id. Ids that do not
+        /// match a queued user send are routed to the subagent host's
+        /// pending-instruction lists.
+        /// </summary>
+        private void HandleQueueAction(string action, string id, string? text)
+        {
+            try
+            {
+                if (this._dialogClosed)
+                {
+                    return;
+                }
+
+                if (string.Equals(action, "send-next", StringComparison.Ordinal))
+                {
+                    // Only user-typed sends promote — worker pending instructions
+                    // keep their own delivery flow.
+                    var hasUserQueued = false;
+                    lock (this._messageQueueGate)
+                    {
+                        hasUserQueued = this._messageQueue.Count > 0;
+                    }
+
+                    if (hasUserQueued)
+                    {
+                        this.PromoteQueueHeadNow();
+                    }
+
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(id))
+                {
+                    return;
+                }
+
+                var handled = false;
+                lock (this._messageQueueGate)
+                {
+                    var index = this._messageQueue.FindIndex(e => string.Equals(e.Id, id, StringComparison.Ordinal));
+                    if (index >= 0)
+                    {
+                        switch (action)
+                        {
+                            case "remove":
+                                this._messageQueue.RemoveAt(index);
+                                handled = true;
+                                break;
+                            case "edit":
+                                var next = text?.Trim();
+                                if (!string.IsNullOrWhiteSpace(next))
+                                {
+                                    this._messageQueue[index].Text = next;
+                                    handled = true;
+                                }
+
+                                break;
+                            case "submit-now":
+                                if (index > 0)
+                                {
+                                    var entry = this._messageQueue[index];
+                                    this._messageQueue.RemoveAt(index);
+                                    this._messageQueue.Insert(0, entry);
+                                }
+
+                                handled = true;
+                                break;
+                        }
+                    }
+                }
+
+                if (!handled && this._subagentHost != null)
+                {
+                    SubagentPendingAction? pendingAction = action switch
+                    {
+                        "remove" => SubagentPendingAction.Remove,
+                        "edit" => SubagentPendingAction.Edit,
+                        "submit-now" => SubagentPendingAction.Promote,
+                        _ => null,
+                    };
+                    if (pendingAction.HasValue)
+                    {
+                        handled = this._subagentHost.TryApplyPendingAction(pendingAction.Value, id, text);
+                    }
+                }
+
+                // The panel re-renders either way (it is host-owned state, and the
+                // host may also have changed it through PendingChanged); submit-now
+                // additionally sends the new head now — interrupting a live turn
+                // so the message submits next instead of waiting for settle.
+                this.PushQueueToView();
+                if (handled && string.Equals(action, "submit-now", StringComparison.Ordinal))
+                {
+                    this.PromoteQueueHeadNow();
+                }
+            }
+            catch (Exception ex)
+            {
+                DebugLog($"[WebChatDialog] HandleQueueAction error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Mirrors the merged outgoing queue — user sends first, then per-worker
+        /// pending instructions flattened by enqueue time — into the toolkit's
+        /// queue panel via <c>setQueue(items)</c>. Worker items carry
+        /// <c>meta.agent</c> so the panel shows who they are for.
+        /// </summary>
+        private void PushQueueToView()
+        {
+            try
+            {
+                var items = new List<QueuePanelItem>();
+                lock (this._messageQueueGate)
+                {
+                    foreach (var entry in this._messageQueue)
+                    {
+                        items.Add(new QueuePanelItem
+                        {
+                            Id = entry.Id,
+
+                            // An attachment-only send has no text — give the row a
+                            // readable label; the submitted message stays text-free.
+                            Text = entry.Text.Length > 0 ? entry.Text : "(image attachment)",
+                            CreatedAt = entry.EnqueuedAtMs,
+                            Meta = entry.Author != null ? new { author = entry.Author } : null,
+                        });
+                    }
+                }
+
+                var pending = this._subagentHost?.PendingItems;
+                if (pending != null)
+                {
+                    foreach (var item in pending)
+                    {
+                        items.Add(new QueuePanelItem
+                        {
+                            Id = item.Id,
+                            Text = item.Text,
+                            CreatedAt = new DateTimeOffset(item.EnqueuedAtUtc).ToUnixTimeMilliseconds(),
+                            Meta = new { agent = $"→ {item.Label}" },
+                        });
+                    }
+                }
+
+                items.Sort((a, b) => a.CreatedAt.CompareTo(b.CreatedAt));
+                this.ExecuteScript($"setQueue({JsonConvert.SerializeObject(items)});");
+            }
+            catch (Exception ex)
+            {
+                DebugLog($"[WebChatDialog] PushQueueToView error: {ex.Message}");
             }
         }
 

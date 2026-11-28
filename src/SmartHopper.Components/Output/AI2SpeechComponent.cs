@@ -27,6 +27,7 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.Parameters;
 using SmartHopper.Core.Types;
+using SmartHopper.Infrastructure.AICall.Fallback;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
@@ -41,7 +42,7 @@ namespace SmartHopper.Components.Output
         /// Initializes a new instance of the <see cref="AI2SpeechComponent"/> class.
         /// </summary>
         public AI2SpeechComponent()
-            : base("AI to Speech", "AI→Speech", "Generate speech audio from AI input", GH_Exposure.secondary)
+            : base("AI to Speech", "AI2Speech", "Synthesize spoken audio from the connected AI input(s) using a text-to-speech model.", GH_Exposure.quarternary | GH_Exposure.obscure)
         {
         }
 
@@ -53,7 +54,7 @@ namespace SmartHopper.Components.Output
         /// <summary>
         /// Gets the component icon.
         /// </summary>
-        protected override Bitmap Icon => Resources.aitospeech;
+        protected override Bitmap Icon => Resources.AI2Speech;
 
         /// <summary>
         /// Gets the AI tools used by this component.
@@ -68,6 +69,47 @@ namespace SmartHopper.Components.Output
             return "You are a text-to-speech assistant. Generate clear, natural-sounding speech text based on user input.";
         }
 
+        /// <inheritdoc/>
+        protected override IModalityFallback GetPassthroughConversion(AIBody mergedBody)
+        {
+            // Strict TTS: every input item is user-authored text — each maps to one audio.
+            // A System-agent instruction (e.g. from AI Prompt) counts as another input and
+            // keeps the normal assistant path.
+            var interactions = mergedBody?.Interactions;
+            if (interactions == null || interactions.Count == 0)
+            {
+                return null;
+            }
+
+            return interactions.All(interaction => interaction is AIInteractionText && interaction.Agent == AIAgent.User)
+                ? new TextToSpeechFallback()
+                : null;
+        }
+
+        /// <inheritdoc/>
+        protected override IGH_Goo ConvertPassthroughItem(IAIInteraction item)
+        {
+            try
+            {
+                if (item is AIInteractionAudio audio)
+                {
+                    return new GH_VersatileAudio(VersatileAudio.FromInteraction(audio));
+                }
+
+                // Providers that return a path/URL/base64 payload as text.
+                if (item is AIInteractionText text && !string.IsNullOrWhiteSpace(text.Content))
+                {
+                    return new GH_VersatileAudio(VersatileAudio.FromString(text.Content));
+                }
+            }
+            catch
+            {
+                // Conversion payload is not usable audio — drop the item.
+            }
+
+            return null;
+        }
+
         /// <summary>
         /// Gets the output mappings.
         /// </summary>
@@ -79,16 +121,13 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "Audio",
                     NickName = "A",
-                    Description = "Generated audio file (path, URL, or base64)",
+                    Description = "Synthesized speech audio (connect to Audio Viewer to play or save to disk).",
                     ParamType = typeof(VersatileAudioParameter),
                     Access = GH_ParamAccess.tree,
                     Extractor = OutputMapping.Single(aiReturn =>
                     {
                         // Prefer a typed audio interaction produced by TTS-capable providers.
-                        var audioInteraction = aiReturn?.Body?.Interactions?
-                            .OfType<AIInteractionAudio>()
-                            .LastOrDefault(interaction => interaction.Agent == AIAgent.Assistant)
-                            ?? aiReturn?.Body?.Interactions?.OfType<AIInteractionAudio>().LastOrDefault();
+                        var audioInteraction = aiReturn?.Body?.GetLastAssistantAudio();
 
                         if (audioInteraction != null)
                         {
@@ -127,8 +166,8 @@ namespace SmartHopper.Components.Output
         /// </summary>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Voice", "V", "Voice ID (e.g., alloy, echo, fable, onyx, nova, shimmer)", GH_ParamAccess.tree, "nova");
-            pManager.AddTextParameter("Speed", "Sp", "Speech speed (0.25 to 4.0)", GH_ParamAccess.tree, "1.0");
+            pManager.AddTextParameter("Voice", "V", "Optional provider-specific voice ID (e.g., 'alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer' on OpenAI, or 'Kore' on Gemini). Leave empty to use the provider's default voice.", GH_ParamAccess.tree, string.Empty);
+            pManager.AddTextParameter("Speed", "Sp", "Playback speed multiplier (0.25 to 4.0, defaults to '1.0').", GH_ParamAccess.tree, "1.0");
         }
 
         /// <summary>
@@ -139,7 +178,7 @@ namespace SmartHopper.Components.Output
             base.PrepareInputs(inputs, context);
 
             // Read Voice and Speed from sliced inputs (per-unit)
-            var voice = "nova";
+            var voice = string.Empty;
             var speed = "1.0";
 
             if (inputs.TryGetValue("Voice", out var voiceObj) && voiceObj is GH_String voiceStr && !string.IsNullOrWhiteSpace(voiceStr.Value))
@@ -152,13 +191,19 @@ namespace SmartHopper.Components.Output
                 speed = speedStr.Value;
             }
 
-            SetRequestParameterExtra(inputs, "voice", voice);
+            if (!string.IsNullOrWhiteSpace(voice))
+            {
+                SetRequestParameterExtra(inputs, "voice", voice);
+            }
             if (double.TryParse(speed, NumberStyles.Float, CultureInfo.InvariantCulture, out var speedValue))
             {
                 SetRequestParameterExtra(inputs, "speed", speedValue);
             }
 
-            if (inputs.TryGetValue("_MergedBody", out var bodyObject) && bodyObject is AIBody body)
+            // Passthrough bodies feed the TTS conversion directly — every user text must
+            // be preserved, so the single-text rebuild only applies to the normal path.
+            if (!inputs.ContainsKey("_PassthroughStep")
+                && inputs.TryGetValue("_MergedBody", out var bodyObject) && bodyObject is AIBody body)
             {
                 var text = body.Interactions
                     .OfType<AIInteractionText>()

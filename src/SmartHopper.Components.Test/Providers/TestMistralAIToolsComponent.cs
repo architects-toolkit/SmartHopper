@@ -33,6 +33,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Test.Providers
 {
     /// <summary>
@@ -193,8 +194,8 @@ namespace SmartHopper.Components.Test.Providers
                         }
                     }
 
-                    System.Diagnostics.Debug.WriteLine($"[TestMistralAITools] Found roles: {string.Join(", ", roles)}");
-                    System.Diagnostics.Debug.WriteLine($"[TestMistralAITools] Tool checks - tool_calls: {hasToolCalls}, tool_name: {hasToolName}, tool_call_id: {hasToolCallId}");
+                    Logger.For<Worker>().Trace($"[TestMistralAITools] Found roles: {string.Join(", ", roles)}");
+                    Logger.For<Worker>().Trace($"[TestMistralAITools] Tool checks - tool_calls: {hasToolCalls}, tool_name: {hasToolName}, tool_call_id: {hasToolCallId}");
 
                     if (!hasToolCalls)
                     {

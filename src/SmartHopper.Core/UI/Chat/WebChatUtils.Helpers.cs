@@ -213,15 +213,58 @@ namespace SmartHopper.Core.UI.Chat
             };
         }
 
+        private const string ToolDiscoveryNote =
+            "\n\n## Chat Workflow\n" +
+            "For a straightforward explanation or greeting, answer directly; do not call tools just to demonstrate activity. " +
+            "For canvas work, inspect the smallest relevant scope first. When the user says 'this' or 'these', " +
+            "use gh_get with attrFilters: ['+selected']; use detail: 'summary' and request only needed fields. " +
+            "If nothing is selected, ask which objects they mean rather than choosing the whole document. " +
+            "Inspect runtime messages, connections and values when diagnosing; do not infer correctness from appearance alone.\n" +
+            "Use tools actually offered in this request or schemas returned by discovery; availability depends on scope. " +
+            "Before the first action in a task that needs an unavailable capability, call search_tools with a short, " +
+            "specific action query (for example, 'connect components' or 'canvas screenshot') when search_tools is " +
+            "offered; otherwise explain the unavailable capability. " +
+            "Reuse discovered schemas while they remain in context; do not search again every turn. " +
+            "Discovery returns definitions, not completed work: invoke the chosen tool with its required arguments. " +
+            "If no result fits, try one more precise query, then explain the limitation; never invent names or arguments.\n" +
+            "When available, smarthopper_readme supplies focused local guidance (for example 'data-trees', 'debugging', " +
+            "'geometry' or 'research'); smarthopper_workflows supplies a named workflow for unfamiliar multi-step work. " +
+            "Read the relevant guide when uncertain, not every guide on every turn. search_tools finds capabilities, " +
+            "not factual answers. For version-specific or uncertain technical claims, research rather than guess: " +
+            "prefer official documentation, discover a documentation reader when needed, or use mcneel_forum_search " +
+            "and mcneel_forum_post_get for community evidence. Read relevant posts before relying on excerpts; " +
+            "post_get needs the returned global post id, not a topic id or topic-local post number. " +
+            "Cite source URLs and note version or plug-in assumptions. Do not send private canvas data to external search " +
+            "unless the user has authorized it; use generic technical queries.\n" +
+            "Use ask_user when a consequential decision or missing input blocks progress; otherwise state a reasonable " +
+            "assumption and proceed. Use canvas_point to explain a specific location, not unsolicited repeated viewport moves. " +
+            "Prefer a small native-component solution. Present generated GhJSON through show_ghjson, never raw JSON in chat; " +
+            "use generation-and-placement only when placement was requested. Respect each mutation review and verify " +
+            "the affected errors or outputs after accepted changes. Finish with the result, what was verified, " +
+            "and any remaining limitation; do not expose internal ids or a long tool transcript.";
+
+        private const string ConductorNote =
+            "\n\n## Background Work\n" +
+            "Handle simple tasks yourself. Delegate only independent, substantial work when useful, after discovering " +
+            "the background-agent tools if needed. A successful spawn returns a worker id; only then describe a worker " +
+            "as started. Use returned status/report evidence, not earlier assistant claims, to describe progress. " +
+            "Workers report back automatically and the conversation resumes even after your turn ends, so do not " +
+            "repeatedly poll. Wait only if the current answer depends on the result. If a confirmed worker is still " +
+            "running when you finish, name it and explain that the chat will resume when its report arrives.";
+
         internal static AIRequestCall CreateWebChatRequest(
             string providerName,
             string modelName,
-            string endpoint,
+            string origin,
             string systemPrompt,
             string toolFilter)
         {
             var requiredCapabilities = ComputeRequiredCapabilities(toolFilter);
             var composedSystemPrompt = AgentKnowledgeCatalog.ComposeGrasshopperSystemPrompt(systemPrompt);
+            if (!string.Equals(toolFilter, "-*", StringComparison.Ordinal))
+            {
+                composedSystemPrompt += " " + ToolDiscoveryNote + " " + ConductorNote;
+            }
 
             var request = new AIRequestCall
             {
@@ -231,7 +274,7 @@ namespace SmartHopper.Core.UI.Chat
                 provider: providerName,
                 model: modelName,
                 systemPrompt: composedSystemPrompt,
-                endpoint: endpoint,
+                origin: origin,
                 capability: requiredCapabilities,
                 toolFilter: toolFilter);
 

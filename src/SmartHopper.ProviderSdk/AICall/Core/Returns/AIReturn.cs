@@ -26,6 +26,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.ProviderSdk.AICall.Core.Returns
 {
     /// <summary>
@@ -78,6 +79,15 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
 
         /// <inheritdoc/>
         public AICallStatus Status { get; set; } = AICallStatus.Idle;
+
+        /// <summary>
+        /// Metrics produced by helper calls performed while preparing this request
+        /// (for example, vision-helper conversions applied to the outbound view).
+        /// Each entry carries its own provider/model and is metered once, separately
+        /// from the primary call — consumers merge them through the existing metrics
+        /// aggregation seams rather than treating them as primary usage.
+        /// </summary>
+        public List<AIMetrics> ExtraMetrics { get; } = new List<AIMetrics>();
 
         /// <inheritdoc/>
         public List<SHRuntimeMessage> Messages
@@ -226,8 +236,13 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
             var model = req.Model ?? "Unknown";
 
             // Stamp provider/model on a copy of each interaction, preserving other fields and new markers.
+            // A model already reported on the metrics (e.g. resolved server-side) wins over the request model.
             var updatedInteractions = body.Interactions
-                .Select(i => i.WithMetrics((i.Metrics ?? new AIMetrics()) with { Provider = provider, Model = model }))
+                .Select(i => i.WithMetrics((i.Metrics ?? new AIMetrics()) with
+                {
+                    Provider = provider,
+                    Model = string.IsNullOrWhiteSpace(i.Metrics?.Model) ? model : i.Metrics.Model,
+                }))
                 .ToList();
 
             // Create a new body from the updated interactions, preserving new markers.
@@ -240,7 +255,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
             this.Status = AICallStatus.Finished;
             try
             {
-                System.Diagnostics.Debug.WriteLine($"[AIReturn.CreateSuccess(body)] finalized body: interactions={this.Body?.InteractionsCount ?? 0}, new={string.Join(",", this.Body?.InteractionsNew ?? new List<int>())}");
+                Logger.For<AIReturn>().Trace($"[AIReturn.CreateSuccess(body)] finalized body: interactions={this.Body?.InteractionsCount ?? 0}, new={string.Join(",", this.Body?.InteractionsNew ?? new List<int>())}");
             }
             catch
             {
@@ -370,6 +385,68 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
         }
 
         /// <summary>
+        /// Creates a standardized provider error from a caught exception and logs the
+        /// full exception (type, stack trace, inner exceptions) through the
+        /// diagnostic log. Use this overload in catch blocks so that unexpected failures
+        /// remain diagnosable instead of surviving only as a user-facing message.
+        /// </summary>
+        /// <param name="exception">The caught exception.</param>
+        /// <param name="request">The request context.</param>
+        /// <param name="context">Optional prefix describing the failing operation; prepended to the exception message.</param>
+        public void CreateProviderError(Exception exception, IAIRequest? request = null, string? context = null)
+        {
+            Logger.Exception(request?.Provider ?? nameof(AIReturn), exception, context ?? "Provider call failed");
+
+            var message = string.IsNullOrEmpty(context) ? exception.Message : $"{context}: {exception.Message}";
+            this.CreateProviderError(message, request);
+        }
+
+        /// <summary>
+        /// Creates a standardized network error (e.g., DNS, connectivity) from a caught
+        /// exception and logs the full exception (type, stack trace, inner exceptions)
+        /// through the diagnostic log. Use this overload in catch blocks so that
+        /// transport failures remain diagnosable instead of surviving only as a
+        /// user-facing message.
+        /// </summary>
+        /// <param name="exception">The caught exception.</param>
+        /// <param name="request">The request context.</param>
+        /// <param name="context">Optional prefix describing the failing operation; prepended to the exception message.</param>
+        public void CreateNetworkError(Exception exception, IAIRequest? request = null, string? context = null)
+        {
+            Logger.Exception(request?.Provider ?? nameof(AIReturn), exception, context ?? "Network call failed");
+
+            var message = exception.InnerException?.Message ?? exception.Message;
+            if (!string.IsNullOrEmpty(context))
+            {
+                message = $"{context}: {message}";
+            }
+
+            this.CreateNetworkError(message, request);
+        }
+
+        /// <summary>
+        /// Creates a standardized tool error from a caught exception and logs the full
+        /// exception (type, stack trace, inner exceptions) through the
+        /// diagnostic log. Use this overload in catch blocks so that unexpected failures
+        /// remain diagnosable instead of surviving only as a user-facing message.
+        /// </summary>
+        /// <param name="exception">The caught exception.</param>
+        /// <param name="request">The request context.</param>
+        /// <param name="context">Optional prefix describing the failing operation; prepended to the exception message.</param>
+        public void CreateToolError(Exception exception, IAIRequest? request = null, string? context = null)
+        {
+            Logger.Exception(request?.Provider ?? nameof(AIReturn), exception, context ?? "Tool call failed");
+
+            var message = exception.InnerException?.Message ?? exception.Message;
+            if (!string.IsNullOrEmpty(context))
+            {
+                message = $"{context}: {message}";
+            }
+
+            this.CreateToolError(message, request);
+        }
+
+        /// <summary>
         /// Creates a standardized tool error.
         /// Adds a structured message with Tool origin.
         /// </summary>
@@ -475,7 +552,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
                 return;
             }
 
-            // Usage is call telemetry: if the body already reports usage, do not add it twice.
+            // Usage is call metadata: if the body already reports usage, do not add it twice.
             if (this.Body.Metrics.TotalTokens > 0)
             {
                 return;
@@ -518,15 +595,20 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
             var model = this.Request.Model ?? "Unknown";
 
             // Stamp provider/model on a copy of each decoded interaction.
+            // A model reported by the decoder (e.g. resolved server-side) wins over the request model.
             var updatedInteractions = interactions
-                .Select(i => i.WithMetrics((i.Metrics ?? new AIMetrics()) with { Provider = provider, Model = model }));
+                .Select(i => i.WithMetrics((i.Metrics ?? new AIMetrics()) with
+                {
+                    Provider = provider,
+                    Model = string.IsNullOrWhiteSpace(i.Metrics?.Model) ? model : i.Metrics.Model,
+                }));
 
             b.AddRange(updatedInteractions);
 
             this.Body = b.Build();
             try
             {
-                System.Diagnostics.Debug.WriteLine($"[AIReturn.SetBody(raw)] built body: interactions={this.Body?.InteractionsCount ?? 0}, new={string.Join(",", this.Body?.InteractionsNew ?? new List<int>())}");
+                Logger.For<AIReturn>().Trace($"[AIReturn.SetBody(raw)] built body: interactions={this.Body?.InteractionsCount ?? 0}, new={string.Join(",", this.Body?.InteractionsNew ?? new List<int>())}");
             }
             catch
             {

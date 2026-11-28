@@ -64,7 +64,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.GhRemoveToolAsync,
                 tags: new[] { "canvas", "components", "mutating", "delete" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""removedGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""rejectedGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""notFoundGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } } } }",
-                annotations: new AIToolAnnotations(destructiveHint: true));
+                annotations: new AIToolAnnotations(destructiveHint: true),
+                activityLabel: "removing canvas components",
+                resultLabel: "removed canvas components");
         }
 
         private async Task<AIReturn> GhRemoveToolAsync(AIToolCall toolCall)

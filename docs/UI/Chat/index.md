@@ -8,9 +8,9 @@ Chat UI architecture and interactions after migrating to a fully WebView-based i
 
 | Property | Value |
 | --- | --- |
-| **Source Code** | `src/SmartHopper.Core.Grasshopper/UI/Chat/` |
+| **Source Code** | `src/SmartHopper.Core/UI/Chat/` |
 | **Since Version** | ? |
-| **Last Updated** | 2026-06-14 |
+| **Last Updated** | 2026-11-01 |
 | **Documentation Maintainer** | Devin AI |
 
 _Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
@@ -31,7 +31,7 @@ This document describes the chat UI architecture and its interactions after migr
 
 ## End-User Guide
 
-The chat window is now a **full WebView UI** (no Eto input controls). The HTML page includes a status bar, the chat transcript, and an input bar with Send, Clear, and Cancel buttons.
+The chat window is now a **full WebView UI** (no Eto input controls). The page shell — status line, scrollable transcript, attachment strip, and composer (attach/send/cancel) — is provided by the vendored **chat-ui toolkit** (`window.ChatUI`, `Resources/vendor/chat-ui.iife.js`), while `Resources/js/chat-bridge.js` mounts it and exposes the compatibility globals the host drives.
 
 User actions originate in the WebView's JavaScript and are bridged to C# via a **custom URL scheme** handled in the host:
 
@@ -44,7 +44,7 @@ C# intercepts these URLs using `WebView.DocumentLoading` and cancels navigation,
 
 ### Clipboard
 
-`chat-script.js` uses `clipboard://copy?text=...` for code-block copy. The host intercepts it and sets system clipboard text, then shows a toast in the WebView.
+`chat-bridge.js` uses `clipboard://copy?text=...` for code-block copy. The host intercepts it and sets system clipboard text, then shows a toast in the WebView.
 
 ### Consumers
 
@@ -73,10 +73,11 @@ This page references rendering at a high level and leaves type-level details to 
 - Focused Grasshopper guidance is available to the agent through the `smarthopper_readme` and `smarthopper_workflows` instruction tools, backed by the same embedded catalog exposed through MCP.
 - For non-trivial work, the model may call the Chat-only `plan_propose` tool (`AgentPlanning` category). WebChat renders an approval card and keeps the tool call pending until the user approves, rejects, or cancels.
 - Plan approval permits continuing with the approach but does not approve later canvas mutations; each mutation receives a separate graphical review.
-- `plan_tasks` (`AgentPlanning`) renders the active task plan in a persistent panel docked under the autonomy overlay (the shared `#hud` column), showing goal, progress, and per-task status until replaced or reset.
+- `plan_tasks` (`AgentPlanning`) renders the active task plan as a native `card:task_plan` in the transcript, showing goal, completed/total count, and per-task status until replaced or reset.
 - `ask_user` (`AgentPlanning`) renders a blocking question card with 2–4 options plus a free-text field; the tool call waits until the user answers or the run is cancelled, through the `IUserQuestionPresenter` invocation seam.
 - `canvas_point` (`Canvas.ViewControl`) pans/zooms the Grasshopper viewport to components or a region and draws an 8-second border highlight via `CanvasPointerService`; the chat card's "Show on canvas" button replays it through `CanvasPointerBridge`.
-- After each completed turn, the ephemeral `SuggestedPromptsSpecialTurn` (non-streaming, tool-less, `Text2Json`-gated, bounded history digest) produces 0–3 suggestion chips above the input bar; clicking a chip fills the input without sending. Toggled by `EnableSuggestedPrompts` in Canvas Assistant settings.
+- The four conductor tools (`spawn_subagent`, `send_to_subagent`, `wait_subagents`, `list_subagents`, all `AgentPlanning`, Chat-surface only) delegate focused work to background subagents owned by the dialog's `SubagentHost`. Each worker runs a child `ConversationSession` cloned from the parent request minus conductor tools, with no presenters — so consent-gated canvas mutations fail closed and workers cannot spawn recursively. A finished run leaves a visible evidence line in the transcript (`subagent 'x' reported back`) and, when no turn is in flight, automatically wakes the conversation with a terse user marker plus the full report delivered as a system interaction; `wait_subagents` collects a result inline and marks it delivered so no wake fires. A "still working" hint shows while workers remain active, wake chains are capped, and closing the chat cancels all runs.
+- After each completed turn, the ephemeral `SuggestedPromptsSpecialTurn` (non-streaming, tool-less, `Text2Json`-gated, bounded history digest) produces 0–3 suggestion chips rendered as a native `suggestions` part at the end of the transcript; clicking a chip fills the input without sending. Toggled by `EnableSuggestedPrompts` in Canvas Assistant settings.
 - `HtmlChatRenderer` (+ `ChatResourceManager`) converts `IAIInteraction` instances to HTML message bubbles. Markdig is used for Markdown -> HTML.
 - `WebChatDialog` is a thin host adapter:
   - Loads initial HTML (CSS/JS inline) via `HtmlChatRenderer.GetInitialHtml()`.
@@ -199,7 +200,7 @@ All UI work (including `ExecuteScript`) is marshaled via `RhinoApp.InvokeOnUiThr
 - The drain scheduling is debounced to coalesce bursts of updates into fewer WebView script injections.
 - `ExecuteScript(...)` enforces a small concurrency gate to avoid piling scripts into the WebView.
 
-On the WebView side (`chat-script.js`):
+On the WebView side (`chat-bridge.js`):
 
 - Message mutations (`addMessage`, `upsertMessage`, `upsertMessageAfter`, `replaceLastMessageByRole`) are enqueued and flushed using `requestAnimationFrame` (with a small timeout fallback).
 - Rendering work is reduced using:
@@ -220,8 +221,10 @@ These changes also mitigate issue #261 ("ui eventually freezes on opening webcha
   - Observer: `src/SmartHopper.Core/UI/Chat/WebChatObserver.cs`
   - Rendering: `src/SmartHopper.Core/UI/Chat/HtmlChatRenderer.cs`
   - Resources: `src/SmartHopper.Core/UI/Chat/Resources/`
-    - CSS: `css/chat-styles.css`
-    - JS: `js/chat-script.js`
+    - CSS: `css/chat-styles.css` (legacy bubbles/cards + a small toolkit-shell adaptation block); `css/chat-theme.css` (cloud "Blueprint" theme — palette tokens, the verbatim cloud chat stylesheet scoped to `.chat-ui[data-theme='cloud']`, and plugin adaptations for the legacy `.message` DOM)
+    - Vendored toolkit: `vendor/chat-ui.iife.js` (byte-for-byte upstream build; see `vendor/THIRD_PARTY_NOTICES.md`)
+    - JS: `js/chat-bridge.js` (compat globals + toolkit mount); `js/chat-script.js` is retained on disk but no longer injected
+    - Sanitizer: `js/purify.min.js` (DOMPurify, loaded as a data URI)
     - HTML templates: `templates/chat-template.html`, `templates/message-template.html`, `templates/error-template.html`
   - Conversation/session: `src/SmartHopper.Infrastructure/AICall/Sessions/ConversationSession.cs`
   - Utilities/lifecycle: `src/SmartHopper.Core/UI/Chat/WebChatUtils.cs`
@@ -231,12 +234,26 @@ These changes also mitigate issue #261 ("ui eventually freezes on opening webcha
 Supported via `HtmlChatRenderer.RenderInteraction(...)` and CSS classes:
 
 - `AIInteractionText` -> Markdown content (with optional reasoning panel)
-- `AIInteractionToolCall` -> compact card with tool name and arguments
-- `AIInteractionToolResult` -> result payload (e.g., JSON block)
+- `AIInteractionToolCall` -> tool card: one-line call digest `name(params)` in the collapsed peek, plus a collapsible parameter table (`<details class="tool-io tool-args">`) when arguments are structured (nested values or >3 params); argument-less calls render the header sentence only
+- `AIInteractionToolResult` -> merged card upserted into the originating call's card: `name(params) → done|failed` digest, parameter table, error callout on failures, and the result as colorized pretty JSON in an open `<details class="tool-io tool-result">` with a "Copy raw" button (`data-copy` carries the compact wire JSON → `clipboard://copy` bridge)
 - `AIInteractionImage` -> `<img>` with caption/alt text
 - `AIInteractionError` -> styled error bubble
 
+Tool cards emit HTML directly (Markdig passes it through; DOMPurify's html profile allows `details`/`summary`/`table`/`button`/`data-*`). Copying a whole tool message uses a dedicated plain-text channel (`GetCopyTextForRender`) so the clipboard gets readable `args → result` content instead of markup.
+
 Each message uses role classes like `.message.user`, `.message.assistant`, `.message.system`, `.message.tool`, enabling distinct styling.
+
+### chat-ui toolkit shell and the html-part bridge
+
+The transcript and composer are owned by the vendored chat-ui toolkit (`vendor/chat-ui.iife.js`, MIT — see `vendor/THIRD_PARTY_NOTICES.md`), mounted by `chat-bridge.js` into `#chat-root` via `ChatUI.createChatView(container, { transport, placeholder, theme: 'cloud', features, partRenderers })`. `theme: 'cloud'` stamps `data-theme='cloud'` on the `.chat-ui` root, activating the scoped cloud "Blueprint" rules in `css/chat-theme.css` (loaded through the `{{cssTheme}}` template placeholder; composer reads/writes go through the handle's `setComposerText`/`setComposerEnabled` API rather than DOM pokes):
+
+- **Shell (toolkit-native):** `.cui-status` line, `.cui-messages` scroll list with pin/jump-to-bottom handling, `.cui-attachments` staged-chip strip, `.cui-composer` (autosizing input, send/cancel, attach, model picker `select.cui-model` behind `features.modelPicker` + `setModels`), `.cui-context-card` (fed by `setContextUsage`), quote chip, `.cui-queue` outgoing-message panel (`features.queue`, fed by `setQueue`) — the host owns the queue; the panel only renders it.
+- **Message bodies (structured decomposition):** incoming `.message` bubble HTML is sniffed by `partsForHtml()` in `chat-bridge.js` and decomposed into canonical parts — short, block-free notice-role bubbles (`system`/`summary`/`info`/`warning`/`error`/`debug`) become `evidence` parts; a meaningful metrics footer (`.metrics-icon` not `.hidden`) becomes a `usage` part appended after the (footer-stripped) body; everything else stays a single `html` part. The custom `partRenderers.html` sanitizes via DOMPurify and emits the markup raw (single-root `.message` becomes the part element; multi-root payloads get a `.cui-part-html` wrapper), stamping `data-key` from the interaction `domKey` so the keyed upsert/patch pipeline can address it.
+- **Plugin cards (native parts):** `showPlanConsent` → `card:approval`, `updateTaskPlan` → `card:task_plan`, `showUserQuestion` → `card:question`, `showSuggestedPrompts` → `suggestions` part, `showCanvasPointer` → `evidence` + `meta.actions` row. Card/button reports travel through `transport.messageAction` and are re-mapped to the identical `sh://event` URLs by `routeMessageAction` (the `_pluginCards` registry translates toolkit interaction ids back to host entity ids, and question chip answers recover their `choice` index). `resolvePlanConsent`/`resolveUserQuestion`/`resolveAutonomyContinue` freeze the rendered card via `data-iid` lookup. `showAutonomyContinue` reuses `card:approval` (kind `consent`, `autonomy-N` refIds) for the budget-exhaustion continue/stop prompt — the host routes those ids to `ResolveAutonomyConsent`, which appends a persisted user authorization and resends on approve.
+- **Bridge globals (unchanged C# contract):** every `ExecuteScript` target (`addMessage`, `upsertMessage`, `upsertMessageAfter`, `getAllMessageKeys`, `resetMessages`, cards, attachments, autonomy, status/processing, …) keeps its exact name and semantics — see [WebView <-> Host Bridge](./WebView-Bridge.md). `setModels(models, selected)` is an additional forward-compat global feeding the composer model picker.
+- **DOM-key contract:** the toolkit's `.cui-messages` node is renamed to `#chat-container` at init, so all legacy selectors, loaders, and raw children keep working verbatim. Every toolkit `.cui-msg` is stamped `data-iid` (interaction id) and `data-key` (when a `domKey` exists), so `getAllMessageKeys()`/`findExistingMessageByKey` address keyed native-part messages (evidence etc.) that carry no `.message` element. Plugin/notice cards only get `data-iid` and stay out of `getAllMessageKeys`. Keyed inserts/upserts delegate to `addInteraction`/`updateInteraction`; `upsertMessageAfter` and patch payloads are handled at DOM level to preserve ordering and in-place patching (patch-in-place only applies when the payload maps to a single html part).
+- **Transport:** `send`/`cancel`/`attach`/`detach`/`consent`/`question`/`canvas_pointer`/`regen`/`update`/`extend_autonomy` keep emitting the same `sh://event`/`clipboard://copy` URLs; `selectModel` adds `sh://event?type=model&model=...` (host route is opt-in — currently logged as an unknown event type) and the queue row callbacks `removeQueued`/`editQueued`/`sendQueuedNow` emit `sh://event?type=queue&action=remove|edit|submit-now&id=...` (see `WebView-Bridge.md` for the full queue contract). Composer shortcuts handled in a document capture-phase keydown: Ctrl/Cmd+Enter with text emits `type=send&text=...&now=1` (jump the queue), and Enter on an empty composer emits `type=queue&action=send-next` (send the queue head now). Attachment bytes stay host-side (toolkit chips are visual mirrors correlated by pending id inside `meta`).
+- **Session queue:** sends that arrive while a turn runs wait FIFO in the host's `_messageQueue` (attachments follow the entry) and promote automatically on turn settle through the same `_pendingUserMessage`/`_attachmentsForNextSend` staging path — an idle send is unchanged. While a turn runs the composer stays editable (type-ahead): the send button relabels to "Queue" next to Stop, and each busy send lands as a panel row. The panel also shows agent-injected entries — `send_to_subagent` instructions queued for a busy worker (`mode: "queue"`, or `"on-the-fly"` fallback) — with a `meta.agent` byline; `send_to_subagent` with `mode: "on-the-fly"` injects straight into the worker's live session when no tool call is pending. Row actions round-trip through `type=queue` events and mutate the host-owned state (remove/edit/submit-now → `TryApplyPendingAction` for worker rows); `submit-now`/`send-next`/`now=1` sends route through `PromoteQueueHeadNow()`, which cancels a live turn so the promoted message submits next (or promotes directly when idle). Turn-settled UI pushes go through `PushTurnSettledUiState`, which decides engaged-vs-idle at DOM-queue drain time so queue sends and autonomy updates cannot flip the composer back to Send mid-turn. Queued user sends always win over subagent wake turns (`HasPendingUserInput`).
 
 ### Streaming lifecycle and re-keying
 

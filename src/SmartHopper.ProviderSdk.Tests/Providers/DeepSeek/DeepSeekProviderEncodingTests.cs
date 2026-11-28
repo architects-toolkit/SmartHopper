@@ -25,6 +25,7 @@ namespace SmartHopper.ProviderSdk.Tests.Providers.DeepSeek
     using System.Linq;
     using Newtonsoft.Json.Linq;
     using SmartHopper.Providers.DeepSeek;
+    using SmartHopper.ProviderSdk.AICall.Core;
     using SmartHopper.ProviderSdk.AICall.Core.Base;
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     using SmartHopper.ProviderSdk.AICall.Core.Requests;
@@ -308,6 +309,105 @@ namespace SmartHopper.ProviderSdk.Tests.Providers.DeepSeek
 
             Assert.Contains("call_1", resultIds);
             Assert.Contains("call_2", resultIds);
+        }
+
+        /// <summary>
+        /// A MaxTokens setting of 0 means unlimited: the cap is omitted from the
+        /// request body so the API can generate up to the model limit.
+        /// </summary>
+        [Fact]
+        public void Encode_MaxTokensZero_OmitsTokenCap()
+        {
+            var body = AIBodyBuilder.Create()
+                .Add(new AIInteractionText { Agent = AIAgent.User, Content = "Hello." })
+                .Build();
+
+            var request = new AIRequestCall
+            {
+                Provider = DeepSeekProvider.Instance.Name,
+                Model = "deepseek-chat",
+                Body = body,
+                Capability = AICapability.Text2Text,
+            };
+
+            DeepSeekProvider.Instance.RefreshCachedSettings(new Dictionary<string, object>
+            {
+                { "ApiKey", "test-key" },
+                { "MaxTokens", 0 },
+                { "Temperature", 0.7 },
+                { "TopP", 1.0 },
+                { "ReasoningEffort", "none" },
+            });
+
+            var requestObj = JObject.Parse(DeepSeekProvider.Instance.Encode(request));
+
+            Assert.Null(requestObj["max_tokens"]);
+        }
+
+        /// <summary>
+        /// A request-level MaxTokens of 0 also means unlimited and wins over the
+        /// configured provider setting (non-null request values take precedence).
+        /// </summary>
+        [Fact]
+        public void Encode_RequestMaxTokensZero_OmitsTokenCap()
+        {
+            var body = AIBodyBuilder.Create()
+                .Add(new AIInteractionText { Agent = AIAgent.User, Content = "Hello." })
+                .Build();
+
+            var request = new AIRequestCall
+            {
+                Provider = DeepSeekProvider.Instance.Name,
+                Model = "deepseek-chat",
+                Body = body,
+                Capability = AICapability.Text2Text,
+                Parameters = new AIRequestParameters { MaxTokens = 0 },
+            };
+
+            DeepSeekProvider.Instance.RefreshCachedSettings(new Dictionary<string, object>
+            {
+                { "ApiKey", "test-key" },
+                { "MaxTokens", 1024 },
+                { "Temperature", 0.7 },
+                { "TopP", 1.0 },
+                { "ReasoningEffort", "none" },
+            });
+
+            var requestObj = JObject.Parse(DeepSeekProvider.Instance.Encode(request));
+
+            Assert.Null(requestObj["max_tokens"]);
+        }
+
+        /// <summary>
+        /// Positive MaxTokens values keep emitting the cap unchanged.
+        /// </summary>
+        [Fact]
+        public void Encode_MaxTokensPositive_EmitsTokenCap()
+        {
+            var body = AIBodyBuilder.Create()
+                .Add(new AIInteractionText { Agent = AIAgent.User, Content = "Hello." })
+                .Build();
+
+            var request = new AIRequestCall
+            {
+                Provider = DeepSeekProvider.Instance.Name,
+                Model = "deepseek-chat",
+                Body = body,
+                Capability = AICapability.Text2Text,
+            };
+
+            DeepSeekProvider.Instance.RefreshCachedSettings(new Dictionary<string, object>
+            {
+                { "ApiKey", "test-key" },
+                { "MaxTokens", 1024 },
+                { "Temperature", 0.7 },
+                { "TopP", 1.0 },
+                { "ReasoningEffort", "none" },
+            });
+
+            var requestObj = JObject.Parse(DeepSeekProvider.Instance.Encode(request));
+
+            Assert.Equal(1024, requestObj["max_tokens"]?.Value<int>());
         }
     }
 }

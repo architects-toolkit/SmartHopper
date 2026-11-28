@@ -27,6 +27,7 @@ using System.IO;
 using System.Reflection;
 using Eto.Drawing;
 using Eto.Forms;
+using Rhino;
 using Rhino.UI;
 using SmartHopper.Infrastructure.Properties;
 namespace SmartHopper.Infrastructure.Dialogs
@@ -323,6 +324,16 @@ namespace SmartHopper.Infrastructure.Dialogs
         /// <param name="parent">The parent window.</param>
         private void ShowWithLink(Window parent)
         {
+            if (RhinoApp.InvokeRequired)
+            {
+                // Eto modals only display on Rhino's UI thread — callers on pool
+                // threads (e.g. the canvas assistant's no-provider error) would
+                // otherwise fail silently. InvokeAndWait blocks until shown and
+                // closed, so confirmation results are returned correctly.
+                RhinoApp.InvokeAndWait(new Action(() => this.ShowWithLink(parent)));
+                return;
+            }
+
             // Register link if we have a valid instance GUID and the callback is set
             if (this._linkedInstanceGuid != Guid.Empty && RegisterCanvasLinkCallback != null)
             {
@@ -330,7 +341,7 @@ namespace SmartHopper.Infrastructure.Dialogs
             }
 
             // Show the dialog
-            this.ShowModal(parent);
+            this.ShowModalInFront(parent);
 
             // Link is automatically unregistered when dialog closes via DialogCanvasLink.OnDialogClosed
         }

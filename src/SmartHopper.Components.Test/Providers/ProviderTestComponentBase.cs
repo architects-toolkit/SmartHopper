@@ -50,7 +50,6 @@ namespace SmartHopper.Components.Test.Providers
             string subCategory = "Testing Providers")
             : base(name, nickname, description, category, subCategory)
         {
-            this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName(this.TestProviderName);
         }
 

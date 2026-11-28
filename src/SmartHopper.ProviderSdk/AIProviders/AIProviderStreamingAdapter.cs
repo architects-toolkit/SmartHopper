@@ -51,11 +51,11 @@ namespace SmartHopper.ProviderSdk.AIProviders
         }
 
         /// <summary>
-        /// Runs the provider's asynchronous pre-call pipeline for the request.
+        /// Runs the provider's asynchronous wire preparation for the request.
         /// </summary>
-        /// <param name="request">The request to prepare.</param>
+        /// <param name="request">The request to prepare. Never mutated.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>The prepared request.</returns>
+        /// <returns>The prepared outbound request.</returns>
         protected Task<AIRequestCall> PrepareAsync(AIRequestCall request, CancellationToken cancellationToken)
         {
             return this.Provider.PreCallAsync(request, cancellationToken);

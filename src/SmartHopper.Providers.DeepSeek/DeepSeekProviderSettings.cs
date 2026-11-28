@@ -23,6 +23,7 @@ using System.Linq;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Providers.DeepSeek
@@ -88,13 +89,13 @@ namespace SmartHopper.Providers.DeepSeek
                 {
                     Name = "MaxTokens",
                     DisplayName = "Max Tokens",
-                    Description = "Maximum number of tokens to generate",
+                    Description = "Maximum number of tokens to generate. Set to 0 for unlimited.",
                     Type = typeof(int),
                     DefaultValue = 2000,
                     ControlParams = new NumericSettingDescriptorControl
                     {
                         UseSlider = false, // keep the NumericStepper
-                        Min = 1,
+                        Min = 0,
                         Max = 400000,
                         Step = 1,
                     },
@@ -125,7 +126,7 @@ namespace SmartHopper.Providers.DeepSeek
         /// <returns>True if the settings are valid, otherwise false.</returns>
         public override bool ValidateSettings(Dictionary<string, object> settings)
         {
-            Debug.WriteLine($"[DeepSeek] ValidateSettings called. Settings null? {settings == null}");
+            Logger.For<DeepSeekProviderSettings>().Trace($"[DeepSeek] ValidateSettings called. Settings null? {settings == null}");
 
             if (settings == null)
             {
@@ -145,7 +146,7 @@ namespace SmartHopper.Providers.DeepSeek
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
             {
                 apiKey = apiKeyObj.ToString();
-                Debug.WriteLine($"[DeepSeek] API key extracted (length: {apiKey.Length})");
+                Logger.For<DeepSeekProviderSettings>().Trace($"[DeepSeek] API key extracted (length: {apiKey.Length})");
 
                 // Skip API key validation since any value is valid
             }
@@ -154,12 +155,12 @@ namespace SmartHopper.Providers.DeepSeek
             if (settings.TryGetValue("Model", out var modelObj) && modelObj != null)
             {
                 model = modelObj.ToString();
-                Debug.WriteLine($"[DeepSeek] Model extracted: {model}");
+                Logger.For<DeepSeekProviderSettings>().Trace($"[DeepSeek] Model extracted: {model}");
 
                 // Skip model validation since any value is valid
             }
 
-            if (!this.ValidateMaxTokens(settings, showErrorDialogs, "Max tokens must be a positive number."))
+            if (!this.ValidateMaxTokens(settings, showErrorDialogs, "Max tokens must be 0 or greater."))
             {
                 return false;
             }
@@ -205,7 +206,7 @@ namespace SmartHopper.Providers.DeepSeek
                 }
             }
 
-            Debug.WriteLine($"Validating DeepSeek settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}");
+            Logger.For<DeepSeekProviderSettings>().Trace($"Validating DeepSeek settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}");
 
             return true;
         }

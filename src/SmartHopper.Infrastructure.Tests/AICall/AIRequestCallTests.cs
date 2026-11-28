@@ -76,12 +76,15 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         }
 
 #if NET7_WINDOWS
-        [Fact(DisplayName = "AIRequestCall IsValid missing endpoint returns error [Windows]")]
+        [Fact(DisplayName = "AIRequestCall IsValid missing endpoint produces no endpoint error [Windows]")]
 #else
-        [Fact(DisplayName = "AIRequestCall IsValid missing endpoint returns error [Core]")]
+        [Fact(DisplayName = "AIRequestCall IsValid missing endpoint produces no endpoint error [Core]")]
 #endif
-        public void IsValid_MissingEndpoint_ReturnsError()
+        public void IsValid_MissingEndpoint_NoEndpointError()
         {
+            // Endpoint is the resolved wire path, not caller input — providers fill it
+            // during PreCallAsync preparation, so a missing endpoint is not a request
+            // validation error. AIProvider.Call gates on the resolved endpoint instead.
             var request = new AIRequestCall
             {
                 Provider = "test",
@@ -90,8 +93,8 @@ namespace SmartHopper.Infrastructure.Tests.AICall
             };
 
             var (valid, errors) = request.IsValid();
-            Assert.False(valid);
-            Assert.Contains(errors, e => e.Message.Contains("Endpoint is required", StringComparison.OrdinalIgnoreCase));
+            Assert.False(valid); // still invalid: unknown provider/model in this fixture
+            Assert.DoesNotContain(errors, e => e.Message.Contains("endpoint", StringComparison.OrdinalIgnoreCase));
         }
 
 #if NET7_WINDOWS
@@ -196,7 +199,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
             };
 
             var (valid, errors) = request.IsValid();
-            // Body validation is skipped for Backoffice, but provider/endpoint still required
+            // Body validation is skipped for Backoffice; provider/model checks still apply
             // ProviderInstance will be null so it will still error on unknown provider
             Assert.False(valid);
             Assert.DoesNotContain(errors, e => e.Message.Contains("Body is required", StringComparison.OrdinalIgnoreCase));
@@ -301,9 +304,9 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         #region Initialization
 
 #if NET7_WINDOWS
-        [Fact(DisplayName = "AIRequestCall Initialize sets provider model endpoint and body [Windows]")]
+        [Fact(DisplayName = "AIRequestCall Initialize sets provider model origin and body [Windows]")]
 #else
-        [Fact(DisplayName = "AIRequestCall Initialize sets provider model endpoint and body [Core]")]
+        [Fact(DisplayName = "AIRequestCall Initialize sets provider model origin and body [Core]")]
 #endif
         public void Initialize_SetsProperties()
         {
@@ -315,7 +318,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
             Assert.Equal("openai", request.Provider);
             // Model getter resolves via ProviderManager; without a loaded provider it returns empty.
             // The raw requested model is stored internally and used once a provider is available.
-            Assert.Equal("https://api.openai.com/v1/chat/completions", request.Endpoint);
+            Assert.Equal("https://api.openai.com/v1/chat/completions", request.Origin);
             Assert.Equal(AICapability.Text2Text, request.Capability);
             Assert.NotNull(request.Body);
         }

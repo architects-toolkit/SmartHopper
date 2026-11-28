@@ -30,6 +30,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Streaming;
 
 namespace SmartHopper.Providers.Gemini
@@ -61,9 +62,6 @@ namespace SmartHopper.Providers.Gemini
                     yield break;
                 }
 
-                // Normalize the request (endpoint selection, auth, content type) before
-                // consuming its fields; callers may pass a request that has not been
-                // through the provider pipeline yet.
                 request = await this.provider.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
 
                 string endpoint = request.Endpoint;
@@ -82,7 +80,7 @@ namespace SmartHopper.Providers.Gemini
 
                 Uri fullUri = this.provider.BuildFullUrl(endpoint);
 
-                Debug.WriteLine($"[{this.provider.Name}] Stream - Method: {httpMethod.ToUpper()}, URL: {fullUri}");
+                Logger.For<GeminiStreamingAdapter>().Trace($"[{this.provider.Name}] Stream - Method: {httpMethod.ToUpper()}, URL: {fullUri}");
 
                 int seconds = request?.TimeoutSeconds ?? TimeoutDefaults.DefaultTimeoutSeconds;
                 seconds = Math.Max(TimeoutDefaults.MinTimeoutSeconds, Math.Min(seconds, TimeoutDefaults.MaxTimeoutSeconds));
@@ -147,7 +145,7 @@ namespace SmartHopper.Providers.Gemini
                     catch (Exception ex)
                     {
                         bodyError = new AIReturn();
-                        bodyError.CreateProviderError($"Failed to create request body: {ex.Message}", request);
+                        bodyError.CreateProviderError(ex, request, "Failed to create request body");
                     }
 
                     if (bodyError != null)
@@ -170,7 +168,7 @@ namespace SmartHopper.Providers.Gemini
                     catch (Exception ex)
                     {
                         sendError = new AIReturn();
-                        sendError.CreateNetworkError(ex.InnerException?.Message ?? ex.Message, request);
+                        sendError.CreateNetworkError(ex, request);
                     }
 
                     if (responseError != null)
@@ -248,7 +246,7 @@ namespace SmartHopper.Providers.Gemini
                                 }
                                 catch (Exception ex)
                                 {
-                                    Debug.WriteLine($"Error parsing stream chunk: {ex.Message}");
+                                    Logger.For<GeminiStreamingAdapter>().Exception(ex, $"Error parsing stream chunk: {ex.Message}");
                                 }
 
                                 if (chunkReturn != null)

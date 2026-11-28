@@ -24,6 +24,7 @@ using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Knowledge
 {
     /// <summary>
@@ -36,9 +37,9 @@ namespace SmartHopper.Components.Knowledge
             : base(
                   "Deconstruct Discourse Post",
                   "DeconstructDiscoursePost",
-                  "Deconstruct a Discourse forum post into its individual properties (id, username, topic id, title, date, etc.). Works with any Discourse instance, including McNeel and Ladybug forum posts.",
+                  "Split a Discourse forum post JSON object into its individual fields (post ID, author, topic ID, title, URL, date, Markdown content, reads, and likes). Works with McNeel, Ladybug Tools, and any Discourse forum.",
                   "SmartHopper",
-                  "Knowledge")
+                  "E. Forums")
         {
         }
 
@@ -47,30 +48,30 @@ namespace SmartHopper.Components.Knowledge
         /// <summary>
         /// Gets the component's icon.
         /// </summary>
-        protected override Bitmap Icon => Resources.discoursepostdeconstruct;
+        protected override Bitmap Icon => Resources.DiscoursePostDeconstruct;
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter(
                 "Discourse Post",
                 "P",
-                "JSON representation of Discourse forum posts as returned by Discourse Search Component.",
+                "Forum post JSON object(s) from a Discourse, McNeel, or Ladybug search or post-get component.",
                 GH_ParamAccess.list);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddIntegerParameter("Id", "I", "Numeric ID of the forum post.", GH_ParamAccess.list);
-            pManager.AddTextParameter("Username", "U", "Author username of the forum post.", GH_ParamAccess.list);
-            pManager.AddIntegerParameter("Topic Id", "T", "Topic ID that the post belongs to.", GH_ParamAccess.list);
-            pManager.AddTextParameter("Topic Title", "Ti", "Title of the topic that the post belongs to.", GH_ParamAccess.list);
-            pManager.AddTextParameter("Post URL", "Url", "Full URL to the forum post.", GH_ParamAccess.list);
-            pManager.AddTextParameter("Date", "D", "Post creation date as a string.", GH_ParamAccess.list);
-            pManager.AddTextParameter("Content", "C", "Raw content of the post, in Markdown.", GH_ParamAccess.list);
-            pManager.AddIntegerParameter("Reads", "R", "Number of reads for this post, if available.", GH_ParamAccess.list);
-            pManager.AddIntegerParameter("Likes", "L", "Number of likes for this post, if available.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Username", "U", "Author username of the post.", GH_ParamAccess.list);
+            pManager.AddIntegerParameter("Topic Id", "T", "Numeric ID of the topic (thread) the post belongs to.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Topic Title", "Ti", "Title of the topic the post belongs to.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Post URL", "Url", "Direct URL to the forum post.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Date", "D", "Creation timestamp of the post.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Content", "C", "Post body in Markdown (or excerpt when deconstructing search results).", GH_ParamAccess.list);
+            pManager.AddIntegerParameter("Reads", "R", "Number of times the post has been read, when available.", GH_ParamAccess.list);
+            pManager.AddIntegerParameter("Likes", "L", "Number of likes on the post, when available.", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -149,7 +150,7 @@ namespace SmartHopper.Components.Knowledge
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[DiscoursePostDeconstruct] Failed to parse JSON at index {index}: {ex.Message}");
+                    Logger.For<DiscoursePostDeconstructComponent>().Exception(ex, $"[DiscoursePostDeconstruct] Failed to parse JSON at index {index}: {ex.Message}");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Failed to parse JSON at index {index}: {ex.Message}");
 
                     ids.Add(0);

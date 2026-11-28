@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Newtonsoft.Json.Linq;
+using SmartHopper.ProviderSdk.Logging;
 using RhinoApp = global::Rhino.RhinoDoc;
 using RhinoDocObjects = global::Rhino.DocObjects;
 using RhinoGeometry = global::Rhino.Geometry;
@@ -51,7 +52,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Rhino
             var doc = RhinoApp.ActiveDoc;
             if (doc == null)
             {
-                Debug.WriteLine("[DocumentGeometryExtractor] No active Rhino document found.");
+                Logger.Trace(typeof(DocumentGeometryExtractor).FullName, "[DocumentGeometryExtractor] No active Rhino document found.");
                 return null;
             }
 
@@ -59,7 +60,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Rhino
             List<RhinoDocObjects.RhinoObject> objects = GetFilteredObjects(doc, filter, layerName, objectType);
             if (objects == null || !objects.Any())
             {
-                Debug.WriteLine($"[DocumentGeometryExtractor] No objects found matching filter: {filter}");
+                Logger.Trace(typeof(DocumentGeometryExtractor).FullName, $"[DocumentGeometryExtractor] No objects found matching filter: {filter}");
                 return null;
             }
 
@@ -90,7 +91,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Rhino
                 result["message"] = $"Showing {maxObjects} of {objects.Count} objects. Increase maxObjects parameter to see more.";
             }
 
-            Debug.WriteLine($"[DocumentGeometryExtractor] Retrieved {geometryData.Count} objects with filter: {filter}");
+            Logger.Trace(typeof(DocumentGeometryExtractor).FullName, $"[DocumentGeometryExtractor] Retrieved {geometryData.Count} objects with filter: {filter}");
             return result;
         }
 
@@ -114,14 +115,14 @@ namespace SmartHopper.Core.Grasshopper.Utils.Rhino
                 case "layer":
                     if (string.IsNullOrEmpty(layerName))
                     {
-                        Debug.WriteLine("[DocumentGeometryExtractor] layerName is required when filter='layer'.");
+                        Logger.Trace(typeof(DocumentGeometryExtractor).FullName, "[DocumentGeometryExtractor] layerName is required when filter='layer'.");
                         return null;
                     }
 
                     var layer = doc.Layers.FindName(layerName);
                     if (layer == null)
                     {
-                        Debug.WriteLine($"[DocumentGeometryExtractor] Layer not found: {layerName}");
+                        Logger.Trace(typeof(DocumentGeometryExtractor).FullName, $"[DocumentGeometryExtractor] Layer not found: {layerName}");
                         return null;
                     }
 
@@ -130,14 +131,14 @@ namespace SmartHopper.Core.Grasshopper.Utils.Rhino
                 case "type":
                     if (!objectType.HasValue)
                     {
-                        Debug.WriteLine("[DocumentGeometryExtractor] objectType is required when filter='type'.");
+                        Logger.Trace(typeof(DocumentGeometryExtractor).FullName, "[DocumentGeometryExtractor] objectType is required when filter='type'.");
                         return null;
                     }
 
                     return doc.Objects.Where(obj => obj.IsValid && !obj.IsDeleted && obj.ObjectType == objectType.Value).ToList();
 
                 default:
-                    Debug.WriteLine($"[DocumentGeometryExtractor] Invalid filter mode: {filter}");
+                    Logger.Warning(typeof(DocumentGeometryExtractor).FullName, $"[DocumentGeometryExtractor] Invalid filter mode: {filter}");
                     return null;
             }
         }

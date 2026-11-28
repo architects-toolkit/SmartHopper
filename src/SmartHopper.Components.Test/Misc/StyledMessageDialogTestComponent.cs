@@ -50,7 +50,6 @@ namespace SmartHopper.Components.Test.Misc
         public StyledMessageDialogTestComponent()
             : base("StyledMessageDialog Test", "DialogTest", "Test StyledMessageDialog rendering with various message types", "SmartHopper Tests", "Testing Base")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

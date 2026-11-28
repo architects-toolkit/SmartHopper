@@ -33,6 +33,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Hosting;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -98,7 +99,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""type"": ""object"",
                     ""properties"": {
                         ""list"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Array of strings to process (e.g., ['apple', 'banana', 'orange'])"" },
-                        ""criteria"": { ""type"": ""string"", ""description"": ""Natural language operation to apply (e.g., 'only items containing the word house', 'sort alphabetically', 'reverse order', 'first 3 items', 'every other item', 'repeat each item twice')"" }
+                        ""criteria"": { ""type"": ""string"", ""description"": ""Natural language operation to apply (e.g., 'only items containing the word house', 'sort alphabetically', 'reverse order', 'first 3 items', 'every other item', 'repeat each item twice')"" },
+                        ""contextFilter"": { ""type"": ""string"", ""description"": ""Optional context-provider filter controlling which context providers feed the request (e.g., 'time,file', '-time', '*', '-*')."" }
                     },
                     ""required"": [""list"", ""criteria""]
                 }",
@@ -108,7 +110,59 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "list", "text", "data-processing", "read-only" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""array"", ""items"": { ""type"": ""integer"" }, ""description"": ""Zero-based indices of selected or reordered items."" } } }",
                 annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
-                surfaces: AIToolSurface.Direct | AIToolSurface.Batch);
+                buildRequest: this.BuildFilterRequest,
+                surfaces: AIToolSurface.Direct | AIToolSurface.Batch,
+                activityLabel: "filtering list",
+                resultLabel: "filtered list");
+        }
+
+        /// <summary>
+        /// Builds an <see cref="AIRequestCall"/> from the tool call parameters without executing it.
+        /// Used during batch collection to aggregate multiple requests into a single batch submission.
+        /// </summary>
+        /// <param name="toolCall">The tool call containing provider, model, and arguments.</param>
+        /// <returns>A fully-specified <see cref="AIRequestCall"/> ready for batch submission.</returns>
+        private AIRequestCall BuildFilterRequest(AIToolCall toolCall)
+        {
+            AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+            var args = toolInfo.GetArgumentsOrEmpty();
+            string criteria = args["criteria"]?.ToString();
+            string contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
+
+            // Normalize list input
+            var items = NormalizeListInput(toolInfo);
+
+            // Convert to GH_String list
+            var ghStringList = items.Select(s => new GH_String(s)).ToList();
+
+            string itemsJsonDict = AIResponseParser.ConcatenateItemsToJson(ghStringList);
+
+            // Prepare the AI request
+            var userPrompt = this.userPrompt;
+            userPrompt = userPrompt.Replace("<criteria>", criteria);
+            userPrompt = userPrompt.Replace("<list>", itemsJsonDict);
+
+            var requestBody = AIBodyBuilder.Create()
+                .AddSystem(this.systemPrompt)
+                .AddUser(userPrompt)
+                .WithContextFilter(contextFilter)
+                .Build();
+
+            var request = new AIRequestCall();
+            request.Initialize(
+                provider: toolCall.Provider,
+                model: toolCall.Model,
+                body: requestBody,
+                origin: this.toolName,
+                capability: this.toolCapabilityRequirements);
+
+            // Forward per-request parameters (extras, sampling, timeout) to the provider call
+            if (toolCall.Parameters != null)
+            {
+                request.Parameters = toolCall.Parameters;
+            }
+
+            return request;
         }
 
         /// <summary>
@@ -126,17 +180,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                Debug.WriteLine("[ListTools] Running FilterList tool");
+                Logger.For<list_filter>().Trace("[ListTools] Running FilterList tool");
 
                 // Extract parameters
-                string providerName = toolCall.Provider;
-                string modelName = toolCall.Model;
-                string endpoint = this.toolName;
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.GetArgumentsOrEmpty();
                 string? rawList = args["list"]?.ToString();
                 string? criteria = args["criteria"]?.ToString();
-                string? contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
 
                 if (string.IsNullOrEmpty(rawList) || string.IsNullOrEmpty(criteria))
                 {
@@ -144,34 +194,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                // Normalize list input
-                var items = NormalizeListInput(toolInfo);
-
-                // Convert to GH_String list
-                var ghStringList = items.Select(s => new GH_String(s)).ToList();
-
-                string itemsJsonDict = AIResponseParser.ConcatenateItemsToJson(ghStringList);
-
-                // Prepare the AI request
-                var userPrompt = this.userPrompt;
-                userPrompt = userPrompt.Replace("<criteria>", criteria);
-                userPrompt = userPrompt.Replace("<list>", itemsJsonDict);
-
-                // Initiate immutable AIBody
-                var requestBody = AIBodyBuilder.Create()
-                    .AddSystem(this.systemPrompt)
-                    .AddUser(userPrompt)
-                    .WithContextFilter(contextFilter)
-                    .Build();
-
-                // Initiate AIRequestCall
-                var request = new AIRequestCall();
-                request.Initialize(
-                    provider: providerName,
-                    model: modelName,
-                    capability: this.toolCapabilityRequirements,
-                    endpoint: endpoint,
-                    body: requestBody);
+                // Build the request (shared logic between batch and non-batch paths)
+                var request = this.BuildFilterRequest(toolCall);
 
                 // Execute the AIRequestCall
                 var result = await request.Exec().ConfigureAwait(false);
@@ -194,7 +218,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                Debug.WriteLine($"[ListTools] Got indices: {string.Join(", ", indices)}");
+                Logger.For<list_filter>().Trace($"[ListTools] Got indices: {string.Join(", ", indices)}");
 
                 // Success case
                 var toolResult = new JObject();
@@ -209,7 +233,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ListTools] Error in FilterList: {ex.Message}");
+                Logger.For<list_filter>().Exception(ex, $"[ListTools] Error in FilterList: {ex.Message}");
 
                 output.CreateError($"Error: {ex.Message}");
                 return output;

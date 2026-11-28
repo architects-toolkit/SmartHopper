@@ -25,6 +25,7 @@ using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Utils;
 using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Utils;
 
 namespace SmartHopper.Menu.Items
@@ -112,7 +113,7 @@ namespace SmartHopper.Menu.Items
             }
             catch (Exception ex)
             {
-                RhinoApp.WriteLine($"[SmartHopper] Error during provider verification: {ex.Message}");
+                Logger.Exception(typeof(VerifyProvidersMenuItem).FullName, ex, $"[SmartHopper] Error during provider verification: {ex.Message}");
                 RhinoApp.InvokeOnUiThread(new Action(() =>
                 {
                     StyledMessageDialog.ShowError(

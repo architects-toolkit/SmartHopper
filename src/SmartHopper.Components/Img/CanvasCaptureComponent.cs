@@ -37,13 +37,16 @@ namespace SmartHopper.Components.Img
             : base(
                 "Canvas To Image",
                 "Canvas2Img",
-                "Capture the visible Grasshopper canvas as a persistent VersatileImage when Run is triggered.",
+                "Capture the visible Grasshopper canvas as an image when Run? is set to true.",
                 "canvas_screenshot")
         {
         }
 
         /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("22786AAD-D6E9-40E7-A57B-F9B75167DA50");
+
+        /// <inheritdoc/>
+        public override GH_Exposure Exposure => GH_Exposure.tertiary | GH_Exposure.obscure;
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[]
@@ -57,14 +60,14 @@ namespace SmartHopper.Components.Img
         };
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.aitoimg;
+        protected override Bitmap Icon => Resources.CanvasCapture;
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
             ArgumentNullException.ThrowIfNull(pManager);
-            pManager.AddIntegerParameter("Max Width", "W", "Maximum output width in pixels.", GH_ParamAccess.item, 1920);
-            pManager.AddIntegerParameter("Max Height", "H", "Maximum output height in pixels.", GH_ParamAccess.item, 1080);
+            pManager.AddIntegerParameter("Max Width", "W", "Maximum output width in pixels (aspect ratio is preserved).", GH_ParamAccess.item, 1920);
+            pManager.AddIntegerParameter("Max Height", "H", "Maximum output height in pixels (aspect ratio is preserved).", GH_ParamAccess.item, 1080);
         }
 
         /// <inheritdoc/>

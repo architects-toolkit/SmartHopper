@@ -27,6 +27,23 @@ using SmartHopper.ProviderSdk.Hosting;
 namespace SmartHopper.Infrastructure.AITools
 {
     /// <summary>
+    /// Mutation-boundary classification for a mutating tool: how the
+    /// invocation owns its canvas commit. Registration metadata only — never a
+    /// user- or model-facing argument.
+    /// </summary>
+    public enum MutationBoundary
+    {
+        /// <summary>Whole-invocation ownership: the undo/commit gate wraps the entire call.</summary>
+        Legacy,
+
+        /// <summary>The tool applies exactly one prepared commit inside its invocation.</summary>
+        PreparedCommit,
+
+        /// <summary>A composite wrapper that orchestrates child operations under one commit and one undo group.</summary>
+        Composite,
+    }
+
+    /// <summary>
     /// Represents an AI tool that mutates canvas or document state and cannot run in batch mode.
     /// </summary>
     public sealed class AIMutatingTool : AITool
@@ -45,7 +62,10 @@ namespace SmartHopper.Infrastructure.AITools
             IReadOnlyList<string>? tags = null,
             string? outputSchema = null,
             AIToolAnnotations? annotations = null,
-            AIToolSurface surfaces = AIToolSurface.Chat | AIToolSurface.Direct | AIToolSurface.Mcp)
+            AIToolSurface surfaces = AIToolSurface.Chat | AIToolSurface.Direct | AIToolSurface.Mcp,
+            string? activityLabel = null,
+            string? resultLabel = null,
+            MutationBoundary boundary = MutationBoundary.Legacy)
             : base(
                 name,
                 description,
@@ -59,8 +79,14 @@ namespace SmartHopper.Infrastructure.AITools
                 tags,
                 outputSchema,
                 annotations,
-                surfaces & ~AIToolSurface.Batch)
+                surfaces & ~AIToolSurface.Batch,
+                activityLabel,
+                resultLabel)
         {
+            this.Boundary = boundary;
         }
+
+        /// <summary>Gets the internal mutation-boundary classification.</summary>
+        internal MutationBoundary Boundary { get; }
     }
 }

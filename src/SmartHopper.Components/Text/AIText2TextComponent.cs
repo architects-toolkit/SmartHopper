@@ -37,13 +37,14 @@ using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Text
 {
     public class AIText2TextComponent : AIStatefulAsyncComponentBase
     {
         public override Guid ComponentGuid => new ("EB073C7A-A500-4265-A45B-B1BFB38BA58E");
 
-        protected override Bitmap Icon => Resources.textgenerate;
+        protected override Bitmap Icon => Resources.AIText2Text;
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
@@ -79,14 +80,14 @@ namespace SmartHopper.Components.Text
             : base(
                 "AI Text To Text",
                 "AIText2Text",
-                "Generate text from natural language instructions. You can also use this component to modify or rephrase a text.\n\nIf a tree structure is provided, prompts and instructions will only match within the same branch paths.",
+                "Generate, rewrite, summarize, or translate text from natural-language prompts using AI.\nWhen data trees are provided, prompts and instructions are matched by branch path.",
                 "SmartHopper",
-                "Text")
+                "I. Text & Lists")
         {
         }
 
         /// <inheritdoc/>
-        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<SHRuntimeMessage> messages = null)
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject>? results, IReadOnlyList<SHRuntimeMessage>? messages = null)
         {
             var sentinel = this.GetSentinelTree("Result");
             if (results == null || sentinel == null) return;
@@ -98,7 +99,9 @@ namespace SmartHopper.Components.Text
                 results,
                 (customId, resultBody) =>
                 {
-                    var provider = ProviderManager.Instance.GetProvider(this.GetActualAIProviderName());
+                    // Decode with the provider that ran the batch — the live
+                    // selection may have changed while it was in flight.
+                    var provider = ProviderManager.Instance.GetProvider(this.GetSubmittedProviderName());
                     if (provider == null) return new GH_String(string.Empty);
 
                     var interactions = provider.Decode(resultBody);
@@ -113,13 +116,13 @@ namespace SmartHopper.Components.Text
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Prompt", "P", "REQUIRED The user's prompt", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Instructions", "I", "Optionally, specify what the AI should do when receiving the prompt", GH_ParamAccess.tree, string.Empty);
+            pManager.AddTextParameter("Prompt", "P", "Input text or prompt to send to the AI.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Instructions", "I", "Optional system instructions telling the AI how to process or respond to the prompt.", GH_ParamAccess.tree, string.Empty);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Result", "R", "The AI's response", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Result", "R", "AI-generated text response.", GH_ParamAccess.tree);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
@@ -170,15 +173,15 @@ namespace SmartHopper.Components.Text
             {
                 try
                 {
-                    Debug.WriteLine($"[Worker] Starting DoWorkAsync");
-                    Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
-                    Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
+                    Logger.For<AIText2TextWorker>().Trace($"[Worker] Starting DoWorkAsync");
+                    Logger.For<AIText2TextWorker>().Trace($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
+                    Logger.For<AIText2TextWorker>().Trace($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
                     this.result = await this.parent.RunProcessingAsync(
                         this.inputTree,
                         async (branches) =>
                         {
-                            Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
+                            Logger.For<AIText2TextWorker>().Trace($"[Worker] ProcessData called with {branches.Count} branches");
                             return await ProcessData(branches, this.parent, token).ConfigureAwait(false);
                         },
                         this.processingOptions,
@@ -188,7 +191,7 @@ namespace SmartHopper.Components.Text
                     var batchSubmitted = await this.parent.TrySubmitBatchAsync("Result", this.result, token).ConfigureAwait(false);
                     if (batchSubmitted)
                     {
-                        Debug.WriteLine($"[Worker] Sentinel tree stored, batch submitted");
+                        Logger.For<AIText2TextWorker>().Trace($"[Worker] Sentinel tree stored, batch submitted");
                     }
                     else if (this.result.TryGetValue("Result", out var resultTree))
                     {
@@ -196,11 +199,11 @@ namespace SmartHopper.Components.Text
                         this.parent.FinishResults("Result", resultTree);
                     }
 
-                    Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
+                    Logger.For<AIText2TextWorker>().Trace($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[Worker] Error: {ex.Message}");
+                    Logger.For<AIText2TextWorker>().Exception(ex, $"[Worker] Error: {ex.Message}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
@@ -216,8 +219,8 @@ namespace SmartHopper.Components.Text
                  * the output values.
                  */
 
-                Debug.WriteLine($"[Worker] Processing {branches.Count} trees");
-                Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
+                Logger.For<AIText2TextWorker>().Trace($"[Worker] Processing {branches.Count} trees");
+                Logger.For<AIText2TextWorker>().Trace($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
                 var promptTree = branches["Prompt"];
@@ -230,7 +233,7 @@ namespace SmartHopper.Components.Text
                 promptTree = normalizedLists[0];
                 instructionsTree = normalizedLists[1];
 
-                Debug.WriteLine($"[ProcessData] After normalization - Prompts count: {promptTree.Count}, Instructions count: {instructionsTree.Count}");
+                Logger.For<AIText2TextWorker>().Trace($"[ProcessData] After normalization - Prompts count: {promptTree.Count}, Instructions count: {instructionsTree.Count}");
 
                 // Initialize the output
                 var outputs = new Dictionary<string, List<GH_String>>();
@@ -241,7 +244,7 @@ namespace SmartHopper.Components.Text
                 int i = 0;
                 foreach (var prompt in promptTree)
                 {
-                    Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{promptTree.Count}");
+                    Logger.For<AIText2TextWorker>().Error($"[ProcessData] Processing prompt {i + 1}/{promptTree.Count}");
 
                     // Call the AI tool through the tool manager
                     var parameters = new JObject

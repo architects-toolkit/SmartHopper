@@ -32,8 +32,10 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.JsonSchemas;
 using SmartHopper.ProviderSdk.AICall.Metrics;
+using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Streaming;
 
 namespace SmartHopper.Providers.LocalAI
@@ -114,24 +116,27 @@ namespace SmartHopper.Providers.LocalAI
         public override Image Icon => this.LoadIconFromResources(Properties.Resources.localai_icon);
 
         /// <inheritdoc/>
-        public override async Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default)
+        protected override async Task<AIRequestCall> PreCallCoreAsync(AIRequestCall outbound, CancellationToken cancellationToken = default)
         {
             // First do the base PreCall.
-            request = await base.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
+            await base.PreCallCoreAsync(outbound, cancellationToken).ConfigureAwait(false);
 
             // Setup HTTP method, content type, and authentication.
-            request.HttpMethod = "POST";
-            request.ContentType = "application/json";
+            outbound.HttpMethod = "POST";
+            outbound.ContentType = "application/json";
 
             // LocalAI API keys are optional (typically configured server-side).
             // Use bearer auth only when the user has supplied a key; otherwise no auth.
             var apiKey = this.GetApiKey();
-            request.Authentication = string.IsNullOrWhiteSpace(apiKey) ? "none" : "bearer";
+            outbound.Authentication = string.IsNullOrWhiteSpace(apiKey) ? "none" : "bearer";
 
-            // LocalAI exposes the OpenAI-compatible chat completions endpoint
-            request.Endpoint = "/chat/completions";
+            // LocalAI exposes the OpenAI-compatible chat completions endpoint for text and a
+            // dedicated images endpoint for diffusion backends.
+            outbound.Endpoint = outbound.Capability.HasFlag(AICapability.ImageOutput)
+                ? "/images/generations"
+                : "/chat/completions";
 
-            return request;
+            return outbound;
         }
 
         /// <inheritdoc/>
@@ -142,13 +147,18 @@ namespace SmartHopper.Providers.LocalAI
                 return "GET and DELETE requests do not use a request body";
             }
 
+            if (request.Endpoint.Contains("/images/generations"))
+            {
+                return this.FormatImageGenerationRequestBody(request);
+            }
+
             var p = request.Parameters;
 
             int maxTokens = p?.MaxTokens ?? this.GetSetting<int>("MaxTokens");
             double temperature = p?.Temperature ?? this.GetSetting<double>("Temperature");
             string? toolFilter = request.Body.ToolFilter;
 
-            Debug.WriteLine($"[LocalAI] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
+            Logger.For<LocalAIProvider>().Trace($"[LocalAI] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
 
             // Simple sequential encoding (same approach as OpenAI/MistralAI/DeepSeek providers).
             var convertedMessages = new JArray();
@@ -176,7 +186,7 @@ namespace SmartHopper.Providers.LocalAI
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[LocalAI] Warning: Could not encode interaction: {ex.Message}");
+                    Logger.For<LocalAIProvider>().Exception(ex, $"[LocalAI] Warning: Could not encode interaction: {ex.Message}");
                 }
             }
 
@@ -185,18 +195,37 @@ namespace SmartHopper.Providers.LocalAI
             {
                 ["model"] = request.Model,
                 ["messages"] = convertedMessages,
-                ["max_tokens"] = maxTokens,
                 ["temperature"] = temperature,
             };
 
-            // Apply optional parameters from extras only
+            // 0 means unlimited: omit the cap and let the API run to the model limit
+            if (maxTokens > 0)
+            {
+                requestBody["max_tokens"] = maxTokens;
+            }
+
+            // Typed request parameters take precedence, then extras (same precedence
+            // chain as the other OpenAI-compatible providers).
+            var topP = p?.TopP
+                ?? (p?.Extras != null && p.Extras.TryGetValue("top_p", out var topPToken)
+                    ? topPToken?.Value<double?>()
+                    : null);
+            if (topP.HasValue)
+            {
+                requestBody["top_p"] = topP.Value;
+            }
+
+            var seed = p?.Seed
+                ?? (p?.Extras != null && p.Extras.TryGetValue("seed", out var seedToken)
+                    ? seedToken?.Value<int?>()
+                    : null);
+            if (seed.HasValue)
+            {
+                requestBody["seed"] = seed.Value;
+            }
+
             if (p?.Extras != null)
             {
-                if (p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
-                {
-                    requestBody["top_p"] = topPToken.Value<double?>();
-                }
-
                 if (p.Extras.TryGetValue("top_k", out var topKToken) && topKToken != null)
                 {
                     requestBody["top_k"] = topKToken.Value<int?>();
@@ -218,7 +247,7 @@ namespace SmartHopper.Providers.LocalAI
             {
                 if (this.TryWrapJsonSchema(request.Body.JsonOutputSchema, out var wrappedSchema, out var wrapperInfo))
                 {
-                    Debug.WriteLine($"[LocalAI] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
+                    Logger.For<LocalAIProvider>().Error($"[LocalAI] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
 
                     // LocalAI llama.cpp backends honor json_object response_format
                     requestBody["response_format"] = new JObject { ["type"] = "json_object" };
@@ -253,6 +282,77 @@ namespace SmartHopper.Providers.LocalAI
         }
 
         /// <inheritdoc/>
+        /// <summary>
+        /// Formats request body for the LocalAI images endpoint (diffusion backends).
+        /// LocalAI accepts the OpenAI-compatible fields (model, prompt, size, n,
+        /// response_format) plus backend extras (negative_prompt, seed, step).
+        /// </summary>
+        private string FormatImageGenerationRequestBody(AIRequestCall request)
+        {
+            var imageInteraction = request.Body.Interactions.FirstOrDefault(i => i is AIInteractionImage) as AIInteractionImage;
+            var prompt = imageInteraction?.OriginalPrompt
+                ?? request.Body.Interactions.OfType<AIInteractionText>().LastOrDefault()?.Content
+                ?? string.Empty;
+
+            var requestBody = new JObject
+            {
+                ["model"] = request.Model,
+                ["prompt"] = prompt,
+                ["n"] = 1,
+                ["response_format"] = "b64_json",
+                ["size"] = ToLocalAISize(imageInteraction?.ImageSize, imageInteraction?.AspectRatio),
+            };
+
+            var extras = request.Parameters?.Extras;
+            if (extras != null)
+            {
+                if (extras.TryGetValue("negative_prompt", out var npToken) && npToken != null)
+                {
+                    requestBody["negative_prompt"] = npToken.ToString();
+                }
+
+                if (extras.TryGetValue("seed", out var seedToken) && seedToken != null)
+                {
+                    requestBody["seed"] = seedToken.Value<long?>();
+                }
+
+                // The real diffusion field is "step" (singular). cfg_scale/width/height
+                // are not OpenAIRequest fields on LocalAI and are intentionally absent —
+                // dimensions ride the shared size parsing above.
+                if (extras.TryGetValue("step", out var stepToken) && stepToken != null)
+                {
+                    requestBody["step"] = stepToken.Value<int?>();
+                }
+            }
+
+            Logger.For<LocalAIProvider>().Trace($"[LocalAI] ImageGeneration Request: {requestBody}");
+            return requestBody.ToString();
+        }
+
+        /// <summary>
+        /// Maps the shared size/aspect-ratio inputs to a LocalAI <c>size</c> string ("WxH").
+        /// Literal dimensions pass through; tier names and ratios resolve to pixel sizes
+        /// scaled to the size's largest dimension. Defaults to "1024x1024".
+        /// </summary>
+        private static string ToLocalAISize(string size, string aspectRatio)
+        {
+            if (ImageGenerationSpec.TryParseDimensions(size, out var w, out var h))
+            {
+                return $"{w}x{h}";
+            }
+
+            var max = ImageGenerationSpec.ResolveMaxDimension(size) ?? 1024;
+            if (ImageGenerationSpec.TryParseRatio(
+                    ImageGenerationSpec.ResolveAspectRatio(aspectRatio, null), out var rw, out var rh))
+            {
+                return rw >= rh
+                    ? $"{max}x{Math.Max(1, max * rh / rw)}"
+                    : $"{Math.Max(1, max * rw / rh)}x{max}";
+            }
+
+            return $"{max}x{max}";
+        }
+
         public override string Encode(IAIInteraction interaction)
         {
             try
@@ -262,7 +362,7 @@ namespace SmartHopper.Providers.LocalAI
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[LocalAI] Encode(IAIInteraction) error: {ex.Message}");
+                Logger.For<LocalAIProvider>().Exception(ex, $"[LocalAI] Encode(IAIInteraction) error: {ex.Message}");
                 return string.Empty;
             }
         }
@@ -358,8 +458,27 @@ namespace SmartHopper.Providers.LocalAI
                     var errMsg = errorObj["message"]?.ToString()
                               ?? errorObj["type"]?.ToString()
                               ?? "Provider returned an error";
-                    Debug.WriteLine($"[LocalAI] Decode: provider error in response body: {errMsg}");
+                    Logger.For<LocalAIProvider>().Warning($"[LocalAI] Decode: provider error in response body: {errMsg}");
                     interactions.Add(new AIInteractionRuntimeMessage { Severity = SHRuntimeMessageSeverity.Error, Content = errMsg });
+                    return interactions;
+                }
+
+                // Image generation response: {"created":N, "data":[{"b64_json":"..."|,"url":"..."}]}
+                if (response["data"] is JArray dataArray && dataArray.Count > 0)
+                {
+                    var imageData = dataArray[0];
+                    var imageUrl = imageData["url"]?.ToString() ?? string.Empty;
+                    var b64Json = imageData["b64_json"]?.ToString() ?? string.Empty;
+                    var resultInteraction = new AIInteractionImage
+                    {
+                        Agent = AIAgent.Assistant,
+                    };
+
+                    resultInteraction = resultInteraction.WithResult(
+                        imageUrl: imageUrl,
+                        imageData: b64Json);
+
+                    interactions.Add(resultInteraction);
                     return interactions;
                 }
 
@@ -368,7 +487,7 @@ namespace SmartHopper.Providers.LocalAI
                 var message = firstChoice?["message"] as JObject;
                 if (message == null)
                 {
-                    Debug.WriteLine("[LocalAI] Decode: No message found in response");
+                    Logger.For<LocalAIProvider>().Trace("[LocalAI] Decode: No message found in response");
                     return interactions;
                 }
 
@@ -401,7 +520,7 @@ namespace SmartHopper.Providers.LocalAI
                 var wrapperInfo = JsonSchemaService.Instance.GetCurrentWrapperInfo();
                 if (wrapperInfo != null && wrapperInfo.IsWrapped)
                 {
-                    Debug.WriteLine($"[LocalAI] Unwrapping response content using wrapper info (central): Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
+                    Logger.For<LocalAIProvider>().Trace($"[LocalAI] Unwrapping response content using wrapper info (central): Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
                     content = JsonSchemaService.Instance.Unwrap(content, wrapperInfo);
                 }
 
@@ -458,7 +577,7 @@ namespace SmartHopper.Providers.LocalAI
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[LocalAI] Decode error: {ex.Message}");
+                Logger.For<LocalAIProvider>().Exception(ex, $"[LocalAI] Decode error: {ex.Message}");
             }
 
             return interactions;
@@ -500,6 +619,26 @@ namespace SmartHopper.Providers.LocalAI
                     "Frequency Penalty",
                     "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
                     typeof(double),
+                    null),
+
+                // LocalAI image generation parameters (/images/generations)
+                new AIExtraDescriptor(
+                    "negative_prompt",
+                    "Negative Prompt",
+                    "Describes what must NOT appear in a generated image.",
+                    typeof(string),
+                    null),
+                new AIExtraDescriptor(
+                    "seed",
+                    "Seed",
+                    "Reproducibility seed for image generation.",
+                    typeof(int),
+                    null),
+                new AIExtraDescriptor(
+                    "step",
+                    "Steps",
+                    "Diffusion sampling steps for image generation (higher = slower, more detail).",
+                    typeof(int),
                     null),
             };
         }

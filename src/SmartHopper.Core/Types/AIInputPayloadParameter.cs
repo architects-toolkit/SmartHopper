@@ -32,7 +32,7 @@ namespace SmartHopper.Core.Types
         /// Initializes a new instance of the <see cref="AIInputPayloadParameter"/> class.
         /// </summary>
         public AIInputPayloadParameter()
-            : base("AIInputPayload", "Payload", "An AI interaction payload for wiring between components", "SmartHopper", "A. AI", GH_ParamAccess.item)
+            : base("AIInputPayload", "Payload", "Packaged AI input data for wiring Input components into AI Output components.", "SmartHopper", "Parameters", GH_ParamAccess.item)
         {
         }
 
@@ -40,6 +40,11 @@ namespace SmartHopper.Core.Types
         /// Gets the unique ID for this parameter type.
         /// </summary>
         public override System.Guid ComponentGuid => new System.Guid("5206698B-29FB-48B2-824F-A0B6AF81A359");
+
+        /// <summary>
+        /// Gets the exposure level. Hidden from the ribbon; it is a wiring type, not a placable component.
+        /// </summary>
+        public override GH_Exposure Exposure => GH_Exposure.hidden;
 
         /// <summary>
         /// Gets the icon for this parameter.

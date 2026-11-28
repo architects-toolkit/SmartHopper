@@ -12,7 +12,7 @@ inputs:
   model:
     description: 'Mistral model name'
     required: false
-    default: 'mistral-medium-latest'
+    default: 'mistral-large-4-0'
   system-prompt:
     description: 'System message content (use only for short strings; prefer system-prompt-file for large prompts)'
     required: false
@@ -116,8 +116,10 @@ runs:
         HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -n 1)
 
         if [ "$HTTP_STATUS" -eq 200 ]; then
-          # Extract response content
-          CONTENT=$(echo "$HTTP_BODY" | jq -r '.choices[0].message.content // empty')
+          # Extract response content. Reasoning models (e.g. mistral-large-4-0)
+          # return content as an array of typed blocks (thinking + text) instead
+          # of a string; keep only the text blocks.
+          CONTENT=$(echo "$HTTP_BODY" | jq -r '.choices[0].message.content | if type == "array" then map(select(.type == "text") | .text) | join("") else . // "" end')
           PROMPT_TOKENS=$(echo "$HTTP_BODY" | jq -r '.usage.prompt_tokens // 0')
           COMPLETION_TOKENS=$(echo "$HTTP_BODY" | jq -r '.usage.completion_tokens // 0')
 

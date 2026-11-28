@@ -128,7 +128,7 @@ namespace SmartHopper.Components.Test.AiTools
                 };
 
                 var toolCall = new AIToolCall();
-                toolCall.Endpoint = toolName;
+                toolCall.Origin = toolName;
                 toolCall.FromToolCallInteraction(toolCallInteraction);
                 toolCall.SkipMetricsValidation = true;
 

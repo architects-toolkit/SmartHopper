@@ -27,6 +27,7 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Knowledge
 {
     /// <summary>
@@ -36,27 +37,26 @@ namespace SmartHopper.Components.Knowledge
     {
         public override Guid ComponentGuid => new Guid("1B7A2E6C-4F0B-4B1C-9D19-6B3A2C8F9012");
 
-        protected override Bitmap Icon => Resources.mcneelpostopen;
+        protected override Bitmap Icon => Resources.McNeelForumPostOpen;
 
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.primary | GH_Exposure.obscure;
 
         public McNeelForumPostOpenComponent()
             : base(
-                  "McNeelForum Post Open",
+                  "McNeel Forum Post Open",
                   "McNeelPostOpen",
-                  "Open a McNeel Discourse forum post in the default web browser by its numeric ID.",
+                  "Open a McNeel Discourse forum post in your default web browser from its post JSON object.",
                   "SmartHopper",
-                  "Knowledge")
+                  "E. Forums")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter(
-                "McNeelForum Post",
+                "McNeel Forum Post",
                 "McP",
-                "JSON object representing the full forum post (e.g. from McNeelForumPostGetComponent).",
+                "Forum post JSON object from McNeel Forum Search or McNeel Forum Post Get.",
                 GH_ParamAccess.item);
         }
 
@@ -94,7 +94,7 @@ namespace SmartHopper.Components.Knowledge
                 this.hasWork = !string.IsNullOrWhiteSpace(this.postJson);
                 if (!this.hasWork)
                 {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "McNeelForum Post is required.");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "McNeel Forum Post is required.");
                 }
 
                 dataCount = this.hasWork ? 1 : 0;
@@ -163,14 +163,14 @@ namespace SmartHopper.Components.Knowledge
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[McNeelForumPostOpenWorker] Error opening browser: {ex.Message}");
+                        Logger.For<McNeelForumPostOpenWorker>().Exception(ex, $"[McNeelForumPostOpenWorker] Error opening browser: {ex.Message}");
                         this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                         this.resultUrl = string.Empty;
                     }
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[McNeelForumPostOpenWorker] Error parsing JSON: {ex.Message}");
+                    Logger.For<McNeelForumPostOpenWorker>().Exception(ex, $"[McNeelForumPostOpenWorker] Error parsing JSON: {ex.Message}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                     this.resultUrl = string.Empty;
                 }

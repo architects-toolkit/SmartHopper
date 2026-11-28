@@ -50,7 +50,7 @@ namespace SmartHopper.Components.Knowledge
         public override Guid ComponentGuid => new Guid("4053AD8D-10DF-47D3-AC0C-CA24E8BB638D");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.webtomd;
+        protected override Bitmap Icon => Resources.Web2Md;
 
         /// <inheritdoc/>
         public override GH_Exposure Exposure => GH_Exposure.primary;
@@ -85,24 +85,22 @@ namespace SmartHopper.Components.Knowledge
             : base(
                 "Web To Markdown",
                 "Web2Md",
-                "Convert a web page (URL) to Markdown text. No AI required. Supports Wikipedia, GitHub, GitLab, Discourse, Stack Exchange, and generic HTML pages. Images are kept as remote Markdown links.",
+                "Fetch a web page (URL) and convert it to clean Markdown locally — no AI provider required. Includes dedicated extractors for Wikipedia, GitHub, GitLab, Discourse forums, and Stack Exchange.\nUse AI Web To Markdown when you want AI-generated image descriptions.",
                 "SmartHopper",
-                "Knowledge")
+                "F. Documents")
         {
-            // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
-            this.RunOnlyOnInputChanges = false;
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("URL", "U", "REQUIRED URL(s) of the webpage(s) to convert.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("URL", "U", "Web page URL(s) to fetch and convert to Markdown.", GH_ParamAccess.tree);
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Markdown", "Md", "Markdown content of the webpage.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Markdown", "Md", "Converted web page content in Markdown format.", GH_ParamAccess.tree);
             pManager.AddTextParameter("Format", "Fmt", "Detected content format (e.g., markdown, plain_text, url).", GH_ParamAccess.tree);
         }
 
@@ -217,7 +215,9 @@ namespace SmartHopper.Components.Knowledge
                             ["url"] = url,
                             ["includeLinks"] = true,
                             ["includeImages"] = true,
-                            ["imageMode"] = "link",
+                            // Text-only local conversion: keep remote image links,
+                            // no downloads, no paid helper call.
+                            ["extractImages"] = false,
                         };
 
                         var toolResult = await ExecuteWeb2MdToolAsync(parameters, token).ConfigureAwait(false);
@@ -233,7 +233,7 @@ namespace SmartHopper.Components.Knowledge
                         string markdown = toolResult.Result["content"]?.ToString() ?? string.Empty;
                         string format = (toolResult.Result["metadata"] as JObject)?["format"]?.ToString() ?? "url";
 
-                        var messages = RuntimeMessageUtility.ExtractMessages(toolResult);
+                        var messages = toolResult.ExtractMessages();
                         foreach (var m in messages) this.CollectMessage(m);
 
                         outputs["Markdown"].Add(new GH_String(markdown));
@@ -276,7 +276,7 @@ namespace SmartHopper.Components.Knowledge
 
                 if (toolResultInteraction?.Result != null)
                 {
-                    return new ToolCallResult(aiResult.Success, toolResultInteraction.Result, aiResult.Messages);
+                    return new ToolCallResult(aiResult.Success, toolResultInteraction.Result, aiResult.Messages, images: toolResultInteraction.Images);
                 }
 
                 var fallbackPayload = new JObject

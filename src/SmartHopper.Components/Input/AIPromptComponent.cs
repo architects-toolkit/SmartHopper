@@ -36,19 +36,19 @@ namespace SmartHopper.Components.Input
     {
         public override Guid ComponentGuid => new Guid("5CD4D50A-35FB-45CC-91AB-CFFA0B5F1DD2");
 
-        protected override Bitmap Icon => Resources.toaiprompt;
+        protected override Bitmap Icon => Resources.AIPrompt;
 
         public AIPromptComponent()
-            : base("AI Prompt", "AIPrompt", "Wraps prompt text into an AIInputPayload with System role for guiding AI behavior.", GH_Exposure.primary)
+            : base("AI Prompt", "AIPrompt", "Package a system prompt (instructions that set the AI's role, tone, or rules) to wire into any AI output component.", GH_Exposure.tertiary)
         {
         }
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Prompt", "P", "System prompt to guide AI behavior.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Prompt", "P", "System instructions that guide how the AI responds.", GH_ParamAccess.item);
         }
 
-        protected override string PayloadOutputDescription => "AIInputPayload wrapping the prompt with System role.";
+        protected override string PayloadOutputDescription => "Packaged system prompt ready to wire into any AI output component's 'Input >' parameter.";
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {

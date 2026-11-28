@@ -27,6 +27,7 @@ using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.ComponentBase.Cores;
 using SmartHopper.Core.ComponentBase.State;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Test.Misc
 {
     /// <summary>
@@ -105,7 +106,7 @@ namespace SmartHopper.Components.Test.Misc
         {
             var entry = $"{DateTime.Now:HH:mm:ss.fff}: {oldState} -> {newState}";
             this.stateHistory.Add(entry);
-            Debug.WriteLine($"[{this.GetType().Name}] StateChanged: {entry}");
+            Logger.For<TestStateManagerDebounceComponent>().Trace($"[{this.GetType().Name}] StateChanged: {entry}");
 
             // Keep history limited
             if (this.stateHistory.Count > 50)
@@ -116,30 +117,30 @@ namespace SmartHopper.Components.Test.Misc
 
         private void OnStateEntered(ComponentState newState)
         {
-            Debug.WriteLine($"[{this.GetType().Name}] StateEntered: {newState}");
+            Logger.For<TestStateManagerDebounceComponent>().Trace($"[{this.GetType().Name}] StateEntered: {newState}");
         }
 
         private void OnStateExited(ComponentState oldState)
         {
-            Debug.WriteLine($"[{this.GetType().Name}] StateExited: {oldState}");
+            Logger.For<TestStateManagerDebounceComponent>().Trace($"[{this.GetType().Name}] StateExited: {oldState}");
         }
 
         private void OnDebounceStarted(ComponentState targetState, int milliseconds)
         {
             this.debounceStartCount++;
-            Debug.WriteLine($"[{this.GetType().Name}] DebounceStarted: target={targetState}, ms={milliseconds}, count={this.debounceStartCount}");
+            Logger.For<TestStateManagerDebounceComponent>().Trace($"[{this.GetType().Name}] DebounceStarted: target={targetState}, ms={milliseconds}, count={this.debounceStartCount}");
         }
 
         private void OnDebounceCancelled()
         {
             this.debounceCancelCount++;
-            Debug.WriteLine($"[{this.GetType().Name}] DebounceCancelled: count={this.debounceCancelCount}");
+            Logger.For<TestStateManagerDebounceComponent>().Trace($"[{this.GetType().Name}] DebounceCancelled: count={this.debounceCancelCount}");
         }
 
         private void OnTransitionRejected(ComponentState from, ComponentState to, string message)
         {
             this.rejectedTransitionCount++;
-            Debug.WriteLine($"[{this.GetType().Name}] TransitionRejected: {from} -> {to}, reason: {message}");
+            Logger.For<TestStateManagerDebounceComponent>().Trace($"[{this.GetType().Name}] TransitionRejected: {from} -> {to}, reason: {message}");
         }
 
         #endregion
@@ -186,7 +187,7 @@ namespace SmartHopper.Components.Test.Misc
             var changedInputs = this.stateManager.GetChangedInputs();
             if (changedInputs.Count > 0)
             {
-                Debug.WriteLine($"[{this.GetType().Name}] Inputs changed: {string.Join(", ", changedInputs)}");
+                Logger.For<TestStateManagerDebounceComponent>().Trace($"[{this.GetType().Name}] Inputs changed: {string.Join(", ", changedInputs)}");
 
                 // Demonstrate debounce with StateManager
                 // Note: This is for demonstration - in real usage, the base class would handle this

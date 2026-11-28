@@ -1,0 +1,40 @@
+<!--
+  SmartHopper - AI-powered Grasshopper Plugin
+  Copyright (C) 2024-2026 Marc Roca Musach
+
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+
+  This library is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>SmartHopper.DocumentProcessing</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SmartHopper.ProviderSdk\SmartHopper.ProviderSdk.csproj" />
+    <!-- Build ordering + isolated packaging: the renderer assembly/natives are staged into
+         a dedicated DocumentRendering folder beside this project's output via the
+         PackageDocumentRendering target below. It is NEVER referenced at compile time,
+         and its package dependencies must not leak into consumers' default output. -->
+    <ProjectReference Include="..\SmartHopper.DocumentRendering\SmartHopper.DocumentRendering.csproj"
+                      ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="PdfPig" Version="0.1.13" />
+  </ItemGroup>
+
+  <!-- Stage the isolated renderer into this project's deployable output. -->
+  <Import Project="..\SmartHopper.DocumentRendering\DocumentRendering.Packaging.targets" />
+</Project>

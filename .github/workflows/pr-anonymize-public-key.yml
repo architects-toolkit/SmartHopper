@@ -73,7 +73,7 @@ jobs:
         run: |
           $repoRoot = "${{ github.workspace }}"
           $anonymizeScript = Join-Path $repoRoot "tools\Anonymize-SmartHopperPublicKey.ps1"
-          $propsPath = Join-Path $repoRoot "Directory.Build.props"
+          $csprojPath = Join-Path $repoRoot "Directory.Build.props"
 
           if (-not (Test-Path $anonymizeScript)) {
             Write-Error "Anonymize script not found at $anonymizeScript"

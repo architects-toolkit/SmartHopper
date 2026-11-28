@@ -1,0 +1,1259 @@
+/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) 2025 Marc Roca Musach
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ */
+
+/*
+ * Cloud "Canopy" theme for the WebChat shell (chat-theme.css)
+ * ==============================================================
+ * Ports the SmartHopper Cloud web app's chat theme verbatim: the section
+ * marked CLOUD_CHAT_CSS is a 1:1 copy of
+ * smarthopper-cloud/apps/web/src/components/chat/theme.ts and stays in
+ * sync with it. The plugin WebView has no app-level design tokens, so the
+ * --paper/--ink/--product palette is declared here with the shared
+ * "Canopy" light ramp from @smarthopper/theme (smarthopper-shared);
+ * the --product slot keeps the plugin's signed-menu accent (no dark-mode
+ * mechanism exists in the host page, so only the light palette ships).
+ *
+ * Activation: chat-bridge.js passes theme:'cloud' to ChatUI.createChatView,
+ * which stamps data-theme='cloud' on the .chat-ui root. Every rule that
+ * touches toolkit internals is scoped to that attribute — identical to
+ * cloud — so the sheet cannot leak onto an unthemed/fallback mount.
+ * Selectors prefixed .chat-ui[data-theme='cloud'] also outrank both the
+ * legacy chat-styles.css rules and the toolkit's injected DEFAULT_STYLES
+ * on specificity, regardless of stylesheet order.
+ */
+
+/* Canopy palette — the shared @smarthopper/theme light ramp, with the
+   plugin's signed-menu accent on the --product slot. Declared on :root so
+   plugin chrome outside the toolkit mount (HUD, toasts, metrics tooltips)
+   shares the same tokens; .chat-ui descendants inherit them. */
+:root {
+    --paper: #f7f9f4;
+    --paper-2: #eef2e8;
+    --ink: #222b23;
+    --ink-soft: #5c685e;
+    --line: #dde4d4;
+    --line-strong: #b9c7ae;
+    --product: #557616;
+    --product-ink: #435c16;
+    --product-soft: #f5faea;
+    --btn-fg: #ffffff;
+    --accent: #8ebf29;
+    --accent-soft: #eef6da;
+    --warn: #8a6d1c;
+    --warn-soft: #faf3dd;
+    --danger: #b3261e;
+    --danger-soft: #fae9e8;
+    --ok: #2f6b3f;
+    --ok-soft: #e6efe7;
+    --r-lg: 20px;
+    --r-md: 14px;
+    --r-btn: 18px 18px 18px 5px;
+    --r-canopy: 24px 24px 24px 7px;
+    --mono: 'JetBrains Mono', ui-monospace, 'Courier New', monospace;
+    --sans: 'Plus Jakarta Sans', 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ================================================================== */
+/* CLOUD_CHAT_CSS — verbatim copy of cloud's theme.ts.                  */
+
+.chat-ui[data-theme='cloud'] {
+  --cui-bg: var(--paper);
+  --cui-fg: var(--ink);
+  --cui-muted: var(--ink-soft);
+  --cui-border: var(--line);
+  --cui-accent: var(--product);
+  --cui-accent-fg: var(--btn-fg);
+  --cui-accent-subtle: var(--product-soft);
+  --cui-user-bg: var(--product-soft);
+  --cui-assistant-bg: var(--paper-2);
+  --cui-system-bg: transparent;
+  --cui-error: var(--danger);
+  --cui-ok: var(--ok);
+  --cui-warn: var(--warn);
+  --cui-radius: 14px;
+  --cui-radius-btn: 16px 16px 16px 5px;
+  --cui-border-width: 1px;
+  --cui-shadow: 0 14px 34px -18px rgba(34, 58, 40, 0.28);
+  --cui-shadow-sm: 0 8px 20px -14px rgba(34, 58, 40, 0.22);
+  --cui-bubble-maxw: 100%;
+  --cui-gap: 12px;
+  --cui-pad: 12px;
+  --cui-font: inherit;
+  --cui-font-size: 14px;
+  --cui-font-size-sm: 12px;
+  --cui-font-mono: var(--mono);
+  --cui-line-height: inherit;
+  font-family: var(--sans);
+}
+
+/* Transcript column — the old card-pad (p-5) reading width. */
+.chat-ui[data-theme='cloud'] .cui-messages { padding: 20px; }
+
+/* Bubbles match the old transcript: padded rounded bars, side-shifted by
+   role (ml-8 user / mr-8 assistant), never rounded. */
+.chat-ui[data-theme='cloud'] .cui-msg { position: relative; }
+.chat-ui[data-theme='cloud'] .cui-msg .cui-bubble {
+  padding: var(--cui-pad);
+  font-size: var(--cui-font-size);
+  border-radius: var(--cui-radius);
+}
+.chat-ui[data-theme='cloud'] .cui-msg[data-role='user'] { align-self: stretch; margin-left: 2rem; }
+.chat-ui[data-theme='cloud'] .cui-msg[data-role='user'] .cui-bubble { border-radius: 16px 16px 4px 16px; }
+.chat-ui[data-theme='cloud'] .cui-msg[data-role='assistant'] { margin-right: 2rem; }
+.chat-ui[data-theme='cloud'] .cui-msg[data-role='assistant'] .cui-bubble { border-radius: 16px 16px 16px 4px; }
+
+/* Tool calls, trace lines and system notices render flat on the page
+   background — no bubble surface, no card chrome, compact text. */
+.chat-ui[data-theme='cloud'] .cui-msg[data-role='tool'] .cui-bubble,
+.chat-ui[data-theme='cloud'] .cui-msg[data-role='system'] .cui-bubble {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0 4px;
+}
+/* Cards keep their own chrome even on flat rows — the session agent strip
+   (task plan, proposals, subagent runs) lives on tool-role interactions. */
+.chat-ui[data-theme='cloud'] .cui-msg[data-role='tool'] .cui-card {
+  margin: 6px 0;
+  background: var(--paper);
+  font-size: var(--cui-font-size-sm);
+}
+
+/* Built-in tool parts stay collapsed-looking: a muted italic line with a
+   clamped args block. (Cloud transcripts emit the custom 'trace' part
+   instead — these rules keep any built-in usage visually consistent.) */
+.chat-ui[data-theme='cloud'] .cui-part-tool_call {
+  font-style: italic;
+  font-size: var(--cui-font-size-sm);
+  color: var(--cui-muted);
+}
+.chat-ui[data-theme='cloud'] .cui-part-tool_call .cui-tool-name { font-weight: 400; }
+.chat-ui[data-theme='cloud'] .cui-part-tool_call pre {
+  margin: 4px 0 0 16px;
+  max-height: 72px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: var(--paper-2);
+  border-radius: var(--r-md, 10px);
+  padding: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-style: normal;
+  color: var(--ink-soft);
+}
+.chat-ui[data-theme='cloud'] .cui-part-tool_result {
+  border-left: 2px solid var(--line);
+  padding-left: 8px;
+  margin-top: 4px;
+  font-size: var(--cui-font-size-sm);
+  color: var(--ink-soft);
+}
+.chat-ui[data-theme='cloud'] .cui-evidence { font-size: var(--cui-font-size-sm); font-style: italic; }
+
+/* Status strip — a mono micro-label; collapses while empty. */
+.chat-ui[data-theme='cloud'] .cui-status {
+  padding: 4px 20px;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cui-muted);
+}
+.chat-ui[data-theme='cloud'] .cui-status:empty { display: none; }
+
+/* Markdown typography inside bubbles (mirrors Markdown.tsx's mapping). */
+.chat-ui[data-theme='cloud'] .cui-part-markdown > :first-child { margin-top: 0; }
+.chat-ui[data-theme='cloud'] .cui-part-markdown h1 { font-size: 1.125rem; font-weight: 600; margin: 12px 0 8px; }
+.chat-ui[data-theme='cloud'] .cui-part-markdown h2 { font-size: 1rem; font-weight: 600; margin: 12px 0 8px; }
+.chat-ui[data-theme='cloud'] .cui-part-markdown h3 { font-size: 0.875rem; font-weight: 600; margin: 12px 0 4px; }
+.chat-ui[data-theme='cloud'] .cui-part-markdown h4 { font-size: 0.875rem; font-weight: 600; margin: 8px 0 4px; }
+.chat-ui[data-theme='cloud'] .cui-part-markdown p { margin: 0 0 8px; }
+.chat-ui[data-theme='cloud'] .cui-part-markdown p:last-child { margin-bottom: 0; }
+.chat-ui[data-theme='cloud'] .cui-part-markdown ul { list-style: disc; padding-left: 20px; margin: 0 0 8px; }
+.chat-ui[data-theme='cloud'] .cui-part-markdown ol { list-style: decimal; padding-left: 20px; margin: 0 0 8px; }
+.chat-ui[data-theme='cloud'] .cui-part-markdown ul:last-child,
+.chat-ui[data-theme='cloud'] .cui-part-markdown ol:last-child { margin-bottom: 0; }
+.chat-ui[data-theme='cloud'] .cui-part-markdown li { margin-bottom: 2px; }
+.chat-ui[data-theme='cloud'] .cui-part-markdown a { color: var(--product); font-weight: 500; text-decoration: underline; }
+.chat-ui[data-theme='cloud'] .cui-part-markdown a:hover { color: var(--product-ink); }
+.chat-ui[data-theme='cloud'] .cui-part-markdown blockquote { margin: 0 0 8px; padding-left: 12px; border-left: 2px solid var(--line); font-style: italic; color: var(--ink-soft); }
+.chat-ui[data-theme='cloud'] .cui-part-markdown blockquote:last-child { margin-bottom: 0; }
+.chat-ui[data-theme='cloud'] .cui-part-markdown code { background: var(--paper-2); border-radius: 5px; padding: 1px 5px; font-family: var(--mono); font-size: 0.85em; }
+.chat-ui[data-theme='cloud'] .cui-part-markdown pre { margin: 0 0 8px; overflow-x: auto; background: var(--ink); color: var(--paper); border-radius: var(--r-md, 10px); padding: 12px; font-size: 12px; }
+.chat-ui[data-theme='cloud'] .cui-part-markdown pre code { background: transparent; padding: 0; }
+.chat-ui[data-theme='cloud'] .cui-part-markdown pre:last-child { margin-bottom: 0; }
+.chat-ui[data-theme='cloud'] .cui-part-markdown hr { margin: 12px 0; border-color: var(--line); }
+.chat-ui[data-theme='cloud'] .cui-part-markdown table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 0 0 8px; }
+.chat-ui[data-theme='cloud'] .cui-part-markdown th { border: 1px solid var(--line); background: var(--paper-2); padding: 4px 8px; text-align: left; font-weight: 500; }
+.chat-ui[data-theme='cloud'] .cui-part-markdown td { border: 1px solid var(--line); padding: 4px 8px; }
+.chat-ui[data-theme='cloud'] .cui-part-markdown img { margin: 8px 0; max-width: 100%; }
+
+/* Sender byline above each bubble ("You" / "Assistant" / member name). */
+.chat-ui[data-theme='cloud'] .cui-byline {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cui-muted);
+}
+
+/* Hover-revealed per-message icon toolbar — same placement and chrome as
+   the old group-hover toolbar (24px square bordered buttons, top-right). */
+.chat-ui[data-theme='cloud'] .cui-toolbar {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.chat-ui[data-theme='cloud'] .cui-msg:hover .cui-toolbar,
+.chat-ui[data-theme='cloud'] .cui-toolbar:focus-within {
+  opacity: 1;
+}
+.chat-ui[data-theme='cloud'][data-processing='true'] .cui-toolbar { display: none; }
+.chat-ui[data-theme='cloud'] .cui-tool {
+  display: inline-flex;
+  height: 24px;
+  width: 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.chat-ui[data-theme='cloud'] .cui-tool:hover { background: var(--paper-2); color: var(--ink); }
+.chat-ui[data-theme='cloud'] .cui-tool:focus-visible { outline: 1px solid var(--product); outline-offset: 1px; }
+.chat-ui[data-theme='cloud'] .cui-tool:disabled { opacity: 0.5; cursor: default; }
+
+/* Tool-call evidence lines (custom 'trace' part): subtle, italic — the
+   status square marks where the call ran (green = runtime, grey = server). */
+.chat-ui[data-theme='cloud'] .cui-trace {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.chat-ui[data-theme='cloud'] details.cui-trace { display: block; }
+.chat-ui[data-theme='cloud'] .cui-trace-summary {
+  display: flex;
+  width: fit-content;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  gap: 6px;
+}
+.chat-ui[data-theme='cloud'] .cui-trace-summary::-webkit-details-marker { display: none; }
+.chat-ui[data-theme='cloud'] .cui-trace-summary:hover { color: var(--ink); }
+.chat-ui[data-theme='cloud'] .cui-trace-dot { display: inline-block; height: 8px; width: 8px; flex: none; border-radius: 50%; background: var(--ink-soft); }
+.chat-ui[data-theme='cloud'] .cui-trace-dot.is-runtime { background: var(--ok); }
+.chat-ui[data-theme='cloud'] .cui-trace-args {
+  margin: 4px 0 0 16px;
+  max-height: 160px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: var(--paper-2);
+  border-radius: var(--r-md, 10px);
+  padding: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-style: normal;
+  color: var(--ink-soft);
+}
+
+/* Runtime connect/disconnect notices — centered subtle transcript lines. */
+.chat-ui[data-theme='cloud'] .cui-notice-line { text-align: center; font-style: italic; font-size: 12px; color: var(--ink-soft); }
+
+/* Usage chip + ⓘ turn-metrics hover panel (dark tooltip like the old one). */
+.chat-ui[data-theme='cloud'] .cui-usage {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+.chat-ui[data-theme='cloud'] .cui-usage-wrap { position: relative; display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; }
+.chat-ui[data-theme='cloud'] .cui-usage-wrap .cui-usage { margin-top: 0; }
+.chat-ui[data-theme='cloud'] .cui-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-soft);
+  cursor: help;
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+.chat-ui[data-theme='cloud'] .cui-info:hover { color: var(--ink); }
+.chat-ui[data-theme='cloud'] .cui-usage-pop {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  z-index: 20;
+  margin-bottom: 6px;
+  width: 288px;
+  padding: 10px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 12px;
+  line-height: 1.6;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  visibility: hidden;
+  opacity: 0;
+}
+.chat-ui[data-theme='cloud'] .cui-usage-wrap:hover .cui-usage-pop,
+.chat-ui[data-theme='cloud'] .cui-usage-wrap:focus-within .cui-usage-pop {
+  visibility: visible;
+  opacity: 1;
+}
+.chat-ui[data-theme='cloud'] .cui-usage-pop-label { font-weight: 600; }
+
+/* Suggestion chips + references — soft pill language. */
+.chat-ui[data-theme='cloud'] .cui-suggestion {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: var(--cui-font-size-sm);
+  padding: 4px 12px;
+}
+.chat-ui[data-theme='cloud'] .cui-suggestion:hover:not(:disabled) {
+  border-color: var(--product);
+  color: var(--product);
+  background: var(--product-soft);
+}
+.chat-ui[data-theme='cloud'] .cui-references { border-top-color: var(--line); }
+.chat-ui[data-theme='cloud'] .cui-references-summary {
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.chat-ui[data-theme='cloud'] .cui-ref-source { border-radius: 10px; }
+.chat-ui[data-theme='cloud'] a.cui-ref-title { color: var(--product); }
+
+/* Card surfaces (task plans, questions, approvals, subagent runs) stay
+   rounded; their action buttons pick up the app's button language. */
+.chat-ui[data-theme='cloud'] .cui-card { border-radius: var(--cui-radius); box-shadow: var(--cui-shadow-sm); }
+
+/* Pending proposals — the old brand-tinted panel: product border + soft
+   wash, with the "awaiting your decision" micro-label restored. */
+.chat-ui[data-theme='cloud'] .cui-card[data-kind='approval'][data-state='pending'] {
+  border-color: var(--product);
+  background: var(--product-soft);
+}
+.chat-ui[data-theme='cloud'] .cui-card[data-kind='approval'][data-state='pending']::before {
+  content: 'Proposed plan — awaiting your decision';
+  display: block;
+  margin-bottom: 6px;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* Subagent runs — 'interrupted' gets the old amber badge; the failure
+   detail line tints danger instead of staying muted. */
+.chat-ui[data-theme='cloud'] .cui-subagent[data-status='interrupted'] .cui-subagent-badge {
+  color: var(--cui-warn);
+  border-color: var(--cui-warn);
+}
+.chat-ui[data-theme='cloud'] .cui-subagent[data-status='failed'] .cui-subagent-detail,
+.chat-ui[data-theme='cloud'] .cui-subagent[data-status='interrupted'] .cui-subagent-detail {
+  color: var(--danger);
+}
+.chat-ui[data-theme='cloud'] .cui-subagent-id { font-family: var(--mono); }
+
+/* Quoted-reply part — same grey italic blockquote the markdown mapping
+   used before the native quote part took over. */
+.chat-ui[data-theme='cloud'] .cui-part-quote {
+  padding-left: 12px;
+  border-left: 2px solid var(--line);
+}
+.chat-ui[data-theme='cloud'] .cui-quote-body { font-style: italic; color: var(--ink-soft); }
+
+.chat-ui[data-theme='cloud'] .cui-approve {
+  border: 1px solid var(--product);
+  border-radius: var(--cui-radius-btn);
+  background: var(--product);
+  color: var(--btn-fg);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.chat-ui[data-theme='cloud'] .cui-approve:hover:not(:disabled) { background: var(--product-ink); }
+.chat-ui[data-theme='cloud'] .cui-reject {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--cui-radius-btn);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.chat-ui[data-theme='cloud'] .cui-reject:hover:not(:disabled) { background: var(--paper-2); }
+.chat-ui[data-theme='cloud'] .cui-card-input { border-radius: var(--cui-radius); }
+.chat-ui[data-theme='cloud'] .cui-card-answer-row button { border-radius: var(--cui-radius-btn); }
+.chat-ui[data-theme='cloud'] .cui-actions button { border-radius: var(--cui-radius-btn); }
+.chat-ui[data-theme='cloud'] .cui-subagent-badge { border-radius: 999px; }
+.chat-ui[data-theme='cloud'] .cui-subagent-cancel { border-radius: var(--cui-radius-btn); }
+.chat-ui[data-theme='cloud'] .cui-subagent-progress { border-radius: var(--cui-radius); }
+
+/* "↓ Latest" jump pill — rounded like every other button. */
+.chat-ui[data-theme='cloud'] .cui-jump {
+  border-radius: var(--cui-radius-btn);
+  border-color: var(--line-strong);
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Quote chip above the composer — old bordered strip with the lime bar. */
+.chat-ui[data-theme='cloud'] .cui-quote {
+  margin: 8px 20px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--product);
+  border-radius: var(--r-md, 10px);
+  background: var(--paper-2);
+  color: var(--ink-soft);
+}
+.chat-ui[data-theme='cloud'] .cui-quote button {
+  display: inline-flex;
+  height: 24px;
+  width: 24px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.chat-ui[data-theme='cloud'] .cui-quote button:hover { background: var(--paper); color: var(--ink); }
+
+/* Empty-state teaching panel inside the transcript area. */
+.chat-ui[data-theme='cloud'] .cui-empty-link { margin-top: 8px; }
+.chat-ui[data-theme='cloud'] .cui-empty-btn { border: none; background: none; padding: 0; cursor: pointer; text-decoration: underline; font: inherit; color: inherit; }
+.chat-ui[data-theme='cloud'] .cui-empty-btn:hover { color: var(--ink); }
+
+/* Composer — rounded input with the product focus ring; Send is the app's
+   lime primary button, Stop its outlined danger sibling. */
+.chat-ui[data-theme='cloud'] .cui-composer { padding: 12px 20px; border-top: 1px solid var(--line); }
+.chat-ui[data-theme='cloud'] .cui-input {
+  border: 1px solid var(--line);
+  border-radius: var(--cui-radius);
+  background: var(--paper);
+  color: var(--ink);
+  padding: 8px 10px;
+  font-size: 14px;
+}
+.chat-ui[data-theme='cloud'] .cui-input::placeholder { color: var(--ink-soft); }
+.chat-ui[data-theme='cloud'] .cui-input:focus { outline: none; border-color: var(--product); }
+.chat-ui[data-theme='cloud'] .cui-input:focus-visible { box-shadow: 0 0 0 1px var(--product); }
+.chat-ui[data-theme='cloud'] .cui-attach {
+  border: 1px solid var(--line);
+  border-radius: var(--cui-radius-btn);
+  background: var(--paper);
+  color: var(--ink-soft);
+}
+.chat-ui[data-theme='cloud'] .cui-attach:hover:not(:disabled) { background: var(--paper-2); color: var(--ink); }
+.chat-ui[data-theme='cloud'] .cui-send,
+.chat-ui[data-theme='cloud'] .cui-cancel {
+  border-radius: var(--cui-radius-btn);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  min-height: 40px;
+  padding: 8px 14px;
+}
+.chat-ui[data-theme='cloud'] .cui-send {
+  border: 1px solid var(--product);
+  background: var(--product);
+  color: var(--btn-fg);
+}
+.chat-ui[data-theme='cloud'] .cui-send:hover:not(:disabled) { background: var(--product-ink); }
+.chat-ui[data-theme='cloud'] .cui-send:focus-visible { outline: 2px solid var(--product); outline-offset: 2px; }
+.chat-ui[data-theme='cloud'] .cui-cancel {
+  border: 1px solid var(--danger);
+  background: var(--paper);
+  color: var(--danger);
+}
+.chat-ui[data-theme='cloud'] .cui-cancel:hover:not(:disabled) { background: var(--danger-soft); }
+.chat-ui[data-theme='cloud'] .cui-cancel:focus-visible { outline: 2px solid var(--danger); outline-offset: 2px; }
+
+/* Composer model picker — the mono micro-label like the header
+   select it replaced. */
+.chat-ui[data-theme='cloud'] .cui-model {
+  max-width: 180px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 11px;
+}
+.chat-ui[data-theme='cloud'] .cui-model:focus-visible { outline: 1px solid var(--product); outline-offset: 1px; }
+
+/* GhJSON artifact card (show_ghjson) — compact blueprint card on the flat
+   tool row; the source preview stays collapsed behind <details>. Invalid
+   payloads go small and red with no action affordance. */
+.chat-ui[data-theme='cloud'] .cui-ghjson {
+  margin: 6px 0;
+  padding: 8px 10px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--product);
+  border-radius: var(--r-md, 10px);
+  font-size: var(--cui-font-size-sm);
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson.is-invalid {
+  border-left-color: var(--danger);
+  color: var(--danger);
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson-title {
+  font-weight: 600;
+  color: var(--ink);
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson.is-invalid .cui-ghjson-title { color: var(--danger); }
+.chat-ui[data-theme='cloud'] .cui-ghjson-badge {
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 999px;
+  background: var(--paper-2);
+  color: var(--ink-soft);
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson-badge.is-valid {
+  color: var(--ok);
+  background: var(--ok-soft);
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson-badge.is-invalid {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson-errors {
+  margin: 6px 0 0 14px;
+  padding: 0;
+  list-style: disc;
+  font-size: 11px;
+  color: var(--danger);
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson-src { margin-top: 6px; }
+.chat-ui[data-theme='cloud'] .cui-ghjson-summary {
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson-pre {
+  margin: 6px 0 0;
+  padding: 8px;
+  max-height: 240px;
+  overflow: auto;
+  background: var(--paper-2);
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--ink-soft);
+  white-space: pre;
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson-btn {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson-btn:hover:not(:disabled) { border-color: var(--product); color: var(--product); }
+.chat-ui[data-theme='cloud'] .cui-ghjson-btn:disabled { opacity: 0.5; cursor: default; }
+.chat-ui[data-theme='cloud'] .cui-ghjson-btn.is-primary {
+  border-color: var(--product);
+  background: var(--product);
+  color: var(--btn-fg);
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson-btn.is-primary:hover:not(:disabled) { background: var(--product-ink); color: var(--btn-fg); }
+.chat-ui[data-theme='cloud'] .cui-ghjson-btn.is-primary:focus-visible { outline: 2px solid var(--product); outline-offset: 2px; }
+
+/* Locked chats hide the composer — read-only transcripts keep scrolling.
+   (The only rule keyed on the host mount class rather than the theme.) */
+.chat-view-mount.is-readonly .cui-composer,
+.chat-view-mount.is-readonly .cui-quote,
+.chat-view-mount.is-readonly .cui-attachments {
+  display: none;
+}
+
+/* ================================================================== */
+/* Plugin adaptations — the same visual language on the legacy DOM the  */
+/* cloud sheet cannot reach. The bridge renders every message through   */
+/* the html part renderer as legacy .message markup inside .cui-msg     */
+/* chrome, and the plugin owns cards/HUD/strips the cloud app mounts    */
+/* differently. Rules below translate cloud tokens onto that markup;    */
+/* nothing here invents colors.                                         */
+/* ================================================================== */
+
+/* Page chrome — same paper/ink/sans the cloud app paints on body. */
+body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+}
+
+/* Canopy framed shell — soft border, rounded corners on the mount. */
+#chat-root > .chat-ui {
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    background: var(--paper);
+}
+
+/* The legacy .message carries its own bubble surface inside .cui-msg, so
+   the toolkit bubble stays neutralized — same declarations as the
+   chat-styles.css neutralizer, re-stated at theme specificity so the
+   cloud .cui-bubble padding/background above cannot win. */
+.chat-ui[data-theme='cloud'] .cui-msg .cui-bubble {
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+/* Legacy .message stretches inside the role-shifted .cui-msg (2rem shift
+   comes from the verbatim cloud rules above); .message-content becomes
+   the cloud bubble surface. Margins own inter-message spacing because
+   chat-styles.css zeroes .cui-messages gap — 12px matches --cui-gap. */
+.chat-ui[data-theme='cloud'] .message {
+    align-self: stretch;
+    max-width: none;
+    margin-bottom: 12px;
+}
+.chat-ui[data-theme='cloud'] .cui-msg:last-child .message,
+.chat-ui[data-theme='cloud'] .cui-messages > .message:last-child {
+    margin-bottom: 0;
+}
+.chat-ui[data-theme='cloud'] .message > div {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.chat-ui[data-theme='cloud'] .message-content {
+    padding: var(--cui-pad);
+    border-radius: var(--cui-radius);
+    box-shadow: none;
+    font-size: var(--cui-font-size);
+}
+.chat-ui[data-theme='cloud'] .message.user .message-content {
+    background: var(--product-soft);   /* --cui-user-bg */
+    color: var(--ink);
+    border-radius: 16px 16px 4px 16px;
+}
+.chat-ui[data-theme='cloud'] .message.assistant .message-content {
+    background: var(--paper-2);        /* --cui-assistant-bg */
+    color: var(--ink);
+    border-radius: 16px 16px 16px 4px;
+}
+
+/* Tool calls, trace lines and system/summary notices render flat on the
+   page background — no bubble surface, no card chrome, compact muted
+   italic text. Mirrors the cloud tool/system .cui-bubble rule and the
+   .cui-part-tool_call trace language on the legacy row markup. The
+   enclosing .cui-bubble already carries cloud's 4px gutter (the verbatim
+   [data-role] rules outrank the neutralizer above), so content pads 0. */
+.chat-ui[data-theme='cloud'] .message.tool .message-content,
+.chat-ui[data-theme='cloud'] .message.system .message-content,
+.chat-ui[data-theme='cloud'] .message.summary .message-content {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    color: var(--ink-soft);
+    font-size: var(--cui-font-size-sm);
+    font-style: italic;
+}
+.chat-ui[data-theme='cloud'] .message.system .message-content {
+    text-align: center;               /* .cui-notice-line language */
+}
+/* Multi-line context notices keep only their first block centered — the
+   title line the collapsed peek shows. Everything below (bullet lists,
+   follow-on paragraphs) reads left-aligned instead of centering wrapped
+   text. Single-paragraph notices stay centered as before. */
+.chat-ui[data-theme='cloud'] .message.system .message-content > * {
+    text-align: left;
+}
+.chat-ui[data-theme='cloud'] .message.system .message-content > *:first-child {
+    text-align: center;
+}
+.chat-ui[data-theme='cloud'] .message.error .message-content {
+    background: var(--danger-soft);
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    font-style: normal;
+    text-align: left;
+}
+
+/* The clamped-row fade now melts into the paper background. */
+.chat-ui[data-theme='cloud'] .message.tool .message-content::after,
+.chat-ui[data-theme='cloud'] .message.system .message-content::after,
+.chat-ui[data-theme='cloud'] .message.summary .message-content::after {
+    background: linear-gradient(to bottom, rgba(247, 249, 244, 0), var(--paper));
+}
+
+/* Flat rows drop the sender byline/timestamp (cloud traces show none);
+   the disclosure chevron survives absolute-docked top-right, the same
+   spot cloud's hover toolbar occupies. */
+.chat-ui[data-theme='cloud'] .message.tool .message-sender,
+.chat-ui[data-theme='cloud'] .message.system .message-sender,
+.chat-ui[data-theme='cloud'] .message.summary .message-sender,
+.chat-ui[data-theme='cloud'] .message.tool .message-timestamp,
+.chat-ui[data-theme='cloud'] .message.system .message-timestamp,
+.chat-ui[data-theme='cloud'] .message.summary .message-timestamp {
+    display: none;
+}
+.chat-ui[data-theme='cloud'] .message.tool .message-header,
+.chat-ui[data-theme='cloud'] .message.system .message-header,
+.chat-ui[data-theme='cloud'] .message.summary .message-header {
+    position: absolute;
+    top: 0;
+    right: 0;
+    margin: 0;
+    z-index: 1;
+}
+
+/* Tool cards keep a visible byline: .message-sender carries the activity/result
+   sentence (cui-tool-title), which is the primary way the user identifies the
+   running/finished tool. Restore the header to normal flow so it sits left of
+   the chevron instead of the floating top-right dock. */
+.chat-ui[data-theme='cloud'] .message.tool .message-sender {
+    display: inline;
+    color: var(--ink-soft);
+    font-size: var(--cui-font-size-sm);
+    font-style: italic;
+    font-weight: normal;
+}
+.chat-ui[data-theme='cloud'] .message.tool .message-header {
+    position: static;
+}
+
+/* Collapsed tool cards show only the byline (activity/result sentence +
+   chevron); the body stays hidden until expanded. max-height:0 — not
+   display:none — keeps scrollHeight non-zero so the chevron's overflow
+   detection still engages. */
+.chat-ui[data-theme='cloud'] .message.tool:not(.expanded) .message-content {
+    max-height: 0;
+}
+.chat-ui[data-theme='cloud'] .message.tool:not(.expanded) .message-content::after {
+    display: none;
+}
+
+/* Sender byline + timestamp on bubbled rows — cloud .cui-byline language. */
+.chat-ui[data-theme='cloud'] .message-sender {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--cui-muted);
+}
+.chat-ui[data-theme='cloud'] .message-timestamp {
+    font-size: 11px;
+    color: var(--ink-soft);
+}
+.chat-ui[data-theme='cloud'] .message-header {
+    margin-bottom: 4px;
+}
+
+/* Disclosure chevron — restyled as cloud's 24px square bordered icon
+   (.cui-tool), the plugin's equivalent of the details disclosure. */
+.chat-ui[data-theme='cloud'] .toggle-arrow {
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--paper);
+    color: var(--ink-soft);
+}
+.chat-ui[data-theme='cloud'] .toggle-arrow:hover {
+    background: var(--paper-2);
+}
+.chat-ui[data-theme='cloud'] .toggle-arrow::before {
+    border-left-color: var(--ink-soft);
+}
+.chat-ui[data-theme='cloud'] .toggle-arrow:hover::before {
+    border-left-color: var(--ink);
+}
+.chat-ui[data-theme='cloud'] .toggle-arrow:focus-visible {
+    outline: 1px solid var(--product);
+    outline-offset: 1px;
+}
+
+/* Metrics icon — cloud .cui-info affordance language (bare muted icon). */
+.chat-ui[data-theme='cloud'] .metrics-icon {
+    color: var(--ink-soft);
+    opacity: 1;
+    font-size: 12px;
+}
+.chat-ui[data-theme='cloud'] .metrics-icon:hover {
+    color: var(--ink);
+}
+.chat-ui[data-theme='cloud'] .message-footer {
+    margin-top: 6px;
+}
+
+/* Per-code-block copy action — cloud .cui-tool chrome, hover-revealed
+   top-right like the message toolbar. */
+.chat-ui[data-theme='cloud'] .copy-code-icon {
+    top: 6px;
+    right: 6px;
+    display: inline-flex;
+    width: 24px;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--paper);
+    color: var(--ink-soft);
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.chat-ui[data-theme='cloud'] pre:hover .copy-code-icon,
+.chat-ui[data-theme='cloud'] .copy-code-icon:focus-visible {
+    opacity: 1;
+}
+.chat-ui[data-theme='cloud'] .copy-code-icon:hover {
+    background: var(--paper-2);
+    color: var(--ink);
+}
+
+/* Loading bubble spinner follows the product accent. */
+.chat-ui[data-theme='cloud'] .spinner,
+.chat-ui[data-theme='cloud'] .message.loading .message-content::before {
+    border-top-color: var(--product);
+}
+
+/* Markdown typography inside .message-content — mirrors the verbatim
+   .cui-part-markdown mapping above (plugin html parts render the legacy
+   container instead of .cui-part-markdown). */
+.chat-ui[data-theme='cloud'] .message-content > :first-child { margin-top: 0; }
+.chat-ui[data-theme='cloud'] .message-content h1 { font-size: 1.125rem; font-weight: 600; margin: 12px 0 8px; }
+.chat-ui[data-theme='cloud'] .message-content h2 { font-size: 1rem; font-weight: 600; margin: 12px 0 8px; }
+.chat-ui[data-theme='cloud'] .message-content h3 { font-size: 0.875rem; font-weight: 600; margin: 12px 0 4px; }
+.chat-ui[data-theme='cloud'] .message-content h4 { font-size: 0.875rem; font-weight: 600; margin: 8px 0 4px; }
+.chat-ui[data-theme='cloud'] .message-content p { margin: 0 0 8px; }
+.chat-ui[data-theme='cloud'] .message-content p:last-child { margin-bottom: 0; }
+.chat-ui[data-theme='cloud'] .message-content ul { list-style: disc; padding-left: 20px; margin: 0 0 8px; }
+.chat-ui[data-theme='cloud'] .message-content ol { list-style: decimal; padding-left: 20px; margin: 0 0 8px; }
+.chat-ui[data-theme='cloud'] .message-content ul:last-child,
+.chat-ui[data-theme='cloud'] .message-content ol:last-child { margin-bottom: 0; }
+.chat-ui[data-theme='cloud'] .message-content li { margin-bottom: 2px; }
+.chat-ui[data-theme='cloud'] .message-content a { color: var(--product); font-weight: 500; text-decoration: underline; }
+.chat-ui[data-theme='cloud'] .message-content a:hover { color: var(--product-ink); }
+.chat-ui[data-theme='cloud'] .message-content blockquote { margin: 0 0 8px; padding-left: 12px; border-left: 2px solid var(--line); font-style: italic; color: var(--ink-soft); }
+.chat-ui[data-theme='cloud'] .message-content blockquote:last-child { margin-bottom: 0; }
+.chat-ui[data-theme='cloud'] .message-content code { background: var(--paper-2); padding: 1px 5px; border-radius: 5px; font-family: var(--mono); font-size: 0.85em; }
+.chat-ui[data-theme='cloud'] .message-content pre { margin: 0 0 8px; overflow-x: auto; background: var(--ink); color: var(--paper); border: none; border-radius: var(--r-md); padding: 12px; font-size: 12px; }
+.chat-ui[data-theme='cloud'] .message-content pre code { background: transparent; padding: 0; }
+.chat-ui[data-theme='cloud'] .message-content pre:last-child { margin-bottom: 0; }
+.chat-ui[data-theme='cloud'] .message-content hr { margin: 12px 0; border-color: var(--line); }
+.chat-ui[data-theme='cloud'] .message-content table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 0 0 8px; }
+.chat-ui[data-theme='cloud'] .message-content th { border: 1px solid var(--line); background: var(--paper-2); padding: 4px 8px; text-align: left; font-weight: 500; }
+.chat-ui[data-theme='cloud'] .message-content td { border: 1px solid var(--line); padding: 4px 8px; }
+.chat-ui[data-theme='cloud'] .message-content img { margin: 8px 0; max-width: 100%; border-radius: var(--r-md); }
+
+/* Flat rows keep their mono/pre blocks on the raised paper-2 surface —
+   the .cui-trace-args / .cui-part-tool_call args treatment. */
+.chat-ui[data-theme='cloud'] .message.tool .message-content pre,
+.chat-ui[data-theme='cloud'] .message.system .message-content pre,
+.chat-ui[data-theme='cloud'] .message.summary .message-content pre {
+    background: var(--paper-2);
+    color: var(--ink-soft);
+    border: none;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-style: normal;
+}
+
+/* Reasoning disclosure (details.think) — muted rounded strip. */
+.chat-ui[data-theme='cloud'] details.think {
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    background: var(--paper-2);
+    padding: 8px;
+    color: var(--ink-soft);
+    font-size: var(--cui-font-size-sm);
+}
+.chat-ui[data-theme='cloud'] details.think[open] {
+    background: var(--paper-2);
+}
+.chat-ui[data-theme='cloud'] details.think summary {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* Suggested-prompt chips — cloud .cui-suggestion language (pills). */
+.chat-ui[data-theme='cloud'] .suggestion-chip {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ink);
+    font-size: 12px;
+    padding: 4px 12px;
+}
+.chat-ui[data-theme='cloud'] .suggestion-chip:hover {
+    border-color: var(--product);
+    color: var(--product);
+    background: var(--product-soft);
+}
+
+/* Debug actions (regen/update) — rounded secondary buttons. */
+.chat-ui[data-theme='cloud'] #sh-debug-actions button {
+    border: 1px solid var(--line);
+    border-radius: var(--r-btn);
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+}
+.chat-ui[data-theme='cloud'] #sh-debug-actions button:hover {
+    background: var(--paper-2);
+}
+
+/* Plugin cards (plan consent, canvas pointer, user question) — cloud
+   .cui-card language: rounded corners, soft shadow;
+   their buttons pick up the app's secondary/primary language. */
+.chat-ui[data-theme='cloud'] .plan-consent-card,
+.chat-ui[data-theme='cloud'] .task-plan-card,
+.chat-ui[data-theme='cloud'] .canvas-pointer-card,
+.chat-ui[data-theme='cloud'] .user-question-card {
+    border-radius: var(--r-lg);
+    box-shadow: var(--cui-shadow-sm);
+}
+.chat-ui[data-theme='cloud'] .plan-consent-card {
+    border: 1px solid var(--line);
+    background: var(--paper-2);
+}
+.chat-ui[data-theme='cloud'] .plan-consent-card code {
+    color: var(--product);
+}
+.chat-ui[data-theme='cloud'] .canvas-pointer-card {
+    border: 1px solid var(--line);
+    background: var(--paper-2);
+}
+.chat-ui[data-theme='cloud'] .canvas-pointer-glyph {
+    color: var(--product);
+}
+.chat-ui[data-theme='cloud'] .user-question-card {
+    border: 1px solid var(--line);
+    background: var(--paper);
+}
+.chat-ui[data-theme='cloud'] .user-question-option {
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    background: var(--paper);
+    color: var(--ink);
+}
+.chat-ui[data-theme='cloud'] .user-question-option:hover {
+    background: var(--paper-2);
+}
+.chat-ui[data-theme='cloud'] .user-question-option.selected {
+    background: var(--product);
+    border-color: var(--product);
+    color: var(--btn-fg);
+}
+.chat-ui[data-theme='cloud'] .user-question-card.resolved .user-question-option.selected {
+    background: var(--ok);
+    border-color: var(--ok);
+}
+.chat-ui[data-theme='cloud'] .user-question-free input {
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    background: var(--paper);
+    color: var(--ink);
+}
+.chat-ui[data-theme='cloud'] .user-question-free input:focus {
+    outline: none;
+    border-color: var(--product);
+}
+
+/* Card action buttons — .cui-approve/.cui-reject language: the trailing
+   approval/positive action is the product-filled primary. */
+.chat-ui[data-theme='cloud'] .plan-consent-actions button,
+.chat-ui[data-theme='cloud'] .canvas-pointer-actions button,
+.chat-ui[data-theme='cloud'] .user-question-free button {
+    border: 1px solid var(--line);
+    border-radius: var(--r-btn);
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 6px 12px;
+    cursor: pointer;
+}
+.chat-ui[data-theme='cloud'] .plan-consent-actions button:hover:not(:disabled),
+.chat-ui[data-theme='cloud'] .canvas-pointer-actions button:hover:not(:disabled) {
+    background: var(--paper-2);
+}
+.chat-ui[data-theme='cloud'] .plan-consent-actions button:last-child,
+.chat-ui[data-theme='cloud'] .user-question-free button {
+    border-color: var(--product);
+    background: var(--product);
+    color: var(--btn-fg);
+    font-weight: 700;
+}
+.chat-ui[data-theme='cloud'] .plan-consent-actions button:last-child:hover:not(:disabled),
+.chat-ui[data-theme='cloud'] .user-question-free button:hover:not(:disabled) {
+    background: var(--product-ink);
+}
+
+/* Task-plan panel internals — product progress, ok/product/muted icons. */
+.chat-ui[data-theme='cloud'] .task-plan-card {
+    border: 1px solid var(--line);
+    background: var(--paper);
+}
+.chat-ui[data-theme='cloud'] .task-plan-progress {
+    border-radius: 999px;
+    background: var(--paper-2);
+}
+.chat-ui[data-theme='cloud'] .task-plan-progress-fill {
+    background: var(--product);
+}
+.chat-ui[data-theme='cloud'] .task-plan-task.status-completed .task-plan-icon {
+    color: var(--ok);
+}
+.chat-ui[data-theme='cloud'] .task-plan-task.status-in-progress .task-plan-icon {
+    color: var(--product);
+}
+
+/* Floating HUD, toast and metrics tooltip — rounded paper/ink chrome.
+   These live outside .chat-ui so they take the :root palette directly. */
+#autonomy-overlay {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    box-shadow: 0 8px 22px -14px rgba(34, 58, 40, 0.3);
+    color: var(--ink-soft);
+}
+#autonomy-overlay .autonomy-bar {
+    background: var(--paper-2);
+    border-radius: 999px;
+}
+#autonomy-overlay .autonomy-fill {
+    background: var(--product);
+}
+#autonomy-overlay .autonomy-warning {
+    color: var(--warn);
+}
+#autonomy-overlay.autonomy-unlimited {
+    border-color: var(--warn);
+}
+#autonomy-overlay .autonomy-row.autonomy-limit-hit .autonomy-text {
+    color: var(--warn);
+}
+#autonomy-overlay .autonomy-row.autonomy-limit-hit .autonomy-fill {
+    background: var(--warn);
+}
+#autonomy-overlay.autonomy-exhausted {
+    border-color: var(--danger);
+}
+#autonomy-overlay.autonomy-exhausted .autonomy-text {
+    color: var(--danger);
+}
+#autonomy-overlay.autonomy-exhausted .autonomy-fill {
+    background: var(--danger);
+}
+#autonomy-overlay .autonomy-extend-btn {
+    border: 1px solid var(--line);
+    border-radius: var(--r-btn);
+    background: var(--paper);
+    color: var(--ink);
+}
+#autonomy-overlay .autonomy-extend-btn:hover:not(:disabled) {
+    background: var(--paper-2);
+    border-color: var(--line-strong);
+}
+
+.toast {
+    background: var(--ink);
+    color: var(--paper);
+    border-radius: var(--r-md);
+}
+
+.metrics-tooltip {
+    background: var(--ink);
+    color: var(--paper);
+    border-radius: var(--r-md);
+    font-size: 12px;
+    line-height: 1.6;
+    padding: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+/* Fallback shell (only if the toolkit mount fails) — same rounded paper
+   chrome so the degraded page stays on-palette. */
+#status-bar,
+#input-bar {
+    border-radius: var(--r-md);
+    border-color: var(--line);
+    background: var(--paper);
+}
+#input-bar textarea {
+    border-radius: var(--r-md);
+    border-color: var(--line);
+    background: var(--paper);
+    color: var(--ink);
+}
+#input-bar .actions button {
+    border: 1px solid var(--line);
+    border-radius: var(--r-btn);
+    background: var(--paper);
+    color: var(--ink);
+}
+#input-bar .actions button:hover {
+    background: var(--paper-2);
+}
+.attachment-chip {
+    border-radius: 999px;
+    border-color: var(--line);
+    background: var(--paper-2);
+}
+
+/* GhJSON artifact card (show_ghjson) — compact card on the transcript; the
+   source preview stays collapsed behind <details>. Invalid payloads go small
+   and red with no action affordance. */
+.chat-ui[data-theme='cloud'] .ghjson-card,
+.ghjson-card {
+    border-left: 3px solid var(--product);
+    padding: 8px 10px;
+    font-size: 12px;
+    background: var(--paper);
+    border-top: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    border-radius: var(--r-md);
+}
+.ghjson-card.is-invalid {
+    border-left-color: var(--danger);
+}
+.ghjson-card .ghjson-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.ghjson-card .ghjson-title {
+    font-weight: 600;
+    color: var(--ink);
+}
+.ghjson-card.is-invalid .ghjson-title { color: var(--danger); }
+.ghjson-card .ghjson-badge {
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 1px 6px;
+    border: 1px solid var(--line);
+}
+.ghjson-card .ghjson-badge.is-valid { color: var(--ok); border-color: var(--ok); }
+.ghjson-card .ghjson-badge.is-invalid { color: var(--danger); border-color: var(--danger); }
+.ghjson-card .ghjson-errors {
+    margin: 6px 0 0 14px;
+    padding: 0;
+    list-style: disc;
+    font-size: 11px;
+    color: var(--danger);
+}
+.ghjson-card .ghjson-src { margin-top: 6px; }
+.ghjson-card .ghjson-summary {
+    cursor: pointer;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+}
+.ghjson-card .ghjson-pre {
+    margin: 6px 0 0;
+    padding: 8px;
+    max-height: 240px;
+    overflow: auto;
+    background: var(--paper-2);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+    white-space: pre;
+}
+.ghjson-card .ghjson-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+.ghjson-card .ghjson-btn {
+    border: 1px solid var(--line);
+    border-radius: var(--r-btn);
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    cursor: pointer;
+}
+.ghjson-card .ghjson-btn:hover:not(:disabled) { border-color: var(--product); color: var(--product); }
+.ghjson-card .ghjson-btn:disabled { opacity: 0.5; cursor: default; }
+.ghjson-card .ghjson-btn.is-primary {
+    border-color: var(--product);
+    background: var(--product);
+    color: var(--paper);
+}
+.ghjson-card .ghjson-btn.is-primary:hover:not(:disabled) { background: var(--product-ink); }
+.ghjson-card .ghjson-status {
+    font-size: 11px;
+    color: var(--ink-soft);
+}
+.ghjson-card .ghjson-status[data-state='ok'] { color: var(--ok); }
+.ghjson-card .ghjson-status[data-state='error'] { color: var(--danger); }

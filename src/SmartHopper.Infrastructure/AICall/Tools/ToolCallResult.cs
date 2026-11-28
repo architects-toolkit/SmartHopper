@@ -64,12 +64,14 @@ namespace SmartHopper.Infrastructure.AICall.Tools
             bool success,
             JObject result,
             IReadOnlyList<SHRuntimeMessage> messages = null,
-            bool isBatchSentinel = false)
+            bool isBatchSentinel = false,
+            IReadOnlyList<ToolResultImage> images = null)
         {
             this.Success = success;
             this.Result = result;
             this.Messages = messages ?? EmptyMessages;
             this.IsBatchSentinel = isBatchSentinel;
+            this.Images = images;
         }
 
         /// <summary>
@@ -97,6 +99,13 @@ namespace SmartHopper.Infrastructure.AICall.Tools
         /// <c>"result"</c> rather than real data.
         /// </summary>
         public bool IsBatchSentinel { get; }
+
+        /// <summary>
+        /// Typed image payloads produced by the tool, carried outside <see cref="Result"/>
+        /// JSON so bytes never appear in descriptors or Markdown. Null when the tool
+        /// produced no typed images.
+        /// </summary>
+        public IReadOnlyList<ToolResultImage> Images { get; }
 
         /// <summary>
         /// Convenience indexer that delegates to <see cref="Result"/>. Returns
@@ -200,7 +209,8 @@ namespace SmartHopper.Infrastructure.AICall.Tools
             return new ToolCallResult(
                 true,
                 interaction.Result,
-                interaction.Messages ?? EmptyMessages);
+                interaction.Messages ?? EmptyMessages,
+                images: interaction.Images);
         }
 
         /// <summary>

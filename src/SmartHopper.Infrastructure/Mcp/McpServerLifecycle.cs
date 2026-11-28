@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Infrastructure.Mcp
 {
     /// <summary>
@@ -66,7 +67,9 @@ namespace SmartHopper.Infrastructure.Mcp
                 }
                 else if (OptionsDiffer(slot.Server.Options, options))
                 {
-                    Debug.WriteLine($"[Mcp] Port {options.Port} is already served with different options; the running configuration stays in effect for every holder.");
+                    Logger.Warning(
+                        typeof(McpServerLifecycle).FullName,
+                        $"[Mcp] Port {options.Port} is already served with different options; the running configuration stays in effect for every holder.");
                 }
 
                 slot.Holders.Add(key);
@@ -104,7 +107,7 @@ namespace SmartHopper.Infrastructure.Mcp
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[Mcp] Error disposing server on port {port}: {ex.Message}");
+                    Logger.Exception(typeof(McpServerLifecycle).FullName, ex, $"[Mcp] Error disposing server on port {port}: {ex.Message}");
                 }
 
                 Slots.Remove(port);
@@ -132,8 +135,7 @@ namespace SmartHopper.Infrastructure.Mcp
             if (!string.Equals(running.BearerToken ?? string.Empty, requested.BearerToken ?? string.Empty, StringComparison.Ordinal)
                 || running.ExposeMutatingTools != requested.ExposeMutatingTools
                 || running.BypassMutationsApproval != requested.BypassMutationsApproval
-                || running.AllowViewControl != requested.AllowViewControl
-                || running.AllowExternalConnections != requested.AllowExternalConnections)
+                || running.AllowViewControl != requested.AllowViewControl)
             {
                 return true;
             }

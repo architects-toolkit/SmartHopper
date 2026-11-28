@@ -119,7 +119,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     destructiveHint: false,
                     idempotentHint: true,
                     openWorldHint: false,
-                    title: "Grasshopper Canvas View"));
+                    title: "Grasshopper Canvas View"),
+                activityLabel: "reading canvas view",
+                resultLabel: "read canvas view");
         }
 
         private async Task<AIReturn> CanvasViewAsync(AIToolCall toolCall)
@@ -175,6 +177,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
         private static JObject ApplyViewAction(GH_Canvas canvas, GH_Document document, string action, JObject args)
         {
+            var viewport = canvas.Viewport;
+            if (viewport.Width <= 0 || viewport.Height <= 0)
+            {
+                return Error("The canvas viewport has no usable size.");
+            }
+
+            List<IGH_Attributes>? frameTargets = null;
+            List<Guid> missing = new ();
+            List<string> invalid = new ();
+            float? desiredZoom = null;
+            PointF? desiredCenter = null;
+
             switch (action)
             {
                 case "zoomExtents":
@@ -188,28 +202,22 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         return Error("The document contains no objects to frame.");
                     }
 
-                    canvas.Viewport.Focus(attributes);
+                    frameTargets = attributes;
                     break;
                 }
 
                 case "frameGuids":
                 {
-                    var (resolved, missing) = ResolveAttributes(document, args);
+                    var (resolved, unresolved, malformed) = ResolveAttributes(document, args);
+                    missing = unresolved;
+                    invalid = malformed;
                     if (resolved.Count == 0)
                     {
                         return Error("None of the requested GUIDs could be found on the canvas.");
                     }
 
-                    canvas.Viewport.Focus(resolved);
-                    var payload = ViewportPayload(canvas, "frameGuids");
-                    payload["framedGuids"] = JArray.FromObject(resolved
-                        .Select(a => a.InstanceGuid.ToString()));
-                    if (missing.Count > 0)
-                    {
-                        payload["missingGuids"] = JArray.FromObject(missing.Select(g => g.ToString()));
-                    }
-
-                    return payload;
+                    frameTargets = resolved;
+                    break;
                 }
 
                 case "setZoom":
@@ -225,7 +233,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         return Error("'zoom' must be a positive finite number.");
                     }
 
-                    canvas.Viewport.Zoom = Math.Max(MinZoom, Math.Min(MaxZoom, zoom));
+                    // Preserve the current world-space center across the zoom change.
+                    desiredCenter = viewport.MidPoint;
+                    desiredZoom = Math.Max(MinZoom, Math.Min(MaxZoom, zoom));
                     break;
                 }
 
@@ -243,7 +253,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         return Error("'x' and 'y' must be finite numbers.");
                     }
 
-                    canvas.Viewport.MidPoint = new PointF(x, y);
+                    desiredCenter = new PointF(x, y);
                     break;
                 }
 
@@ -251,22 +261,94 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return Error($"Unknown action '{action}'. Expected one of: zoomExtents, frameGuids, setZoom, setCenter.");
             }
 
-            return ViewportPayload(canvas, action);
+            if (frameTargets != null)
+            {
+                var bounds = frameTargets
+                    .Select(a => a.Bounds)
+                    .Aggregate(RectangleF.Union);
+                desiredZoom = ViewportProjection.FitZoom(
+                    viewport.Width,
+                    viewport.Height,
+                    bounds.Width,
+                    bounds.Height,
+                    ViewportProjection.FramePaddingPixels,
+                    MinZoom,
+                    MaxZoom);
+                desiredCenter = new PointF(
+                    bounds.X + bounds.Width / 2f,
+                    bounds.Y + bounds.Height / 2f);
+            }
+
+            // Apply the coherent transform in one UI turn: zoom first (the target
+            // recompute below preserves the requested world-space center at the new
+            // zoom), then the target, then recompute the projection so the payload
+            // reflects the applied state — not the previously cached region.
+            if (desiredZoom.HasValue)
+            {
+                viewport.Zoom = desiredZoom.Value;
+            }
+
+            if (desiredCenter.HasValue)
+            {
+                viewport.Target = ViewportProjection.TargetForCenter(
+                    viewport.Width,
+                    viewport.Height,
+                    desiredCenter.Value.X,
+                    desiredCenter.Value.Y,
+                    viewport.Zoom);
+            }
+
+            viewport.ComputeProjection();
+
+            var payload = ViewportPayload(canvas, action);
+            if (frameTargets != null && action == "frameGuids")
+            {
+                payload["framedGuids"] = JArray.FromObject(frameTargets
+                    .Select(a => a.InstanceGuid)
+                    .Distinct()
+                    .Select(g => g.ToString()));
+            }
+
+            if (missing.Count > 0)
+            {
+                payload["missingGuids"] = JArray.FromObject(missing.Select(g => g.ToString()));
+            }
+
+            if (invalid.Count > 0)
+            {
+                payload["invalidGuids"] = JArray.FromObject(invalid);
+            }
+
+            return payload;
         }
 
-        private static (List<IGH_Attributes> Resolved, List<Guid> Missing) ResolveAttributes(GH_Document document, JObject args)
+        private static (List<IGH_Attributes> Resolved, List<Guid> Missing, List<string> Invalid) ResolveAttributes(GH_Document document, JObject args)
         {
             var resolved = new List<IGH_Attributes>();
             var missing = new List<Guid>();
+            var invalid = new List<string>();
             var guids = args["guids"] as JArray;
             if (guids == null || guids.Count == 0)
             {
-                return (resolved, missing);
+                return (resolved, missing, invalid);
             }
 
+            var seen = new HashSet<Guid>();
             foreach (var token in guids)
             {
                 if (!Guid.TryParse(token?.ToString(), out var guid))
+                {
+                    // Malformed tokens are reported, never fabricated into a target.
+                    var raw = token?.ToString();
+                    if (!string.IsNullOrEmpty(raw))
+                    {
+                        invalid.Add(raw!);
+                    }
+
+                    continue;
+                }
+
+                if (!seen.Add(guid))
                 {
                     continue;
                 }
@@ -282,7 +364,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
             }
 
-            return (resolved, missing);
+            return (resolved, missing, invalid);
         }
 
         private static JObject ViewportPayload(GH_Canvas canvas, string action)

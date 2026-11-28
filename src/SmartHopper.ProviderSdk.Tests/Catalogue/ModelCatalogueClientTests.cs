@@ -33,7 +33,7 @@ namespace SmartHopper.ProviderSdk.Tests.Catalogue
     using Xunit;
 
     /// <summary>
-    /// Tests for the <c>smarthopper-models/1</c> client: signature verification,
+    /// Tests for the <c>smarthopper-models/2</c> client: signature verification,
     /// strict wire parsing, registry mapping, durable cache, and the refresh
     /// orchestration (remote → cache → seed degradation).
     /// </summary>
@@ -69,16 +69,18 @@ namespace SmartHopper.ProviderSdk.Tests.Catalogue
         private string Sign(byte[] data) =>
             Convert.ToBase64String(this.signingKey.SignData(data, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
 
-        private static string CatalogueJson(int version = 1, string modelId = "gpt-test-1", string provider = "openai") =>
+        private static string CatalogueJson(int version = 1, string modelId = "gpt-test-1", string provider = "openai", DateTime? publishedAt = null) =>
             "{\"catalogue_version\":" + version +
-            ",\"min_client_protocol\":1,\"protocol\":\"smarthopper-models/1\",\"providers\":{\"" + provider +
+            ",\"min_client_protocol\":2,\"protocol\":\"smarthopper-models/2\",\"providers\":{\"" + provider +
             "\":{\"models\":[{\"aliases\":[\"gpt-test-1-latest\"],\"capabilities\":[\"text\",\"tools\",\"reasoning\"],\"context_limit\":400000,\"created\":\"2026-01-01T00:00:00Z\",\"default_capability\":\"Text2Text|ToolChat\",\"deprecated\":false,\"discouraged_for_tools\":[],\"model\":\"" + modelId +
-            "\",\"pricing\":{\"completion\":\"0.0000048\",\"currency\":\"EUR\",\"input_cache_read\":\"0.0000003\",\"prompt\":\"0.0000012\"},\"rank\":9990,\"supports_prompt_caching\":true,\"supports_streaming\":true,\"verified\":true}]}},\"published_at\":\"2026-10-21T05:00:00Z\"}";
+            "\",\"pricing\":{\"currency\":\"EUR\",\"entries\":[{\"kind\":\"cache_read\",\"unit\":\"token\",\"amount\":\"0.0000003\"},{\"kind\":\"cache_write\",\"unit\":\"token\",\"amount\":\"0.000000375\"},{\"kind\":\"image_output\",\"unit\":\"token\",\"amount\":\"0.00003\"},{\"kind\":\"text_input\",\"unit\":\"token\",\"amount\":\"0.0000012\"},{\"kind\":\"text_output\",\"unit\":\"token\",\"amount\":\"0.0000048\"},{\"kind\":\"video_input\",\"unit\":\"token\",\"amount\":\"0.0000008\"},{\"kind\":\"video_output\",\"unit\":\"second\",\"amount\":\"0.05\"}],\"surprise_field\":\"9.99\"},\"rank\":9990,\"supports_prompt_caching\":true,\"supports_streaming\":true,\"verified\":true}]}},\"published_at\":\"" +
+            (publishedAt ?? DateTime.UtcNow).ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'") + "\"}";
 
-        private string ManifestJson(int version = 1) =>
+        private string ManifestJson(int version = 1, DateTime? publishedAt = null) =>
             "{\"catalogue_url\":\"/api/v1/catalogue\",\"key_id\":\"" + this.keyId +
             "\",\"keys_url\":\"/api/v1/keys\",\"latest_version\":" + version +
-            ",\"protocol\":\"smarthopper-models/1\",\"published_at\":\"2026-10-21T05:00:00Z\",\"signature_url\":\"/api/v1/catalogue.sig\"}";
+            ",\"protocol\":\"smarthopper-models/2\",\"published_at\":\"" +
+            (publishedAt ?? DateTime.UtcNow).ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'") + "\",\"signature_url\":\"/api/v1/catalogue.sig\"}";
 
         private sealed class DelegateHandler : HttpMessageHandler
         {
@@ -209,8 +211,13 @@ namespace SmartHopper.ProviderSdk.Tests.Catalogue
             Assert.True(model.HasCapability(AICapability.Reasoning));
             Assert.Equal(AICapability.Text2Text | AICapability.ToolChat, model.Default);
             Assert.Equal("EUR", model.Pricing.Currency);
-            Assert.Equal(0.0000012m, model.Pricing.Prompt);
-            Assert.Equal(0.0000003m, model.Pricing.InputCacheRead);
+            Assert.Equal(0.0000012m, model.Pricing.TextInput);
+            Assert.Equal(0.0000048m, model.Pricing.TextOutput);
+            Assert.Equal(0.0000003m, model.Pricing.CacheRead);
+            Assert.Equal(0.000000375m, model.Pricing.CacheWrite);
+            Assert.Equal(0.00003m, model.Pricing.ImageOutput);
+            Assert.Equal(0.05m, model.Pricing.VideoOutput);
+            Assert.Equal(0.0000008m, model.Pricing.VideoInput);
             Assert.Single(model.Aliases);
         }
 
@@ -225,9 +232,16 @@ namespace SmartHopper.ProviderSdk.Tests.Catalogue
             var bad = CatalogueJson().Replace("\"verified\":true", "\"verified\":true,\"display_name\":\"see https://evil\"");
             Assert.Throws<CatalogueProtocolException>(() => CatalogueWire.ParseDocument(Encoding.UTF8.GetBytes(bad)));
 
-            // Unknown property (additionalProperties: false).
+            // Unknown properties are ignored (forward compatibility) — they are
+            // blocked from entering parsed state, not treated as violations. A
+            // catalogue emitting newer fields must never brick older clients.
             var extra = CatalogueJson().Replace("\"verified\":true", "\"verified\":true,\"evil\":true");
-            Assert.Throws<CatalogueProtocolException>(() => CatalogueWire.ParseDocument(Encoding.UTF8.GetBytes(extra)));
+            var tolerant = CatalogueWire.ParseDocument(Encoding.UTF8.GetBytes(extra));
+            Assert.Single(tolerant.Providers["openai"]);
+            Assert.Null(tolerant.Providers["openai"][0].Pricing.Request);
+            Assert.Null(tolerant.Providers["openai"][0].Pricing.Discount);
+            // 'surprise_field' inside pricing is likewise ignored, not read.
+            Assert.Null(tolerant.Providers["openai"][0].Pricing.InternalReasoning);
 
             // Negative money.
             var money = CatalogueJson().Replace("\"0.0000012\"", "\"-1\"");
@@ -287,6 +301,7 @@ namespace SmartHopper.ProviderSdk.Tests.Catalogue
             await service.RefreshAsync();
             Assert.Equal(1, service.AppliedVersion);
             Assert.Equal(ModelCatalogueSource.Remote, service.Source);
+            Assert.Equal(ModelCatalogueRemoteStatus.Updated, service.RemoteStatus);
 
             var caps = AIModelCapabilityRegistry.Instance.GetCapabilities("openai", "gpt-test-1");
             Assert.NotNull(caps);
@@ -310,6 +325,7 @@ namespace SmartHopper.ProviderSdk.Tests.Catalogue
 
             await service.RefreshAsync();
             Assert.Equal(0, service.AppliedVersion);
+            Assert.Equal(ModelCatalogueRemoteStatus.Failed, service.RemoteStatus);
             Assert.NotNull(service.LastError);
             Assert.Null(AIModelCapabilityRegistry.Instance.GetCapabilities("openai", "gpt-test-1"));
             Assert.False(new ModelCatalogueCache(this.cacheDir).TryLoad(out _));
@@ -337,7 +353,53 @@ namespace SmartHopper.ProviderSdk.Tests.Catalogue
             await offline.RefreshAsync();
             Assert.Equal(1, offline.AppliedVersion);
             Assert.Equal(ModelCatalogueSource.Cache, offline.Source);
+            Assert.Equal(ModelCatalogueRemoteStatus.Unreachable, offline.RemoteStatus);
             Assert.NotNull(AIModelCapabilityRegistry.Instance.GetCapabilities("openai", "gpt-test-1"));
+        }
+
+        [Fact]
+        public async Task RemoteStatusDistinguishesUpToDateOfflineAndFailed()
+        {
+            // Prime a verified cache at v1 through a good remote run.
+            var docBytes = Encoding.UTF8.GetBytes(CatalogueJson());
+            var docSig = this.Sign(docBytes);
+            var online = this.NewService(path =>
+            {
+                if (path.EndsWith("/manifest")) return (200, this.ManifestJson(1));
+                if (path.EndsWith("/catalogue")) return (200, Encoding.UTF8.GetString(docBytes));
+                if (path.EndsWith("/catalogue.sig")) return (200, docSig);
+                return (404, "{}");
+            });
+            await online.RefreshAsync();
+            Assert.Equal(ModelCatalogueRemoteStatus.Updated, online.RemoteStatus);
+            AIModelCapabilityRegistry.Instance.Models.Clear();
+
+            // Remote reachable but nothing newer → UpToDate, not "offline".
+            var current = this.NewService(path => path.EndsWith("/manifest") ? (200, this.ManifestJson(1)) : (404, "{}"));
+            await current.RefreshAsync();
+            Assert.Equal(ModelCatalogueRemoteStatus.UpToDate, current.RemoteStatus);
+            Assert.Equal(ModelCatalogueSource.Cache, current.Source);
+            Assert.Equal(1, current.AppliedVersion);
+
+            // Same local state but remote dead → Unreachable (the real offline case).
+            var offline = this.NewService(_ => (503, "{}"));
+            await offline.RefreshAsync();
+            Assert.Equal(ModelCatalogueRemoteStatus.Unreachable, offline.RemoteStatus);
+            Assert.Equal(ModelCatalogueSource.Cache, offline.Source);
+
+            // Reached but the update is rejected → Failed, never reported as offline.
+            var v2 = Encoding.UTF8.GetBytes(CatalogueJson(2));
+            var rejected = this.NewService(path =>
+            {
+                if (path.EndsWith("/manifest")) return (200, this.ManifestJson(2));
+                if (path.EndsWith("/catalogue")) return (200, Encoding.UTF8.GetString(v2));
+                if (path.EndsWith("/catalogue.sig")) return (200, Convert.ToBase64String(new byte[64]));
+                return (404, "{}");
+            });
+            await rejected.RefreshAsync();
+            Assert.Equal(ModelCatalogueRemoteStatus.Failed, rejected.RemoteStatus);
+            Assert.Equal(ModelCatalogueSource.Cache, rejected.Source);
+            Assert.NotNull(rejected.LastError);
         }
 
         [Fact]
@@ -629,6 +691,128 @@ namespace SmartHopper.ProviderSdk.Tests.Catalogue
 
             Assert.Contains(lines, l => l.Contains("starting catalogue refresh"));
             Assert.Contains(lines, l => l.Contains("applied remote catalogue v1"));
+        }
+
+        [Fact]
+        public async Task StaleSignedCatalogueIsRejected()
+        {
+            // Prime a verified cache + floor at v1.
+            var v1Bytes = Encoding.UTF8.GetBytes(CatalogueJson(1));
+            var online = this.NewService(path =>
+            {
+                if (path.EndsWith("/manifest")) return (200, this.ManifestJson(1));
+                if (path.EndsWith("/catalogue")) return (200, Encoding.UTF8.GetString(v1Bytes));
+                if (path.EndsWith("/catalogue.sig")) return (200, this.Sign(v1Bytes));
+                return (404, "{}");
+            });
+            await online.RefreshAsync();
+            Assert.Equal(1, online.AppliedVersion);
+            AIModelCapabilityRegistry.Instance.Models.Clear();
+
+            // Attacker replays a genuine but stale signed release labelled v2.
+            var stale = DateTime.UtcNow.AddDays(-31);
+            var v2Bytes = Encoding.UTF8.GetBytes(CatalogueJson(2, publishedAt: stale));
+            var replayed = this.NewService(path =>
+            {
+                if (path.EndsWith("/manifest")) return (200, this.ManifestJson(2));
+                if (path.EndsWith("/catalogue")) return (200, Encoding.UTF8.GetString(v2Bytes));
+                if (path.EndsWith("/catalogue.sig")) return (200, this.Sign(v2Bytes));
+                return (404, "{}");
+            });
+            await replayed.RefreshAsync();
+
+            // Signature verified, but the stale published_at fails closed: the
+            // signed cache keeps authority and the floor does not advance.
+            Assert.Equal(ModelCatalogueRemoteStatus.Failed, replayed.RemoteStatus);
+            Assert.Contains("freshness", replayed.LastError);
+            Assert.Equal(ModelCatalogueSource.Cache, replayed.Source);
+            Assert.Equal(1, replayed.AppliedVersion);
+            Assert.Equal(1, new ModelCatalogueCache(this.cacheDir).ReadFloor());
+        }
+
+        [Fact]
+        public async Task FutureDatedCatalogueIsRejected()
+        {
+            var future = DateTime.UtcNow.AddDays(2);
+            var docBytes = Encoding.UTF8.GetBytes(CatalogueJson(1, publishedAt: future));
+            var service = this.NewService(path =>
+            {
+                if (path.EndsWith("/manifest")) return (200, this.ManifestJson(1));
+                if (path.EndsWith("/catalogue")) return (200, Encoding.UTF8.GetString(docBytes));
+                if (path.EndsWith("/catalogue.sig")) return (200, this.Sign(docBytes));
+                return (404, "{}");
+            });
+            await service.RefreshAsync();
+
+            Assert.Equal(ModelCatalogueRemoteStatus.Failed, service.RemoteStatus);
+            Assert.Contains("future", service.LastError);
+            Assert.Equal(0, service.AppliedVersion);
+            Assert.Null(AIModelCapabilityRegistry.Instance.GetCapabilities("openai", "gpt-test-1"));
+        }
+
+        [Fact]
+        public async Task ConfiguredFreshnessWindowIsHonored()
+        {
+            var publishedAt = DateTime.UtcNow.AddDays(-45);
+            var docBytes = Encoding.UTF8.GetBytes(CatalogueJson(1, publishedAt: publishedAt));
+            var service = new ModelCatalogueService(
+                baseUrl: "https://test.invalid",
+                cache: new ModelCatalogueCache(this.cacheDir),
+                trustedKeys: this.Trusted(),
+                httpFactory: new RoutingFactory(path =>
+                {
+                    if (path.EndsWith("/manifest")) return (200, this.ManifestJson(1));
+                    if (path.EndsWith("/catalogue")) return (200, Encoding.UTF8.GetString(docBytes));
+                    if (path.EndsWith("/catalogue.sig")) return (200, this.Sign(docBytes));
+                    return (404, "{}");
+                }),
+                maxCatalogueAge: TimeSpan.FromDays(60));
+            await service.RefreshAsync();
+
+            Assert.Equal(1, service.AppliedVersion);
+            Assert.Equal(ModelCatalogueRemoteStatus.Updated, service.RemoteStatus);
+        }
+
+        [Fact]
+        public async Task DisabledFreshnessAcceptsStaleDocument()
+        {
+            var publishedAt = DateTime.UtcNow.AddDays(-400);
+            var docBytes = Encoding.UTF8.GetBytes(CatalogueJson(1, publishedAt: publishedAt));
+            var service = new ModelCatalogueService(
+                baseUrl: "https://test.invalid",
+                cache: new ModelCatalogueCache(this.cacheDir),
+                trustedKeys: this.Trusted(),
+                httpFactory: new RoutingFactory(path =>
+                {
+                    if (path.EndsWith("/manifest")) return (200, this.ManifestJson(1));
+                    if (path.EndsWith("/catalogue")) return (200, Encoding.UTF8.GetString(docBytes));
+                    if (path.EndsWith("/catalogue.sig")) return (200, this.Sign(docBytes));
+                    return (404, "{}");
+                }),
+                maxCatalogueAge: TimeSpan.Zero);
+            await service.RefreshAsync();
+
+            Assert.Equal(1, service.AppliedVersion);
+            Assert.Equal(ModelCatalogueRemoteStatus.Updated, service.RemoteStatus);
+        }
+
+        [Fact]
+        public async Task StaleSignedCacheStillAppliesOffline()
+        {
+            // A cache saved when the artefact was fresh keeps working offline even
+            // after published_at ages out — the floor, not the clock, bounds replay.
+            var publishedAt = DateTime.UtcNow.AddDays(-45);
+            var docBytes = Encoding.UTF8.GetBytes(CatalogueJson(1, publishedAt: publishedAt));
+            var cache = new ModelCatalogueCache(this.cacheDir);
+            var sha = Convert.ToHexString(SHA256.HashData(docBytes)).ToLowerInvariant();
+            cache.Save(docBytes, this.Sign(docBytes), this.keyId, sha, 1);
+
+            var offline = this.NewService(_ => (503, "{}"));
+            await offline.RefreshAsync();
+
+            Assert.Equal(1, offline.AppliedVersion);
+            Assert.Equal(ModelCatalogueSource.Cache, offline.Source);
+            Assert.Equal(ModelCatalogueRemoteStatus.Unreachable, offline.RemoteStatus);
         }
     }
 }

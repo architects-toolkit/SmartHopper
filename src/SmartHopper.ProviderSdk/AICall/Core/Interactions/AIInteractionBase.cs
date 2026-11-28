@@ -17,6 +17,7 @@
  */
 
 using System;
+using Newtonsoft.Json.Linq;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Metrics;
 namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
@@ -38,6 +39,16 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
 
         /// <inheritdoc />
         public virtual AIMetrics Metrics { get; init; } = new AIMetrics();
+
+        /// <inheritdoc />
+        public virtual SourceContentReference SourceReference { get; init; }
+
+        /// <inheritdoc />
+        public virtual JObject ProviderData { get; init; }
+
+        /// <inheritdoc />
+        public virtual IAIInteraction WithSourceReference(SourceContentReference source)
+            => this with { SourceReference = source };
 
         /// <inheritdoc />
         public virtual IAIInteraction WithTurnId(string turnId)

@@ -34,23 +34,23 @@ namespace SmartHopper.Components.Input
     {
         public override Guid ComponentGuid => new Guid("8314FFFC-201C-4C63-94D6-DEC66A0F791E");
 
-        protected override Bitmap Icon => Resources.toaibool;
+        protected override Bitmap Icon => Resources.BooleanList2AI;
 
         public BooleanList2AIComponent()
             : base(
                 "Boolean List to AI",
                 "BoolList2AI",
-                "Wraps a list of booleans into a single AIInputPayload as a JSON array (one array per branch).",
-                GH_Exposure.secondary)
+                "Package a list of booleans as a single AI input (one list per branch) to wire into any AI output component.",
+                GH_Exposure.secondary | GH_Exposure.obscure)
         {
         }
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBooleanParameter("Boolean List", "B", "List of booleans to collapse into a single JSON array payload.", GH_ParamAccess.list);
+            pManager.AddBooleanParameter("Boolean List", "B", "List of booleans to send together in a single AI request.", GH_ParamAccess.list);
         }
 
-        protected override string PayloadOutputDescription => "AIInputPayload wrapping the JSON-serialized list.";
+        protected override string PayloadOutputDescription => "Packaged boolean list ready to wire into any AI output component's 'Input >' parameter.";
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {

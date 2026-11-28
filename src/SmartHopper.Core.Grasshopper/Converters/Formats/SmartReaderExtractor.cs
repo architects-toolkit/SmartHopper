@@ -34,6 +34,7 @@
 using System;
 using System.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.Converters.Formats
 {
     /// <summary>
@@ -82,7 +83,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[SmartReaderExtractor] Extraction failed: {ex.Message}");
+                Logger.For<SmartReaderExtractor>().Exception(ex, $"[SmartReaderExtractor] Extraction failed: {ex.Message}");
                 return null;
             }
         }

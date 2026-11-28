@@ -141,6 +141,10 @@ function Test-Links {
             continue
         }
         
+        # Decode URL-escaped characters (%20, %28, ...) so encoded paths resolve
+        # to the real filenames on disk
+        $cleanPath = [System.Uri]::UnescapeDataString($cleanPath)
+        
         # Check if local file exists
         $fullPath = Join-Path $directory $cleanPath
         if (-not (Test-Path $fullPath)) {

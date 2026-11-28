@@ -22,7 +22,6 @@ using System.Linq;
 using System.Reflection;
 using Eto.Drawing;
 using Eto.Forms;
-using Rhino;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Properties;
 using SmartHopper.Infrastructure.Settings;
@@ -34,6 +33,25 @@ using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Menu.Dialogs
 {
+    /// <summary>
+    /// Identifies which tab <see cref="SettingsDialog"/> shows when opened, so
+    /// callers can deep-link users to a specific settings area.
+    /// </summary>
+    internal enum SettingsTab
+    {
+        /// <summary>General settings (default).</summary>
+        General,
+
+        /// <summary>Canvas Assistant configuration.</summary>
+        CanvasAssistant,
+
+        /// <summary>Provider trust and integrity-check controls.</summary>
+        Security,
+
+        /// <summary>Telemetry and log sink configuration.</summary>
+        Developer,
+    }
+
     /// <summary>
     /// Tabbed dialog to configure SmartHopper settings including general settings, provider management, assistant configuration, and provider-specific settings
     /// </summary>
@@ -47,6 +65,7 @@ namespace SmartHopper.Menu.Dialogs
         // Tab pages
         private readonly GeneralSettingsPage _generalPage;
         private readonly ProvidersSettingsPage _providersPage;
+        private readonly SecuritySettingsPage _securityPage;
         private readonly AssistantSettingsPage _assistantPage;
         private readonly Dictionary<string, GenericProviderSettingsPage> _providerPages;
 
@@ -56,6 +75,7 @@ namespace SmartHopper.Menu.Dialogs
 
         // Settings models
         private readonly GeneralSettings _generalSettings;
+        private readonly LogSettings _logSettings;
         private readonly TrustedProvidersSettings _trustedProvidersSettings;
         private readonly AssistantSettings _assistantSettings;
         private ProviderIntegrityCheckMode _providerIntegrityCheckMode;
@@ -63,7 +83,8 @@ namespace SmartHopper.Menu.Dialogs
         /// <summary>
         /// Initializes a new instance of the SettingsDialog with tabbed interface.
         /// </summary>
-        public SettingsDialog()
+        /// <param name="initialTab">The tab to select on open.</param>
+        public SettingsDialog(SettingsTab initialTab = SettingsTab.General)
         {
             // Set window icon from embedded resource
             using (var stream = ConfigAssembly.GetManifestResourceStream(IconResourceName))
@@ -85,15 +106,14 @@ namespace SmartHopper.Menu.Dialogs
                 (int)((Screen.PrimaryScreen.Bounds.Width - this.Size.Width) / 2),
                 (int)((Screen.PrimaryScreen.Bounds.Height - this.Size.Height) / 2));
 
-            // Load settings and synchronously discover providers on Rhino's UI thread
+            // Load settings; providers come from the state already discovered at
+            // startup. Discovery is intentionally NOT triggered here: a refresh
+            // inside the constructor can surface modal integrity/trust dialogs
+            // before this dialog is ever shown, leaving Settings unreachable —
+            // the very place needed to relax integrity mode. Mid-session rescans
+            // use the explicit SmartHopper > Refresh Providers menu item.
             this._settings = SmartHopperSettings.Instance;
-            IAIProvider[] providers = null;
-            RhinoApp.InvokeOnUiThread(() =>
-            {
-                Infrastructure.AIProviders.ProviderManager.Instance.RefreshProviders();
-                providers = Infrastructure.AIProviders.ProviderManager.Instance.GetProviders(includeUntrusted: true).ToArray();
-            });
-            this._providers = providers;
+            this._providers = ProviderManager.Instance.GetProviders(includeUntrusted: true).ToArray();
 
             // Initialize settings models from global settings
             this._generalSettings = new GeneralSettings
@@ -101,6 +121,15 @@ namespace SmartHopper.Menu.Dialogs
                 DefaultAIProvider = this._settings.DefaultAIProvider,
                 DebounceTime = this._settings.DebounceTime,
                 BatchPollIntervalSeconds = this._settings.BatchPollIntervalSeconds,
+            };
+
+            this._logSettings = new LogSettings
+            {
+                LiveOutputEnabled = this._settings.LiveOutputEnabled,
+                LiveOutputLevel = this._settings.LiveOutputLevel,
+                LogFileEnabled = this._settings.LogFileEnabled,
+                LogFileLevel = this._settings.LogFileLevel,
+                LogRetentionDays = this._settings.LogRetentionDays,
             };
 
             this._trustedProvidersSettings = new TrustedProvidersSettings(this._settings.TrustedProviders);
@@ -118,12 +147,13 @@ namespace SmartHopper.Menu.Dialogs
             };
 
             // Create tab pages
-            this._generalPage = new GeneralSettingsPage(this._providers);
+            this._generalPage = new GeneralSettingsPage(this._providers, this.ShowProviderSettings);
             this._assistantPage = new AssistantSettingsPage(this._providers);
-            this._providersPage = new ProvidersSettingsPage(this._providers, this.ShowProviderSettings);
+            this._providersPage = new ProvidersSettingsPage(this._providers);
+            this._securityPage = new SecuritySettingsPage(this._providersPage.SecurityContent);
             this._providerPages = new Dictionary<string, GenericProviderSettingsPage>();
 
-            // Create provider-specific settings views (navigated to in-place)
+            // Create provider-specific pages (navigated to via each provider's Configure button)
             foreach (var provider in this._providers)
             {
                 var providerPage = new GenericProviderSettingsPage(provider);
@@ -131,40 +161,62 @@ namespace SmartHopper.Menu.Dialogs
             }
 
             // Load settings into pages
-            this._generalPage.LoadSettings(this._generalSettings, this._settings.ModalityFallback, this._settings.FallbackProviderPins);
+            this._generalPage.LoadSettings(this._generalSettings, this._logSettings, this._settings.ModalityFallback, this._settings.FallbackProviderPins);
             this._providersPage.LoadSettings(this._trustedProvidersSettings, this._providerIntegrityCheckMode);
             this._assistantPage.LoadSettings(this._assistantSettings);
 
-            this.CreateTabLayout();
+            this.CreateTabLayout(initialTab);
         }
 
         /// <summary>
-        /// Creates the tabbed layout with all settings pages
+        /// Creates the tabbed layout with all settings pages.
         /// </summary>
-        private void CreateTabLayout()
+        /// <param name="initialTab">The tab to select on open.</param>
+        private void CreateTabLayout(SettingsTab initialTab)
         {
             var tabControl = new TabControl();
 
             // Add General tab
-            tabControl.Pages.Add(new TabPage
+            var generalTab = new TabPage
             {
                 Text = "General",
                 Content = this._generalPage,
-            });
+            };
+            tabControl.Pages.Add(generalTab);
 
             // Add SmartHopper Assistant tab
-            tabControl.Pages.Add(new TabPage
+            var assistantTab = new TabPage
             {
                 Text = "Canvas Assistant",
                 Content = this._assistantPage,
-            });
+            };
+            tabControl.Pages.Add(assistantTab);
 
-            // Add Providers tab
-            tabControl.Pages.Add(new TabPage
+            // Provider configuration is launched from the tile grid on the General
+            // tab; trust/network/origin controls all live on the Security tab.
+            var securityTab = new TabPage
             {
-                Text = "AI Providers",
-                Content = this._providersPage,
-            });
+                Text = "Security",
+                Content = this._securityPage,
+            };
+            tabControl.Pages.Add(securityTab);
+
+            // Log sinks live on the Developer tab.
+            var developerTab = new TabPage
+            {
+                Text = "Developer",
+                Content = this._generalPage.DeveloperContent,
+            };
+            tabControl.Pages.Add(developerTab);
+
+            var selectedTab = initialTab switch
+            {
+                SettingsTab.CanvasAssistant => assistantTab,
+                SettingsTab.Security => securityTab,
+                SettingsTab.Developer => developerTab,
+                _ => generalTab,
+            };
+            tabControl.SelectedIndex = tabControl.Pages.IndexOf(selectedTab);
 
             // Create buttons
             var saveButton = new Button { Text = "Save" };
@@ -241,9 +293,10 @@ namespace SmartHopper.Menu.Dialogs
             try
             {
                 // Save settings from each tab page
-                this._generalPage.SaveSettings(this._generalSettings, out var fallbackMode, out var fallbackPins);
+                this._generalPage.SaveSettings(this._generalSettings, this._logSettings, out var fallbackMode, out var fallbackPins);
                 this._providersPage.SaveSettings(this._trustedProvidersSettings, out var providerIntegrityCheckMode);
                 this._assistantPage.SaveSettings(this._assistantSettings);
+                this._securityPage.SaveSettings();
 
                 // Save provider-specific settings
                 foreach (var providerPage in this._providerPages.Values)
@@ -255,6 +308,11 @@ namespace SmartHopper.Menu.Dialogs
                 this._settings.DefaultAIProvider = this._generalSettings.DefaultAIProvider;
                 this._settings.DebounceTime = this._generalSettings.DebounceTime;
                 this._settings.BatchPollIntervalSeconds = this._generalSettings.BatchPollIntervalSeconds;
+                this._settings.LiveOutputEnabled = this._logSettings.LiveOutputEnabled;
+                this._settings.LiveOutputLevel = this._logSettings.LiveOutputLevel;
+                this._settings.LogFileEnabled = this._logSettings.LogFileEnabled;
+                this._settings.LogFileLevel = this._logSettings.LogFileLevel;
+                this._settings.LogRetentionDays = this._logSettings.LogRetentionDays;
                 this._settings.SmartHopperAssistant.EnableCanvasButton = this._assistantSettings.EnableCanvasButton;
                 this._settings.SmartHopperAssistant.EnableAIGreeting = this._assistantSettings.EnableAIGreeting;
                 this._settings.SmartHopperAssistant.EnableSuggestedPrompts = this._assistantSettings.EnableSuggestedPrompts;

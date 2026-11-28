@@ -38,6 +38,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -105,7 +106,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: tags,
                 outputSchema: outputSchema,
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true),
+                activityLabel: "retrieving components on the canvas",
+                resultLabel: "retrieved components on the canvas");
         }
 
         /// <summary>
@@ -146,9 +149,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""description"": ""Optional list of name fragments. Only components whose Name OR NickName contains any fragment (case-insensitive) are returned. Examples: ['panel'] finds all panels; ['slider','script'] finds sliders and scripts.""
                     },
                     ""connectionDepth"": {
-                        ""type"": ""integer"",
+                        ""type"": [""integer"", ""string""],
                         ""default"": 0,
-                        ""description"": ""Depth of connections to include: 0 (default) only matching components; 1 includes directly connected components; 2 includes two-level connected components, etc. Note: when used with viewportOnly, values > 0 may include off-screen neighbors of visible components.""
+                        ""description"": ""Connection expansion around the matched components. Sign sets direction: '+5' includes the next 5 downstream layers (components consuming their outputs), '-3' includes the previous 3 upstream layers (the parent components feeding them — ideal for tracing where an error's inputs come from), and '4' or 4 includes 4 layers in BOTH directions. 0 (default) = only matching components. Strings keep the sign (JSON integers cannot); a positive integer means both directions for backwards compatibility. Note: when used with viewportOnly, values > 0 may include off-screen neighbors of visible components.""
                     },
                     ""viewportOnly"": {
                         ""type"": ""boolean"",
@@ -255,21 +258,21 @@ namespace SmartHopper.Core.Grasshopper.AITools
             // Specialized wrapper: gh_get_selected
             yield return this.CreateGhGetTool(
                 name: "gh_get_selected",
-                description: "Read only the selected components from the Grasshopper canvas. Use this when the user asks about 'selected', 'this', or 'these' components. Accepts the same filters as gh_get (e.g. connectionDepth: 1 to include connected neighbors, includeRuntimeData for computed values). Returns a GhJSON structure.",
+                description: "Read only the selected components from the Grasshopper canvas. Use this when the user asks about 'selected', 'this', or 'these' components. Accepts the same filters as gh_get (e.g. connectionDepth: 1 to include connected neighbors, '-2' for the two upstream parent layers, includeRuntimeData for computed values). Returns a GhJSON structure.",
                 requireGuidFilter: false,
                 execute: (toolCall) => this.GhGetToolAsync(toolCall, predefinedAttrFilters: new[] { "+selected" }));
 
             // Specialized wrapper: gh_get_by_guid
             yield return this.CreateGhGetTool(
                 name: "gh_get_by_guid",
-                description: "Read specific components by their GUIDs. Use this when you have component GUIDs from a previous query. Accepts the same filters as gh_get (e.g. includeRuntimeData for computed values, detail: 'summary' for a compact projection). Returns a GhJSON structure. Example: gh_get_by_guid({ instanceGuids: ['...'], connectionDepth: 1 }).",
+                description: "Read specific components by their GUIDs. Use this when you have component GUIDs from a previous query. Accepts the same filters as gh_get (e.g. includeRuntimeData for computed values, detail: 'summary' for a compact projection). To trace an error's inputs, expand upstream: connectionDepth: '-2'. Returns a GhJSON structure. Example: gh_get_by_guid({ instanceGuids: ['...'], connectionDepth: '-1' }).",
                 requireGuidFilter: true,
                 execute: (toolCall) => this.GhGetToolAsync(toolCall));
 
             // Specialized wrapper: gh_get_errors
             yield return this.CreateGhGetTool(
                 name: "gh_get_errors",
-                description: "Read only components that have error messages. Use this when debugging or when the user asks about errors or broken components. Runtime messages are always included. Accepts the same filters as gh_get (use detail: 'summary' + fields: ['name','messages'] for a compact report). Returns a GhJSON structure. See also: gh_get, gh_report, script_review.",
+                description: "Read only components that have error messages. Use this when debugging or when the user asks about errors or broken components. Runtime messages are always included. Accepts the same filters as gh_get (use detail: 'summary' + fields: ['name','messages'] for a compact report; add connectionDepth: '-2' to also fetch the upstream parents feeding each error). Returns a GhJSON structure. See also: gh_get, gh_report, script_review.",
                 requireGuidFilter: false,
                 execute: (toolCall) => this.GhGetToolAsync(toolCall, predefinedAttrFilters: new[] { "+error" }, forceIncludeMessages: true));
         }
@@ -296,7 +299,43 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var args = toolInfo.GetArgumentsOrEmpty();
 
                 // Parse parameters
-                var connectionDepth = args["connectionDepth"]?.ToObject<int>() ?? 0;
+                // connectionDepth sign convention: "+N" → downstream only, "-N" → upstream
+                // only, unsigned (string or integer) → both directions.
+                var depthToken = args["connectionDepth"];
+                var connectionDepth = 0;
+                var connectionDirection = ConnectionDirection.Both;
+                if (depthToken != null)
+                {
+                    if (depthToken.Type == JTokenType.Integer)
+                    {
+                        connectionDepth = depthToken.ToObject<int>();
+                        if (connectionDepth < 0)
+                        {
+                            connectionDirection = ConnectionDirection.Upstream;
+                            connectionDepth = -connectionDepth;
+                        }
+                    }
+                    else
+                    {
+                        var depthText = (depthToken.ToString() ?? string.Empty).Trim();
+                        if (depthText.StartsWith("+", StringComparison.Ordinal))
+                        {
+                            connectionDirection = ConnectionDirection.Downstream;
+                            depthText = depthText.Substring(1);
+                        }
+                        else if (depthText.StartsWith("-", StringComparison.Ordinal))
+                        {
+                            connectionDirection = ConnectionDirection.Upstream;
+                            depthText = depthText.Substring(1);
+                        }
+
+                        if (!int.TryParse(depthText, out connectionDepth) || connectionDepth < 0)
+                        {
+                            output.CreateError($"Invalid 'connectionDepth' value '{depthToken}'. Expected an integer or a signed depth like '+2' (downstream) or '-2' (upstream).");
+                            return Task.FromResult(output);
+                        }
+                    }
+                }
                 var includeInternalizedData = args["includeInternalizedData"]?.ToObject<bool>() ?? false;
                 var includeRuntimeData = args["includeRuntimeData"]?.ToObject<bool>() ?? false;
 
@@ -377,7 +416,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }
 
-                Debug.WriteLine($"[gh_get] internalized: {includeInternalizedData}, runtime: {includeRuntimeData}, messages: {includeMessages}, depth: {connectionDepth}, metadata: {includeMetadata}, viewportOnly: {viewportOnly}, page: {page}, pageSize: {pageSize}, detail: {detail}");
+                Logger.For<gh_get>().Trace($"[gh_get] includeInternalizedData: {includeInternalizedData}, includeRuntimeData: {includeRuntimeData}, includeMessages: {includeMessages}, connectionDepth: {connectionDepth}, includeMetadata: {includeMetadata}, viewportOnly: {viewportOnly}, page: {page}, pageSize: {pageSize}, detail: {detail}");
 
                 // Build the query using CanvasSelector
                 // Document: active canvas by default, or another open document by documentId
@@ -410,7 +449,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                     else
                     {
-                        Debug.WriteLine("[gh_get] viewportOnly requested but no active canvas viewport available.");
+                        Logger.For<gh_get>().Trace("[gh_get] viewportOnly requested but no active canvas viewport available.");
                         output.AddRuntimeMessage(SHRuntimeMessageSeverity.Warning, SHRuntimeMessageOrigin.Tool, "viewportOnly was requested but no active canvas viewport was available. Returning all components.");
                     }
                 }
@@ -458,7 +497,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Connection depth
                 if (connectionDepth > 0)
                 {
-                    selector.WithConnected(connectionDepth);
+                    selector.WithConnected(connectionDepth, connectionDirection);
                 }
 
                 // Execute the query
@@ -478,7 +517,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         .ToList();
                 }
 
-                Debug.WriteLine($"[gh_get] Query returned {resultObjects.Count} objects");
+                Logger.For<gh_get>().Trace($"[gh_get] Query returned {resultObjects.Count} objects");
 
                 // Serialize the result
                 var serOptions = new SerializationOptions
@@ -533,11 +572,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                     .ToList();
                             }
 
-                            Debug.WriteLine("[gh_get] Applied metadata overrides from file context provider");
+                            Logger.For<gh_get>().Trace("[gh_get] Applied metadata overrides from file context provider");
                         }
                         catch (Exception metaEx)
                         {
-                            Debug.WriteLine($"[gh_get] Error applying file-metadata overrides: {metaEx.Message}");
+                            Logger.For<gh_get>().Error($"[gh_get] Error applying file-metadata overrides: {metaEx.Message}");
                         }
                     }
                 }

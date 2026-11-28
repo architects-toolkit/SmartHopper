@@ -40,13 +40,13 @@ namespace SmartHopper.Components.Output
         private List<bool> _fallback;
 
         public AI2BooleanListComponent()
-            : base("AI to Boolean List", "AI→BoolList", "Generate a list of booleans from AI input. The model is asked to return a JSON array of true/false values; each item is expanded into the output branch.", GH_Exposure.primary)
+            : base("AI to Boolean List", "AI2BoolList", "Call the AI provider on the connected input(s) and return a list of booleans.", GH_Exposure.secondary | GH_Exposure.obscure)
         {
         }
 
         public override Guid ComponentGuid => new Guid("0FDC5C3F-CE47-4C20-9ACC-F0CB8264DA0B");
 
-        protected override Bitmap Icon => Resources.aitoboollist;
+        protected override Bitmap Icon => Resources.AI2BooleanList;
 
         protected override IReadOnlyList<string> UsingAiTools => new[] { "text2text" };
 
@@ -58,7 +58,7 @@ namespace SmartHopper.Components.Output
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBooleanParameter("Fallback", "F", "OPTIONAL fallback list emitted when the AI response cannot be parsed as a JSON array of booleans. If not provided, an empty list is emitted on parse failure.", GH_ParamAccess.list);
+            pManager.AddBooleanParameter("Fallback", "F", "Optional fallback list returned when the AI response cannot be parsed into booleans (leave disconnected to output an empty list when unparsable).", GH_ParamAccess.list);
             pManager[pManager.ParamCount - 1].Optional = true;
         }
 
@@ -120,7 +120,7 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "Boolean List",
                     NickName = "B",
-                    Description = "Parsed list of booleans (one branch entry per JSON array element). Items that fail to parse are skipped. Falls back to the Fallback input when no items are parseable.",
+                    Description = "Extracted list of booleans (falls back to the Fallback input when items cannot be parsed).",
                     ParamType = typeof(Param_Boolean),
                     Access = GH_ParamAccess.tree,
                     Extractor = aiReturn =>
@@ -133,7 +133,7 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "Used Fallback",
                     NickName = "UF",
-                    Description = "True for items where the AI response could not be parsed and the fallback value was used.",
+                    Description = "True for each item where the AI response could not be parsed cleanly and fallback resolution was used.",
                     ParamType = typeof(Param_Boolean),
                     Access = GH_ParamAccess.tree,
                     Extractor = aiReturn =>

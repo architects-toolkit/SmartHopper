@@ -16,6 +16,8 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using SmartHopper.ProviderSdk.Logging;
+
 namespace SmartHopper.ProviderSdk.Hosting
 {
     /// <summary>
@@ -70,13 +72,20 @@ namespace SmartHopper.ProviderSdk.Hosting
         /// <summary>
         /// Logger used by the AIProvider base class and SDK utilities.
         /// </summary>
-        public static IProviderLogger Logger { get; set; } = new DebugProviderLogger();
+        public static ILogger Logger { get; set; } = new DebugLogger();
 
         /// <summary>
         /// HTTP client factory used by the AIProvider base class. The host installs a
         /// pooled factory at startup; tests can swap a mock factory here.
         /// </summary>
         public static IProviderHttpClientFactory HttpClientFactory { get; set; } = new DefaultProviderHttpClientFactory();
+
+        /// <summary>
+        /// Optional interactive "connection required" prompt for provider calls. Only
+        /// interactive hosts register one; headless surfaces (MCP, hosted services)
+        /// leave it <see langword="null"/> so calls fail instead of blocking on UI.
+        /// </summary>
+        public static IProviderConnectionPrompt? ConnectionPrompt { get; set; }
 
         /// <summary>
         /// Factory used by the AIProvider base class to obtain a per-provider settings

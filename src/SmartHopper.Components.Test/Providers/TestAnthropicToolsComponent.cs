@@ -30,6 +30,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AIModels;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Test.Providers
 {
     /// <summary>
@@ -208,8 +209,8 @@ namespace SmartHopper.Components.Test.Providers
                         }
                     }
 
-                    System.Diagnostics.Debug.WriteLine($"[TestAnthropicTools] Found roles: {string.Join(", ", roles)}");
-                    System.Diagnostics.Debug.WriteLine($"[TestAnthropicTools] Tool checks - tool_use: {hasToolUse}, tool_name: {hasToolName}, tool_result_id: {hasToolResultId}");
+                    Logger.For<Worker>().Trace($"[TestAnthropicTools] Found roles: {string.Join(", ", roles)}");
+                    Logger.For<Worker>().Trace($"[TestAnthropicTools] Tool checks - tool_use: {hasToolUse}, tool_name: {hasToolName}, tool_result_id: {hasToolResultId}");
 
                     if (!hasToolUse)
                     {

@@ -33,6 +33,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -60,7 +61,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Generates speech audio from text input. Example: speech_generate({ text: 'The pavilion is 12 meters wide.', voice: 'nova', speed: '1.0' }).",
+                description: "Generates speech audio from text input. Example: speech_generate({ text: 'The pavilion is 12 meters wide.', voice: 'alloy', speed: '1.0' }).",
                 category: "Data.Media",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -71,8 +72,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         },
                         ""voice"": {
                             ""type"": ""string"",
-                            ""description"": ""The voice ID to use (e.g., 'alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer')"",
-                            ""default"": ""nova""
+                            ""description"": ""Optional voice ID (provider-specific, e.g., 'alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer' on OpenAI). Leave empty to use the provider's default voice.""
                         },
                         ""speed"": {
                             ""type"": ""string"",
@@ -88,7 +88,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "audio", "speech", "ai-generation", "read-only", "external" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""audio"": { ""type"": ""string"", ""description"": ""Base64-encoded audio data or URL."" } } }",
                 annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
-                surfaces: AIToolSurface.Direct | AIToolSurface.Batch);
+                surfaces: AIToolSurface.Direct | AIToolSurface.Batch,
+                activityLabel: "generating speech",
+                resultLabel: "generated speech");
         }
 
         /// <summary>
@@ -112,7 +114,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             if (string.IsNullOrEmpty(voice))
             {
-                voice = SmartHopperSettings.Instance.GetSetting("speech_voice", "nova")?.ToString() ?? "nova";
+                voice = SmartHopperSettings.Instance.GetSetting("speech_voice", null)?.ToString();
             }
 
             // Get speed from args, extra settings, or default
@@ -136,17 +138,22 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 provider: toolCall.Provider,
                 model: toolCall.Model,
                 body: requestBody,
-                endpoint: this.toolName,
+                origin: this.toolName,
                 capability: this.toolCapabilityRequirements);
 
-            // Build parameters with extras using the builder pattern
+            // Forward all per-request parameters (sampling, timeout, extras) from the
+            // tool call, then layer the resolved voice/speed extras on top.
             var paramBuilder = AIRequestParameters.Create();
-            if (toolCall.Parameters != null && toolCall.Parameters.Extras != null)
+            if (toolCall.Parameters != null)
             {
-                paramBuilder.WithExtras(toolCall.Parameters.Extras);
+                paramBuilder.WithParameters(toolCall.Parameters);
             }
 
-            paramBuilder.WithExtra("voice", voice);
+            if (!string.IsNullOrWhiteSpace(voice))
+            {
+                paramBuilder.WithExtra("voice", voice);
+            }
+
             paramBuilder.WithExtra("speed", speed);
             request.Parameters = paramBuilder.Build();
             return request;
@@ -166,7 +173,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                Debug.WriteLine("[SpeechTools] Running GenerateSpeech tool");
+                Logger.For<speech_generate>().Trace("[SpeechTools] Running GenerateSpeech tool");
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.GetArgumentsOrEmpty();
@@ -188,10 +195,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Prefer a typed audio interaction produced by TTS-capable providers.
-                var audioInteraction = result.Body?.Interactions?
-                    .OfType<AIInteractionAudio>()
-                    .LastOrDefault(i => i.Agent == AIAgent.Assistant)
-                    ?? result.Body?.Interactions?.OfType<AIInteractionAudio>().LastOrDefault();
+                var audioInteraction = result.Body?.GetLastAssistantAudio();
 
                 VersatileAudio audio;
                 string audioPayload;
@@ -259,7 +263,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[SpeechTools] Error in GenerateSpeech: {ex.Message}");
+                Logger.For<speech_generate>().Exception(ex, $"[SpeechTools] Error in GenerateSpeech: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }

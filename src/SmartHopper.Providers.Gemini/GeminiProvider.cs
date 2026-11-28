@@ -37,6 +37,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Logging;
 
 namespace SmartHopper.Providers.Gemini
 {
@@ -118,55 +119,69 @@ namespace SmartHopper.Providers.Gemini
                     description: "Safety filter level",
                     type: typeof(string),
                     defaultValue: "BLOCK_MEDIUM_AND_ABOVE"),
+                new AIExtraDescriptor(
+                    key: "negative_prompt",
+                    displayName: "Negative Prompt",
+                    description: "Describes what must NOT appear in a generated image. Folded into the request text (generateContent has no dedicated field).",
+                    type: typeof(string),
+                    defaultValue: null),
+                new AIExtraDescriptor(
+                    key: "media_resolution",
+                    displayName: "Media Resolution",
+                    description: "Vision token cost/quality for media inputs on Gemini 3+ models (2.x rejects the field).",
+                    type: typeof(string),
+                    defaultValue: null,
+                    allowedValues: new[] { "low", "medium", "high", "ultra_high" }),
             };
         }
 
         /// <inheritdoc/>
-        public override async Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default)
+        protected override async Task<AIRequestCall> PreCallCoreAsync(AIRequestCall outbound, CancellationToken cancellationToken = default)
         {
-            request = await base.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
-            request.Authentication = "x-goog-api-key";
+            await base.PreCallCoreAsync(outbound, cancellationToken).ConfigureAwait(false);
+            outbound.Authentication = "x-goog-api-key";
 
-            if (string.Equals(request.Endpoint, "/models", StringComparison.Ordinal))
+            if (string.Equals(outbound.Endpoint, "/models", StringComparison.Ordinal))
             {
-                request.HttpMethod = "GET";
-                request.RequestKind = AIRequestKind.Backoffice;
-                return request;
+                outbound.HttpMethod = "GET";
+                outbound.RequestKind = AIRequestKind.Backoffice;
+                return outbound;
             }
 
-            // Preserve real endpoint paths ("/models/...", "/tunedModels/..."). Logical tool or
-            // fallback names (e.g. "speech_generate", "fallback:stt") are not URL paths and must
-            // fall through to capability-based routing below.
-            if (!string.IsNullOrWhiteSpace(request.Endpoint) &&
-                request.Endpoint.StartsWith("/", StringComparison.Ordinal))
+            // Honor explicit wire-path overrides ("/models/...", "/tunedModels/...") — only
+            // Gemini-native API paths may be sent to this API. Any other value falls
+            // through to capability-based routing below.
+            if (!string.IsNullOrWhiteSpace(outbound.Endpoint) &&
+                (outbound.Endpoint.StartsWith("/models/", StringComparison.Ordinal) ||
+                 outbound.Endpoint.StartsWith("/tunedModels/", StringComparison.Ordinal)))
             {
-                request.HttpMethod ??= "POST";
-                request.ContentType ??= "application/json";
-                return request;
+                outbound.HttpMethod ??= "POST";
+                outbound.ContentType ??= "application/json";
+                return outbound;
             }
 
-            if (request.Capability.HasFlag(AICapability.ImageOutput) ||
-                request.Capability.HasFlag(AICapability.SpeechOutput) ||
-                request.Capability.HasFlag(AICapability.AudioOutput))
+            if (outbound.Capability.HasFlag(AICapability.ImageOutput) ||
+                outbound.Capability.HasFlag(AICapability.SpeechOutput) ||
+                outbound.Capability.HasFlag(AICapability.AudioOutput))
             {
                 // Media outputs are single-shot responses; force the non-streaming
                 // generateContent endpoint so the shared JSON pipeline can parse it.
-                request.Endpoint = $"/models/{request.Model}:generateContent";
+                outbound.Endpoint = $"/models/{outbound.Model}:generateContent";
             }
-            else if (request.WantsStreaming && this.GetSetting<bool>("EnableStreaming"))
+            else if (outbound.WantsStreaming && this.GetSetting<bool>("EnableStreaming"))
             {
                 // Only requests that actually stream may use the SSE endpoint; non-streaming
                 // calls go through CallApi which expects a single JSON document.
-                request.Endpoint = $"/models/{request.Model}:streamGenerateContent?alt=sse";
+                outbound.Endpoint = $"/models/{outbound.Model}:streamGenerateContent?alt=sse";
             }
             else
             {
-                request.Endpoint = $"/models/{request.Model}:generateContent";
+                outbound.Endpoint = $"/models/{outbound.Model}:generateContent";
             }
 
-            request.HttpMethod = "POST";
-            request.ContentType = "application/json";
-            return request;
+            outbound.HttpMethod = "POST";
+            outbound.ContentType = "application/json";
+            return outbound;
         }
 
         /// <inheritdoc/>
@@ -234,7 +249,7 @@ namespace SmartHopper.Providers.Gemini
                         "functionResponse", new JObject
                         {
                             { "id", toolResultInteraction.Id ?? string.Empty },
-                            { "name", toolResultInteraction.Name ?? string.Empty },
+                            { "name", toolResultInteraction.Name ?? toolResultInteraction.Id ?? string.Empty },
                             { "response", toolResultInteraction.Result ?? new JObject() },
                         }
                     },
@@ -271,7 +286,12 @@ namespace SmartHopper.Providers.Gemini
             }
             else if (interaction is AIInteractionImage imageInteraction)
             {
-                if (!string.IsNullOrWhiteSpace(imageInteraction.ImageData))
+                // Image generation request: emit the prompt as a text part.
+                if (string.IsNullOrWhiteSpace(imageInteraction.ImageData) && imageInteraction.ImageUrl == null && !string.IsNullOrWhiteSpace(imageInteraction.OriginalPrompt))
+                {
+                    parts.Add(new JObject { { "text", imageInteraction.OriginalPrompt } });
+                }
+                else if (!string.IsNullOrWhiteSpace(imageInteraction.ImageData))
                 {
                     parts.Add(new JObject
                     {
@@ -305,7 +325,7 @@ namespace SmartHopper.Providers.Gemini
                     {
                         // Fallback: add URL as text if fetch fails
                         parts.Add(new JObject { { "text", imageInteraction.ImageUrl.ToString() } });
-                        Debug.WriteLine($"[GeminiProvider] Warning: Failed to fetch image from URL, sending URL as text: {imageInteraction.ImageUrl}");
+                        Logger.For<GeminiProvider>().Warning($"[GeminiProvider] Warning: Failed to fetch image from URL, sending URL as text: {imageInteraction.ImageUrl}");
                     }
                 }
             }
@@ -343,7 +363,7 @@ namespace SmartHopper.Providers.Gemini
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[GeminiProvider] Error reading audio file: {ex.Message}");
+                        Logger.For<GeminiProvider>().Exception(ex, $"[GeminiProvider] Error reading audio file: {ex.Message}");
                     }
                 }
 
@@ -359,12 +379,21 @@ namespace SmartHopper.Providers.Gemini
                             }
                         },
                     });
-                    Debug.WriteLine($"[GeminiProvider] Encoded audio input: {mimeType}");
+                    Logger.For<GeminiProvider>().Trace($"[GeminiProvider] Encoded audio input: {mimeType}");
                 }
             }
 
             if (parts.Count > 0)
             {
+                // Echo back provider-owned continuation data captured at decode time.
+                // Gemini requires thoughtSignature on model parts (especially
+                // functionCall parts) for multi-turn tool calling.
+                var signature = interaction.ProviderData?["thoughtSignature"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(signature) && role == "model" && parts[0] is JObject firstPart)
+                {
+                    firstPart["thoughtSignature"] = signature;
+                }
+
                 return new JObject
                 {
                     { "role", role },
@@ -407,6 +436,15 @@ namespace SmartHopper.Providers.Gemini
                     };
                 }
 
+                // Provider extra: negative_prompt expresses what must NOT appear in the
+                // generated image. The generateContent imageConfig contract has no dedicated
+                // negative-prompt field, so it is folded into the request's text content.
+                var negativePrompt = request.Parameters?.Extras != null &&
+                    request.Parameters.Extras.TryGetValue("negative_prompt", out var npToken) &&
+                    npToken != null
+                        ? npToken.ToString()
+                        : null;
+
                 foreach (var interaction in interactions)
                 {
                     // EncodeToJToken returns null for System/Context (handled above as system_instruction)
@@ -414,6 +452,14 @@ namespace SmartHopper.Providers.Gemini
                     var content = this.EncodeToJToken(interaction);
                     if (content != null)
                     {
+                        if (!string.IsNullOrWhiteSpace(negativePrompt) &&
+                            interaction is AIInteractionImage img &&
+                            string.IsNullOrWhiteSpace(img.ImageData) && img.ImageUrl == null &&
+                            content["parts"] is JArray encodedParts)
+                        {
+                            encodedParts.Add(new JObject { { "text", $"Do not include: {negativePrompt}" } });
+                        }
+
                         contents.Add(content);
                     }
                 }
@@ -423,9 +469,11 @@ namespace SmartHopper.Providers.Gemini
 
             var generationConfig = new JObject();
 
-            if (request.Parameters?.MaxTokens > 0)
+            // 0 means unlimited: omit the cap and let the API run to the model limit
+            int maxTokens = request.Parameters?.MaxTokens ?? this.GetSetting<int>("MaxTokens");
+            if (maxTokens > 0)
             {
-                generationConfig["maxOutputTokens"] = request.Parameters.MaxTokens;
+                generationConfig["maxOutputTokens"] = maxTokens;
             }
 
             var temperature = request.Parameters?.Temperature;
@@ -471,25 +519,30 @@ namespace SmartHopper.Providers.Gemini
 
                 generationConfig["responseModalities"] = modalities;
 
-                // Extract image configuration from the image generation request interaction
+                // Extract image configuration from the image generation request interaction.
+                // The shared size/aspect-ratio concepts are normalized to Gemini's imageConfig
+                // vocabulary (aspectRatio as "W:H", imageSize as "1K"/"2K"/"4K" tier).
                 var imageInteraction = request.Body.Interactions.FirstOrDefault(i => i is AIInteractionImage) as AIInteractionImage;
                 if (imageInteraction != null)
                 {
                     var imageConfig = new JObject();
-                    if (!string.IsNullOrWhiteSpace(imageInteraction.AspectRatio))
+
+                    var geminiRatio = ToGeminiAspectRatio(imageInteraction.AspectRatio, imageInteraction.ImageSize);
+                    if (!string.IsNullOrWhiteSpace(geminiRatio))
                     {
-                        imageConfig["aspectRatio"] = imageInteraction.AspectRatio;
+                        imageConfig["aspectRatio"] = geminiRatio;
                     }
 
-                    if (!string.IsNullOrWhiteSpace(imageInteraction.ImageSize))
+                    var geminiSize = ToGeminiImageSize(imageInteraction.ImageSize);
+                    if (!string.IsNullOrWhiteSpace(geminiSize))
                     {
-                        imageConfig["imageSize"] = imageInteraction.ImageSize;
+                        imageConfig["imageSize"] = geminiSize;
                     }
 
                     if (imageConfig.Count > 0)
                     {
                         generationConfig["imageConfig"] = imageConfig;
-                        Debug.WriteLine($"[GeminiProvider] Image config: aspectRatio={imageInteraction.AspectRatio}, imageSize={imageInteraction.ImageSize}");
+                        Logger.For<GeminiProvider>().Trace($"[GeminiProvider] Image config: {imageConfig}");
                     }
                 }
             }
@@ -539,6 +592,24 @@ namespace SmartHopper.Providers.Gemini
             this.ApplyThinkingConfig(generationConfig, request);
             this.ApplySamplingParams(generationConfig, request);
 
+            // Provider extra: media_resolution controls vision token cost/quality for
+            // media inputs. Gemini 2.x models reject the field with HTTP 400
+            // ("MediaResolution is not supported"), so it is only emitted for the
+            // Gemini 3+ family. Accepts "low"/"medium"/"high"/"ultra_high" (with or
+            // without the MEDIA_RESOLUTION_ prefix); emitted as the API's enum spelling.
+            if (this.IsGemini3OrLaterModel(request.Model) &&
+                request.Parameters?.Extras != null &&
+                request.Parameters.Extras.TryGetValue("media_resolution", out var mrToken) && mrToken != null)
+            {
+                var resolution = mrToken.ToString().Trim().ToUpperInvariant();
+                if (!resolution.StartsWith("MEDIA_RESOLUTION_", StringComparison.Ordinal))
+                {
+                    resolution = "MEDIA_RESOLUTION_" + resolution;
+                }
+
+                generationConfig["mediaResolution"] = resolution;
+            }
+
             if (generationConfig.Count > 0)
             {
                 jObject["generationConfig"] = generationConfig;
@@ -565,7 +636,7 @@ namespace SmartHopper.Providers.Gemini
                                 ["allowedFunctionNames"] = new JArray { request.ForceToolName }
                             }
                         };
-                        Debug.WriteLine($"[Gemini] Forcing tool call: {request.ForceToolName}");
+                        Logger.For<GeminiProvider>().Trace($"[Gemini] Forcing tool call: {request.ForceToolName}");
                     }
                     else
                     {
@@ -588,23 +659,24 @@ namespace SmartHopper.Providers.Gemini
 
         private void ApplyThinkingConfig(JObject generationConfig, AIRequestCall request)
         {
-            if (request.Parameters?.Extras == null || !request.Parameters.Extras.TryGetValue("thinking_level", out var thinkingValue))
+            // Priority: 1) 'thinking_level' extra per-request, 2) global provider setting
+            var thinkingStr = request.Parameters?.Extras != null &&
+                              request.Parameters.Extras.TryGetValue("thinking_level", out var thinkingValue) &&
+                              thinkingValue != null
+                              ? thinkingValue.ToString()
+                              : this.GetSetting<string>("ThinkingLevel");
+
+            if (string.IsNullOrWhiteSpace(thinkingStr))
             {
                 return;
             }
 
-            if (thinkingValue == null || string.IsNullOrWhiteSpace(thinkingValue.ToString()))
-            {
-                return;
-            }
-
-            var thinkingStr = thinkingValue.ToString();
             var thinkingConfig = new JObject();
 
             // Enable thought summaries to be returned in the response
             thinkingConfig["includeThoughts"] = true;
 
-            if (this.IsGemini3Model(request.Model))
+            if (this.IsGemini3OrLaterModel(request.Model))
             {
                 thinkingConfig["thinkingLevel"] = thinkingStr;
             }
@@ -689,12 +761,33 @@ namespace SmartHopper.Providers.Gemini
                               ? tierValue.ToString()
                               : this.GetSetting<string>("ServiceTier");
 
-            // Only add to request if explicitly set (not empty and not "standard")
-            if (!string.IsNullOrWhiteSpace(serviceTier) &&
-                !string.Equals(serviceTier, "standard", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(serviceTier))
             {
-                jObject["service_tier"] = serviceTier.ToUpperInvariant();
-                Debug.WriteLine($"[GeminiProvider] Using service tier: {serviceTier}");
+                return;
+            }
+
+            // Normalize to the wire value: the v1beta serviceTier enum takes
+            // lowercase spellings (flex/priority/standard/unspecified) — tolerate
+            // prefixed enum forms (SERVICE_TIER_*, TIER_*) and any casing.
+            var normalized = serviceTier;
+            foreach (var prefix in new[] { "SERVICE_TIER_", "TIER_" })
+            {
+                if (normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    normalized = normalized.Substring(prefix.Length);
+                    break;
+                }
+            }
+
+            normalized = normalized.ToLowerInvariant();
+
+            // Only add to request if explicitly set (not empty and not the API default)
+            if (!string.IsNullOrWhiteSpace(normalized) &&
+                !string.Equals(normalized, "standard", StringComparison.Ordinal) &&
+                !string.Equals(normalized, "unspecified", StringComparison.Ordinal))
+            {
+                jObject["serviceTier"] = normalized;
+                Logger.For<GeminiProvider>().Trace($"[GeminiProvider] Using service tier: {normalized}");
             }
         }
 
@@ -744,9 +837,14 @@ namespace SmartHopper.Providers.Gemini
             schema["propertyOrdering"] = ordering;
         }
 
-        private bool IsGemini3Model(string model)
+        /// <summary>
+        /// True for the Gemini 3+ model family (gemini-3.x, gemini-4.x, and later
+        /// numeric majors). Used to gate fields the 2.x generation rejects with
+        /// HTTP 400, such as <c>generationConfig.mediaResolution</c>.
+        /// </summary>
+        private bool IsGemini3OrLaterModel(string model)
         {
-            return !string.IsNullOrWhiteSpace(model) && Regex.IsMatch(model, @"^gemini-3", RegexOptions.IgnoreCase);
+            return !string.IsNullOrWhiteSpace(model) && Regex.IsMatch(model, @"^gemini-[3-9]|^gemini-\d{2,}", RegexOptions.IgnoreCase);
         }
 
         private bool IsGemini25Model(string model)
@@ -757,6 +855,47 @@ namespace SmartHopper.Providers.Gemini
         private bool IsGemini20Model(string model)
         {
             return !string.IsNullOrWhiteSpace(model) && Regex.IsMatch(model, @"^gemini-2\.0", RegexOptions.IgnoreCase);
+        }
+
+        /// <summary>Aspect ratios accepted by Gemini <c>imageConfig.aspectRatio</c>.</summary>
+        private static readonly string[] GeminiImageAspectRatios =
+        {
+            "1:1", "3:2", "2:3", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9",
+        };
+
+        /// <summary>
+        /// Maps the shared size input to a Gemini <c>imageConfig.imageSize</c> tier
+        /// (<c>1K</c>/<c>2K</c>/<c>4K</c>) by largest dimension; tier names pass through.
+        /// </summary>
+        private static string ToGeminiImageSize(string size)
+        {
+            var max = ImageGenerationSpec.ResolveMaxDimension(size);
+            if (max == null)
+            {
+                return null;
+            }
+
+            return max <= 1536 ? "1K" : max <= 3072 ? "2K" : "4K";
+        }
+
+        /// <summary>
+        /// Maps the shared size/aspect-ratio inputs to a Gemini <c>imageConfig.aspectRatio</c>
+        /// value, snapping unsupported ratios to the closest supported one.
+        /// </summary>
+        private static string ToGeminiAspectRatio(string aspectRatio, string size)
+        {
+            var ratio = ImageGenerationSpec.ResolveAspectRatio(aspectRatio, size);
+            if (ratio == null)
+            {
+                return null;
+            }
+
+            if (Array.IndexOf(GeminiImageAspectRatios, ratio) >= 0)
+            {
+                return ratio;
+            }
+
+            return ImageGenerationSpec.SnapToClosestRatio(ratio, GeminiImageAspectRatios);
         }
 
         private JArray GetFormattedTools(string toolFilter, SmartHopper.ProviderSdk.Hosting.AIToolSurface surface)
@@ -778,21 +917,32 @@ namespace SmartHopper.Providers.Gemini
                         continue;
                     }
 
+                    // Tool schemas are canonical JSON Schema (draft-07+): e.g. "type" may be a
+                    // string array. Gemini's `parameters` field maps to its restricted Schema
+                    // proto and rejects those shapes; `parametersJsonSchema` is the documented
+                    // full-JSON-Schema field and is mutually exclusive with `parameters`.
+                    var parameters = function["parameters"] as JObject ?? new JObject();
+                    if (parameters["type"] == null)
+                    {
+                        parameters = (JObject)parameters.DeepClone();
+                        parameters["type"] = "object";
+                    }
+
                     declarations.Add(new JObject
                     {
                         { "name", function["name"]?.ToString() ?? string.Empty },
                         { "description", function["description"]?.ToString() ?? string.Empty },
-                        { "parameters", function["parameters"] as JObject ?? new JObject { { "type", "object" } } },
+                        { "parametersJsonSchema", parameters },
                     });
                 }
 
-                Debug.WriteLine($"[GetFormattedTools] {declarations.Count} Gemini tools formatted");
+                Logger.For<GeminiProvider>().Trace($"[GetFormattedTools] {declarations.Count} Gemini tools formatted");
 
                 return declarations;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error formatting tools: {ex.Message}");
+                Logger.For<GeminiProvider>().Exception(ex, $"Error formatting tools: {ex.Message}");
                 return null;
             }
         }
@@ -823,7 +973,7 @@ namespace SmartHopper.Providers.Gemini
         {
             try
             {
-                Debug.WriteLine($"[GeminiProvider] Fetching image from URL: {imageUrl}");
+                Logger.For<GeminiProvider>().Error($"[GeminiProvider] Fetching image from URL: {imageUrl}");
 
                 using var cts = new System.Threading.CancellationTokenSource(
                     TimeSpan.FromSeconds(TimeoutDefaults.DefaultTimeoutSeconds));
@@ -836,14 +986,14 @@ namespace SmartHopper.Providers.Gemini
                 if (response.Content.Headers.ContentLength is long contentLength &&
                     contentLength > MaxInlineImageBytes)
                 {
-                    Debug.WriteLine($"[GeminiProvider] Image at {imageUrl} exceeds {MaxInlineImageBytes} bytes (Content-Length={contentLength}); skipping inline.");
+                    Logger.For<GeminiProvider>().Error($"[GeminiProvider] Image at {imageUrl} exceeds {MaxInlineImageBytes} bytes (Content-Length={contentLength}); skipping inline.");
                     return (string.Empty, "image/png");
                 }
 
                 byte[] imageBytes = response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
                 if (imageBytes.LongLength > MaxInlineImageBytes)
                 {
-                    Debug.WriteLine($"[GeminiProvider] Image at {imageUrl} exceeds {MaxInlineImageBytes} bytes after download ({imageBytes.LongLength}); skipping inline.");
+                    Logger.For<GeminiProvider>().Error($"[GeminiProvider] Image at {imageUrl} exceeds {MaxInlineImageBytes} bytes after download ({imageBytes.LongLength}); skipping inline.");
                     return (string.Empty, "image/png");
                 }
 
@@ -855,18 +1005,18 @@ namespace SmartHopper.Providers.Gemini
 
                 string base64Data = Convert.ToBase64String(imageBytes);
 
-                Debug.WriteLine($"[GeminiProvider] Successfully fetched image: {imageBytes.Length} bytes, MIME type: {mimeType}");
+                Logger.For<GeminiProvider>().Trace($"[GeminiProvider] Successfully fetched image: {imageBytes.Length} bytes, MIME type: {mimeType}");
 
                 return (base64Data, mimeType);
             }
             catch (OperationCanceledException)
             {
-                Debug.WriteLine($"[GeminiProvider] Timed out fetching image from URL {imageUrl} after {TimeoutDefaults.DefaultTimeoutSeconds}s");
+                Logger.For<GeminiProvider>().Error($"[GeminiProvider] Timed out fetching image from URL {imageUrl} after {TimeoutDefaults.DefaultTimeoutSeconds}s");
                 return (string.Empty, "image/png");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[GeminiProvider] Error fetching image from URL {imageUrl}: {ex.Message}");
+                Logger.For<GeminiProvider>().Exception(ex, $"[GeminiProvider] Error fetching image from URL {imageUrl}: {ex.Message}");
                 return (string.Empty, "image/png");
             }
         }

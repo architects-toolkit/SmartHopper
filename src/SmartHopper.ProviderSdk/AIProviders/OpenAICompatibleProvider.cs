@@ -17,6 +17,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -28,7 +29,8 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.JsonSchemas;
 using SmartHopper.ProviderSdk.AICall.Metrics;
-
+using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.ProviderSdk.AIProviders
 {
     /// <summary>Base class for providers speaking the OpenAI Chat Completions / Responses wire format.</summary>
@@ -62,7 +64,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
                     ["type"] = "function",
                     ["function"] = new JObject { ["name"] = request.ForceToolName, },
                 };
-                Debug.WriteLine($"[{logPrefix}] Forcing tool call: {request.ForceToolName}");
+                Logger.For<OpenAICompatibleProvider<T>>().Trace($"[{logPrefix}] Forcing tool call: {request.ForceToolName}");
             }
             else
             {
@@ -71,12 +73,20 @@ namespace SmartHopper.ProviderSdk.AIProviders
         }
 
         /// <summary>
-        /// Decodes token usage fields shared by OpenAI-compatible APIs.
-        /// OpenAI-compatible APIs report reasoning tokens as a breakdown of completion/output
-        /// tokens, so generation tokens are returned net of reasoning tokens.
+        /// Decodes usage fields shared by OpenAI-compatible APIs into
+        /// <see cref="AIQuantityKey"/> quantities. Reasoning tokens are a
+        /// breakdown of completion tokens, so generation tokens come out net;
+        /// modality token details (<c>audio_tokens</c>, <c>image_tokens</c>)
+        /// are recorded under their own kind AND subtracted from the text
+        /// bucket so overlapping buckets never double-bill. Transcription
+        /// endpoints report durations (<c>prompt_audio_seconds</c>,
+        /// <c>seconds</c>, <c>duration</c>) — recorded as
+        /// <c>audio_input/second</c>; the catalogue entry declares whether the
+        /// model bills per minute or per token. A provider-stamped
+        /// <c>usage.cost</c> rides <see cref="AIMetrics.ReportedCosts"/> (USD).
         /// </summary>
         /// <param name="response">The provider response.</param>
-        /// <returns>Normalized token usage and finish reason metrics, with generation tokens net of reasoning tokens.</returns>
+        /// <returns>Normalized usage and finish reason metrics.</returns>
         protected internal AIMetrics DecodeOpenAICompatibleMetrics(JObject response)
         {
             if (response == null)
@@ -87,38 +97,116 @@ namespace SmartHopper.ProviderSdk.AIProviders
             try
             {
                 var usage = response["usage"] as JObject;
-                var totalPromptTokens = usage?["prompt_tokens"]?.Value<int>()
-                    ?? usage?["input_tokens"]?.Value<int>()
+                var quantities = new Dictionary<string, double>(StringComparer.Ordinal);
+
+                // Null-tolerant reads: providers occasionally return explicit JSON nulls for
+                // usage counters (e.g. batch result items), and Value<int>() on a null token
+                // throws — a single null field would otherwise abort the whole decode.
+                var totalPromptTokens = IntOrNull(usage?["prompt_tokens"])
+                    ?? IntOrNull(usage?["input_tokens"])
                     ?? 0;
+                var totalOutputTokens = IntOrNull(usage?["completion_tokens"])
+                    ?? IntOrNull(usage?["output_tokens"])
+                    ?? 0;
+
                 var promptDetails = usage?["prompt_tokens_details"] as JObject;
                 var inputDetails = usage?["input_tokens_details"] as JObject;
-                var inputTokensCached = promptDetails?["cached_tokens"]?.Value<int>()
-                    ?? inputDetails?["cached_tokens"]?.Value<int>()
-                    ?? 0;
-                var totalOutputTokens = usage?["completion_tokens"]?.Value<int>()
-                    ?? usage?["output_tokens"]?.Value<int>()
-                    ?? 0;
                 var completionDetails = usage?["completion_tokens_details"] as JObject;
                 var outputDetails = usage?["output_tokens_details"] as JObject;
-                var outputTokensReasoning = completionDetails?["reasoning_tokens"]?.Value<int>()
-                    ?? outputDetails?["reasoning_tokens"]?.Value<int>()
+
+                var inputTokensCached = IntOrNull(promptDetails?["cached_tokens"])
+                    ?? IntOrNull(inputDetails?["cached_tokens"])
                     ?? 0;
-                var choices = response["choices"] as JArray;
-                var firstChoice = choices?.FirstOrDefault() as JObject;
+                var outputTokensReasoning = IntOrNull(completionDetails?["reasoning_tokens"])
+                    ?? IntOrNull(outputDetails?["reasoning_tokens"])
+                    ?? 0;
+
+                // Modality token detail subsets — every documented spelling.
+                var audioInputTokens = ModalityTokens(promptDetails, inputDetails, "audio_tokens", "audio_input_tokens");
+                var imageInputTokens = ModalityTokens(promptDetails, inputDetails, "image_tokens", "image_input_tokens");
+                var audioOutputTokens = ModalityTokens(completionDetails, outputDetails, "audio_tokens", "audio_output_tokens");
+                var imageOutputTokens = ModalityTokens(completionDetails, outputDetails, "image_tokens", "image_output_tokens");
+
+                // Duration-reported audio input (transcription endpoints).
+                var audioInputSeconds = DoubleOrNull(usage?["prompt_audio_seconds"])
+                    ?? DoubleOrNull(usage?["seconds"])
+                    ?? DoubleOrNull(usage?["duration"])
+                    ?? 0d;
+
+                SetQuantity(quantities, AIQuantityKey.CacheRead, AIPriceUnit.Token, inputTokensCached);
+                SetQuantity(quantities, AIQuantityKey.TextInput, AIPriceUnit.Token,
+                    Math.Max(0, totalPromptTokens - inputTokensCached - audioInputTokens - imageInputTokens));
+                SetQuantity(quantities, AIQuantityKey.InternalReasoning, AIPriceUnit.Token, outputTokensReasoning);
+                SetQuantity(quantities, AIQuantityKey.TextOutput, AIPriceUnit.Token,
+                    Math.Max(0, totalOutputTokens - outputTokensReasoning - audioOutputTokens - imageOutputTokens));
+                SetQuantity(quantities, AIQuantityKey.AudioInput, AIPriceUnit.Token, audioInputTokens);
+                SetQuantity(quantities, AIQuantityKey.ImageInput, AIPriceUnit.Token, imageInputTokens);
+                SetQuantity(quantities, AIQuantityKey.AudioOutput, AIPriceUnit.Token, audioOutputTokens);
+                SetQuantity(quantities, AIQuantityKey.ImageOutput, AIPriceUnit.Token, imageOutputTokens);
+                SetQuantity(quantities, AIQuantityKey.AudioInput, AIPriceUnit.Second, audioInputSeconds);
+
+                IReadOnlyDictionary<string, decimal> reportedCosts = null;
+                var usageCost = DecimalOrNull(usage?["cost"]);
+                if (usageCost.HasValue && usageCost.Value > 0m)
+                {
+                    // OpenRouter-style billed cost; OpenAI-compatible feeds are USD.
+                    reportedCosts = new Dictionary<string, decimal>(StringComparer.Ordinal)
+                    {
+                        ["USD"] = usageCost.Value,
+                    };
+                }
 
                 return new AIMetrics
                 {
-                    InputTokensCached = inputTokensCached,
-                    InputTokensPrompt = totalPromptTokens - inputTokensCached,
-                    OutputTokensGeneration = Math.Max(0, totalOutputTokens - outputTokensReasoning),
-                    OutputTokensReasoning = outputTokensReasoning,
-                    FinishReason = firstChoice?["finish_reason"]?.ToString(),
+                    Quantities = quantities,
+                    ReportedCosts = reportedCosts,
+                    FinishReason = AIFinishReason.FromOpenAIResponse(response),
                 };
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.Name}] DecodeOpenAICompatibleMetrics error: {ex.Message}");
+                Logger.For<OpenAICompatibleProvider<T>>().Exception(ex, $"[{this.Name}] DecodeOpenAICompatibleMetrics error: {ex.Message}");
                 return new AIMetrics();
+            }
+        }
+
+        /// <summary>Returns the integer value of a token, or <c>null</c> when the token is
+        /// missing or an explicit JSON null. Other non-numeric tokens still throw so
+        /// genuinely malformed responses surface through the decode error path.</summary>
+        private static int? IntOrNull(JToken? token)
+            => token == null || token.Type == JTokenType.Null ? null : token.Value<int>();
+
+        /// <summary>Null-tolerant variant of <see cref="IntOrNull"/> for double values.</summary>
+        private static double? DoubleOrNull(JToken? token)
+            => token == null || token.Type == JTokenType.Null ? null : token.Value<double>();
+
+        /// <summary>Null-tolerant variant of <see cref="IntOrNull"/> for decimal values.</summary>
+        private static decimal? DecimalOrNull(JToken? token)
+            => token == null || token.Type == JTokenType.Null ? null : token.Value<decimal>();
+
+        /// <summary>Sums a modality token count across the two detail objects and their spellings.</summary>
+        private static int ModalityTokens(JObject? primary, JObject? secondary, params string[] fields)
+        {
+            var total = 0;
+            foreach (var field in fields)
+            {
+                total = IntOrNull(primary?[field])
+                    ?? IntOrNull(secondary?[field])
+                    ?? total;
+                if (total > 0)
+                {
+                    break;
+                }
+            }
+
+            return total;
+        }
+
+        private static void SetQuantity(Dictionary<string, double> quantities, string kind, AIPriceUnit unit, double value)
+        {
+            if (value != 0d)
+            {
+                quantities[AIQuantityKey.Key(kind, unit)] = value;
             }
         }
 
@@ -306,7 +394,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.Name}] Failed to parse/handle JSON schema: {ex.Message}");
+                Logger.For<OpenAICompatibleProvider<T>>().Exception(ex, $"[{this.Name}] Failed to parse/handle JSON schema: {ex.Message}");
                 service.SetCurrentWrapperInfo(wrapperInfo);
                 return false;
             }

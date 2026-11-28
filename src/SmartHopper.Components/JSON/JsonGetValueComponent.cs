@@ -35,10 +35,10 @@ namespace SmartHopper.Components.JSON
         public override Guid ComponentGuid => new Guid("703A62A1-CDEA-4BFE-AA26-B6DF3F04D0C0");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.jsonitem;
+        protected override Bitmap Icon => Resources.JsonGetValue;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonGetValueComponent"/> class.
@@ -47,23 +47,23 @@ namespace SmartHopper.Components.JSON
             : base(
                 "JSON Get Value",
                 "JsonGetValue",
-                "Extract a nested value from a JSON object using dot-notation path.\nExample: \"address.city\" extracts the city from the address object.",
+                "Extract a value from a JSON object or array using a dot- or bracket-notation path (e.g., 'address.city' or 'items[0].name').",
                 "SmartHopper",
-                "JSON")
+                "H. JSON")
         {
         }
 
         /// <inheritdoc/>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("JSON", "J", "JSON string (object or array)", GH_ParamAccess.item);
-            pManager.AddTextParameter("Path", "P", "Dot-notation path to the value (e.g. \"address.city\")", GH_ParamAccess.item);
+            pManager.AddTextParameter("JSON", "J", "JSON object or array string to query.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Path", "P", "Dot- or bracket-notation path to the target value (e.g., 'address.city', 'results[0].name').", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Value", "V", "Extracted value as a string. JSON strings have outer quotes stripped; objects/arrays are compact JSON.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Value", "V", "Extracted value as a string (outer quotes are removed from strings; objects and arrays are returned as compact JSON).", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>

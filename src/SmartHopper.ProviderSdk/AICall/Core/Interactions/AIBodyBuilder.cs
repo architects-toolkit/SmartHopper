@@ -25,6 +25,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AICall.Utilities;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
 {
     /// <summary>
@@ -72,7 +73,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
             {
                 try
                 {
-                    Debug.WriteLine($"[AIBodyBuilder.FromImmutable] input: interactions={body.InteractionsCount}, new={body.InteractionsNew?.Count ?? 0} [{string.Join(",", body.InteractionsNew ?? new List<int>())}]");
+                    Logger.For<AIBodyBuilder>().Trace($"[AIBodyBuilder.FromImmutable] input: interactions={body.InteractionsCount}, new={body.InteractionsNew?.Count ?? 0} [{string.Join(",", body.InteractionsNew ?? new List<int>())}]");
                 }
                 catch
                 {
@@ -96,7 +97,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
 
                 try
                 {
-                    Debug.WriteLine($"[AIBodyBuilder.FromImmutable] preserved new markers: {string.Join(",", b.interactionsNew)}");
+                    Logger.For<AIBodyBuilder>().Trace($"[AIBodyBuilder.FromImmutable] preserved new markers: {string.Join(",", b.interactionsNew)}");
                 }
                 catch
                 {
@@ -219,7 +220,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                         contentPreview = contentPreview.Substring(0, 50) + "...";
                     }
 
-                    Debug.WriteLine($"[AIBodyBuilder.Add] idx={this.interactions.Count - 1}, type={interaction.GetType().Name}, agent={interaction.Agent.ToString()}, content={contentPreview}, new={(markAsNew ? 1 : 0)}");
+                    Logger.For<AIBodyBuilder>().Trace($"[AIBodyBuilder.Add] idx={this.interactions.Count - 1}, type={interaction.GetType().Name}, agent={interaction.Agent.ToString()}, content={contentPreview}, new={(markAsNew ? 1 : 0)}");
                 }
                 catch
                 {
@@ -359,14 +360,12 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         /// Adds an image generation request interaction.
         /// </summary>
         /// <param name="prompt">Prompt describing the desired image.</param>
-        /// <param name="size">Optional size (provider-specific).</param>
-        /// <param name="quality">Optional quality (provider-specific).</param>
-        /// <param name="style">Optional style (provider-specific).</param>
-        /// <param name="aspectRatio">Optional aspect ratio (provider-specific, e.g., "1:1", "16:9").</param>
+        /// <param name="size">Optional target resolution (provider-agnostic: "1024x1024", "1K", "2K", "4K").</param>
+        /// <param name="aspectRatio">Optional aspect ratio as "W:H" (e.g., "1:1", "16:9").</param>
         /// <returns>The same builder instance.</returns>
-        public AIBodyBuilder AddImageRequest(string prompt, string size = null, string quality = null, string style = null, string aspectRatio = null)
+        public AIBodyBuilder AddImageRequest(string prompt, string size = null, string aspectRatio = null)
         {
-            var img = new AIInteractionImage { Agent = AIAgent.User }.WithRequest(prompt, size, quality, style, aspectRatio);
+            var img = new AIInteractionImage { Agent = AIAgent.User }.WithRequest(prompt, size, aspectRatio);
             return this.Add(img, this.defaultMarkAsNew);
         }
 
@@ -375,14 +374,12 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         /// </summary>
         /// <param name="prompt">Prompt describing the desired image.</param>
         /// <param name="markAsNew">Whether to mark the interaction as new.</param>
-        /// <param name="size">Optional size (provider-specific).</param>
-        /// <param name="quality">Optional quality (provider-specific).</param>
-        /// <param name="style">Optional style (provider-specific).</param>
-        /// <param name="aspectRatio">Optional aspect ratio (provider-specific, e.g., "1:1", "16:9").</param>
+        /// <param name="size">Optional target resolution (provider-agnostic: "1024x1024", "1K", "2K", "4K").</param>
+        /// <param name="aspectRatio">Optional aspect ratio as "W:H" (e.g., "1:1", "16:9").</param>
         /// <returns>The same builder instance for fluent chaining.</returns>
-        public AIBodyBuilder AddImageRequest(string prompt, bool markAsNew, string size = null, string quality = null, string style = null, string aspectRatio = null)
+        public AIBodyBuilder AddImageRequest(string prompt, bool markAsNew, string size = null, string aspectRatio = null)
         {
-            var img = new AIInteractionImage { Agent = AIAgent.User }.WithRequest(prompt, size, quality, style, aspectRatio);
+            var img = new AIInteractionImage { Agent = AIAgent.User }.WithRequest(prompt, size, aspectRatio);
             return this.Add(img, markAsNew);
         }
 
@@ -656,7 +653,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
 
             try
             {
-                Debug.WriteLine($"[AIBodyBuilder.ReplaceLast] idx={idx}, type={interaction.GetType().Name}, agent={interaction.Agent.ToString()}, content={(interaction is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(markAsNew ? 1 : 0)}");
+                Logger.For<AIBodyBuilder>().Trace($"[AIBodyBuilder.ReplaceLast] idx={idx}, type={interaction.GetType().Name}, agent={interaction.Agent.ToString()}, content={(interaction is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(markAsNew ? 1 : 0)}");
             }
             catch
             {
@@ -728,7 +725,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                     try
                     {
                         var it = items[i];
-                        Debug.WriteLine($"[AIBodyBuilder.ReplaceLastRange(reset,flag)] idx={i}, type={it.GetType().Name}, agent={it.Agent.ToString()}, content={(it is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(markAsNew ? 1 : 0)}");
+                        Logger.For<AIBodyBuilder>().Trace($"[AIBodyBuilder.ReplaceLastRange(reset,flag)] idx={i}, type={it.GetType().Name}, agent={it.Agent.ToString()}, content={(it is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(markAsNew ? 1 : 0)}");
                     }
                     catch
                     {
@@ -751,7 +748,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                     try
                     {
                         var it = items[i];
-                        Debug.WriteLine($"[AIBodyBuilder.ReplaceLastRange(slice,flag)] idx={startIndex + i}, type={it.GetType().Name}, agent={it.Agent.ToString()}, content={(it is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(markAsNew ? 1 : 0)}");
+                        Logger.For<AIBodyBuilder>().Trace($"[AIBodyBuilder.ReplaceLastRange(slice,flag)] idx={startIndex + i}, type={it.GetType().Name}, agent={it.Agent.ToString()}, content={(it is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(markAsNew ? 1 : 0)}");
                     }
                     catch
                     {
@@ -799,7 +796,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                     try
                     {
                         var it = items[i].interaction;
-                        Debug.WriteLine($"[AIBodyBuilder.ReplaceLastRange(reset,mixed)] idx={i}, type={it.GetType().Name}, agent={it.Agent.ToString()}, content={(it is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(items[i].isNew ? 1 : 0)}");
+                        Logger.For<AIBodyBuilder>().Trace($"[AIBodyBuilder.ReplaceLastRange(reset,mixed)] idx={i}, type={it.GetType().Name}, agent={it.Agent.ToString()}, content={(it is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(items[i].isNew ? 1 : 0)}");
                     }
                     catch
                     {
@@ -822,7 +819,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                     try
                     {
                         var it = items[i].interaction;
-                        Debug.WriteLine($"[AIBodyBuilder.ReplaceLastRange(slice,mixed)] idx={startIndex + i}, type={it.GetType().Name}, agent={it.Agent.ToString()}, content={(it is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(items[i].isNew ? 1 : 0)}");
+                        Logger.For<AIBodyBuilder>().Trace($"[AIBodyBuilder.ReplaceLastRange(slice,mixed)] idx={startIndex + i}, type={it.GetType().Name}, agent={it.Agent.ToString()}, content={(it is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(items[i].isNew ? 1 : 0)}");
                     }
                     catch
                     {
@@ -854,13 +851,18 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                 return this;
             }
 
-            var metrics = (last.Metrics ?? new AIMetrics()) with { CompletionTime = completionTime };
+            var existing = last.Metrics ?? new AIMetrics();
+            var metrics = existing with
+            {
+                CompletionTime = completionTime,
+                CompletedAt = existing.CompletedAt ?? DateTimeOffset.UtcNow,
+            };
             var updated = last.WithMetrics(metrics);
             this.interactions[this.interactions.Count - 1] = updated;
 
             try
             {
-                Debug.WriteLine($"[AIBodyBuilder.SetCompletionTime] interactions={this.interactions.Count}, new={string.Join(",", this.interactionsNew)} completionTime={completionTime:F3}");
+                Logger.For<AIBodyBuilder>().Trace($"[AIBodyBuilder.SetCompletionTime] interactions={this.interactions.Count}, new={string.Join(",", this.interactionsNew)} completionTime={completionTime:F3}");
             }
             catch
             {
@@ -954,7 +956,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
 
             try
             {
-                Debug.WriteLine($"[AIBodyBuilder.Build] building body: interactions={snapshot.Length}, new={string.Join(",", newIndices)}");
+                Logger.For<AIBodyBuilder>().Trace($"[AIBodyBuilder.Build] building body: interactions={snapshot.Length}, new={string.Join(",", newIndices)}");
             }
             catch
             {

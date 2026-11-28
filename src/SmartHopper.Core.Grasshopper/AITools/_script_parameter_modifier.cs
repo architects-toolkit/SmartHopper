@@ -23,7 +23,6 @@ using System.Threading.Tasks;
 using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
-using Rhino;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Core.Grasshopper.Utils.Components;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -32,6 +31,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -398,14 +398,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                var tcs = new TaskCompletionSource<AIReturn>(TaskCreationOptions.RunContinuationsAsynchronously);
-                RhinoApp.InvokeOnUiThread(() =>
-                {
-                    try
+                return await UiThreadMarshal.RunOnUiThreadAsync(
+                    () =>
                     {
                         toolCall.CancellationToken.ThrowIfCancellationRequested();
                         string message = operation(args);
-                        Debug.WriteLine($"[{toolName}] {message}");
+                        Logger.For<script_parameter_modifier>().Trace($"[{toolName}] {message}");
                         var body = AIBodyBuilder.Create()
                             .AddToolResult(new JObject
                             {
@@ -414,19 +412,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             })
                             .Build();
                         output.CreateSuccess(body, toolCall);
-                        tcs.SetResult(output);
-                    }
-                    catch (Exception ex)
-                    {
-                        tcs.SetException(ex);
-                    }
-                });
-                return await tcs.Task
-                    .WaitAsync(toolCall.CancellationToken).ConfigureAwait(false);
+                        return output;
+                    },
+                    toolCall.CancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{toolName}] Error: {ex.Message}");
+                Logger.For<script_parameter_modifier>().Exception(ex, $"[{toolName}] Error: {ex.Message}");
                 output.CreateError(ex.Message);
                 return output;
             }

@@ -115,11 +115,11 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Requests
         }
 
 #if NET7_WINDOWS
-        [Fact(DisplayName = "Initialize_SetsBodyEndpointAndParameters [Windows]")]
+        [Fact(DisplayName = "Initialize_SetsBodyOriginAndParameters [Windows]")]
 #else
-        [Fact(DisplayName = "Initialize_SetsBodyEndpointAndParameters [Core]")]
+        [Fact(DisplayName = "Initialize_SetsBodyOriginAndParameters [Core]")]
 #endif
-        public void Initialize_SetsBodyEndpointAndParameters()
+        public void Initialize_SetsBodyOriginAndParameters()
         {
             var body = AIBodyBuilder.Create()
                 .AddUser("hello")
@@ -130,11 +130,11 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Requests
                 provider: null!,
                 model: "test-model",
                 body: body,
-                endpoint: "https://test/endpoint",
+                origin: "https://test/endpoint",
                 capability: AICapability.None);
 
             Assert.Same(body, request.Body);
-            Assert.Equal("https://test/endpoint", request.Endpoint);
+            Assert.Equal("https://test/endpoint", request.Origin);
             Assert.NotNull(request.Parameters);
             Assert.Equal("test-model", request.Parameters.Model);
             Assert.Equal("test-model", request.Model);
@@ -154,6 +154,80 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Requests
             request.RequestKind = AIRequestKind.Backoffice;
 
             Assert.Equal(AIRequestKind.Backoffice, request.RequestKind);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "IsValid_ContextOnlyBody_FailsConversationContent [Windows]")]
+#else
+        [Fact(DisplayName = "IsValid_ContextOnlyBody_FailsConversationContent [Core]")]
+#endif
+        public void IsValid_ContextOnlyBody_FailsConversationContent()
+        {
+            // Generation requests made only of system/context interactions cannot be
+            // answered by any provider — they encode as instructions with no
+            // conversation input (Gemini/Anthropic return HTTP 400).
+            var request = new AIRequestCall();
+            request.Initialize(
+                provider: "prov",
+                model: "m",
+                body: AIBodyBuilder.Create()
+                    .AddSystem("be helpful")
+                    .AddText(AIAgent.Context, "project context")
+                    .Build(),
+                origin: "test",
+                capability: AICapability.None);
+
+            var (isValid, errors) = request.IsValid();
+
+            Assert.False(isValid);
+            Assert.Contains(errors, e => e.Message.Contains("no conversation content"));
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "IsValid_UserTurn_PassesConversationContent [Windows]")]
+#else
+        [Fact(DisplayName = "IsValid_UserTurn_PassesConversationContent [Core]")]
+#endif
+        public void IsValid_UserTurn_PassesConversationContent()
+        {
+            var request = new AIRequestCall();
+            request.Initialize(
+                provider: "prov",
+                model: "m",
+                body: AIBodyBuilder.Create()
+                    .AddSystem("be helpful")
+                    .AddUser("hello")
+                    .Build(),
+                origin: "test",
+                capability: AICapability.None);
+
+            var (_, errors) = request.IsValid();
+
+            Assert.DoesNotContain(errors, e => e.Message.Contains("no conversation content"));
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "IsValid_BackofficeSkipsConversationContent [Windows]")]
+#else
+        [Fact(DisplayName = "IsValid_BackofficeSkipsConversationContent [Core]")]
+#endif
+        public void IsValid_BackofficeSkipsConversationContent()
+        {
+            // Backoffice (non-generation) requests are exempt from the conversation rule.
+            var request = new AIRequestCall();
+            request.Initialize(
+                provider: "prov",
+                model: "m",
+                body: AIBodyBuilder.Create()
+                    .AddSystem("be helpful")
+                    .Build(),
+                origin: "test",
+                capability: AICapability.None);
+            request.RequestKind = AIRequestKind.Backoffice;
+
+            var (_, errors) = request.IsValid();
+
+            Assert.DoesNotContain(errors, e => e.Message.Contains("no conversation content"));
         }
     }
 }

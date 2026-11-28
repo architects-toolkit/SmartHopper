@@ -26,6 +26,7 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.ComponentBase.Batch;
 using SmartHopper.Core.ComponentBase.Contracts;
 using SmartHopper.Core.ComponentBase.Cores;
 using SmartHopper.Core.ComponentBase.Mixins;
@@ -33,8 +34,10 @@ using SmartHopper.Core.DataTree;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.ProviderSdk.AICall.Batch;
 using SmartHopper.ProviderSdk.AICall.Core;
+using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AIProviders;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.ComponentBase
 {
     /// <summary>
@@ -72,7 +75,7 @@ namespace SmartHopper.Core.ComponentBase
                     _removingDocumentIds.Add(doc.DocumentID);
                 }
 
-                Debug.WriteLine($"[AIStatefulAsync] Document {doc.DocumentID} removed - shutdown detected for that document");
+                Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] Document {doc.DocumentID} removed - shutdown detected for that document");
             };
         }
 
@@ -117,7 +120,7 @@ namespace SmartHopper.Core.ComponentBase
                         false);
                 }
 
-                Debug.WriteLine($"[AIStatefulAsyncComponentBase] Settings parsed: Model={parsed.Model}, MaxTokens={parsed.MaxTokens}, Temperature={parsed.Temperature}");
+                Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsyncComponentBase] Settings parsed: Model={parsed.Model}, MaxTokens={parsed.MaxTokens}, Temperature={parsed.Temperature}");
                 this.SetParameters(parsed);
             }
             else
@@ -129,6 +132,11 @@ namespace SmartHopper.Core.ComponentBase
             this.UpdateBadgeCache();
 
             base.SolveInstance(DA);
+
+            // If the user edited inputs while a remote batch is in flight, ask whether
+            // to cancel + re-request with the new inputs or keep the batch and omit
+            // the changes (normal change detection is suspended during Processing).
+            this.PromptForMidBatchInputChange();
         }
 
         /// <inheritdoc/>
@@ -157,11 +165,15 @@ namespace SmartHopper.Core.ComponentBase
         /// <inheritdoc/>
         protected override void OnStateProcessing(IGH_DataAccess DA)
         {
-            // When a batch submission is already active, skip spawning a new worker.
-            // The poll timer (started in Read()) drives completion; no new work should begin.
-            if (this._batchState.Submission != null)
+            // When a batch is active — submitted and polling, or merely on its
+            // way to the provider — skip spawning a new worker. The submit
+            // window is the dangerous one: the watchdog expires the solution
+            // ~1s after Processing entry, and without the pending marker this
+            // solve would respawn a worker that replays pending fragments as
+            // "reused" units and completes the run before the job even exists.
+            if (this._batchState.BatchInFlight)
             {
-                Debug.WriteLine("[AIStatefulAsyncComponentBase] OnStateProcessing: batch active, skipping worker spawn");
+                Logger.For<AIStatefulAsyncComponentBase>().Warning("[AIStatefulAsyncComponentBase] OnStateProcessing: batch active, skipping worker spawn");
                 return;
             }
 
@@ -177,13 +189,136 @@ namespace SmartHopper.Core.ComponentBase
             // (queue, sentinel ids, progress, unsupported flag, timings, persisted metrics)
             // while preserving the two cross-run survivors (Submission, SentinelTrees) so an
             // in-flight remote batch keeps polling and saved-batch reload remains correct.
-            Debug.WriteLine($"[AIStatefulAsyncComponentBase] OnEnteringNeedsRun: resetting per-run state, SentinelTrees count={this._batchState.SentinelTrees?.Count ?? 0}");
+            Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsyncComponentBase] OnEnteringNeedsRun: resetting per-run state, SentinelTrees count={this._batchState.SentinelTrees?.Count ?? 0}");
             this.AIReturnSnapshot = null;
             this._batchState.ResetForNextRun();
             this._currentProcessingPath = null;
             this._currentProcessingItemIndex = null;
             this._metricsTree = null;
             this.ResetProgress();
+        }
+
+        /// <inheritdoc/>
+        protected override void OnEnteringProcessing()
+        {
+            base.OnEnteringProcessing();
+
+            // With Run=true, every trigger (input change, Run pulse) transitions
+            // directly to Processing and never enters NeedsRun, so the per-run
+            // cleanup in OnEnteringNeedsRun would never fire: accumulated state
+            // (metrics tree, AIReturn snapshot, batch scratch, and derived
+            // components' fetch caches) leaks across runs — e.g. the Metrics
+            // output growing one entry per run. Reuse the same reset here so
+            // every new run starts clean regardless of the path that led to it.
+            // Entering Processing while a remote batch is still in flight is a
+            // continuation of the same run, not a new one — keep its state so
+            // sentinel reconstruction still works. A submission still on its
+            // way to the provider counts too: resetting here would bump the
+            // epoch and orphan the queue's own submit.
+            if (!this._batchState.BatchInFlight)
+            {
+                Logger.For<AIStatefulAsyncComponentBase>().Trace("[AIStatefulAsyncComponentBase] OnEnteringProcessing: no in-flight batch, resetting per-run state");
+                this.OnEnteringNeedsRun();
+
+                // Snapshot the inputs this run was gathered with, so batch submission
+                // can acknowledge exactly those values instead of whatever the pending
+                // baselines happen to be once the (async) submit call returns.
+                this.CaptureRunInputSnapshot();
+
+                // Freeze the request parameters alongside the input snapshot: a
+                // Settings edit made mid-run stays pending and cannot leak into
+                // the run's remaining units or its reuse/metrics context.
+                this._runParameters = this._requestParameters;
+            }
+        }
+
+        /// <inheritdoc/>
+        protected override bool SupportsResultReuse => true;
+
+        /// <inheritdoc/>
+        protected override bool ShareIdenticalResults => this.GetParameters()?.ShareIdenticalResults ?? true;
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// Unit identity embeds the component type, provider, model and the
+        /// execution-relevant request parameters (model, temperature, seeds, extras…;
+        /// transport/policy fields are excluded) so a settings change invalidates
+        /// only genuinely different work.
+        /// </remarks>
+        protected override string GetResultReuseContext()
+        {
+            return SemanticFingerprint.ComputeShortHash(
+                $"{this.GetType().FullName}|{this.GetActualAIProviderName()}|{this.GetModel()}|" +
+                SemanticFingerprint.CanonicalParameters(this.GetParameters(), executionFieldsOnly: true));
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// Entering Processing while a remote batch is still in flight continues the
+        /// same run, so the pending (sentinel) fragments gathered at submission must
+        /// survive — they are resolved when the batch completes.
+        /// </remarks>
+        protected override void ResetRunResults()
+        {
+            if (!this._batchState.BatchInFlight)
+            {
+                base.ResetRunResults();
+            }
+        }
+
+        /// <inheritdoc/>
+        protected override void OnClearResultCache()
+        {
+            // Invalidate every async side effect first: a submit or poll
+            // completion already in flight must observe the moved epoch and
+            // discard its result instead of reviving cleared work.
+            this._batchState.InvalidateAsyncWork();
+
+            base.OnClearResultCache();
+            this.ClearCollectOnlyArm();
+            this.StopBatchPollTimer();
+            this._batchState.Submission = null;
+            this._batchState.SubmittedProviderName = null;
+            this._batchState.SubmittedModels = null;
+            this._batchState.SubmittedRoles = null;
+            this._batchState.SentinelTrees = null;
+            this._batchState.Queue = null;
+            this._batchState.SentinelIds = null;
+        }
+
+        /// <summary>
+        /// Appends replayed provenance entries for a reused unit at the same
+        /// output path fresh metrics would occupy (input branch, or grafted
+        /// child path for ItemGraft topology).
+        /// </summary>
+        /// <param name="metrics">Stored provenance entries in call order.</param>
+        private void AppendReusedMetrics(IReadOnlyList<AIMetrics> metrics)
+        {
+            if (metrics == null || metrics.Count == 0 || this._currentProcessingPath == null)
+            {
+                return;
+            }
+
+            var path = this._currentProcessingPath;
+            if (this.ComponentProcessingOptions.Topology == ProcessingTopology.ItemGraft
+                && this._currentProcessingItemIndex.HasValue)
+            {
+                path = path.AppendElement(this._currentProcessingItemIndex.Value);
+            }
+
+            this._metricsTree ??= new GH_Structure<GH_String>();
+            foreach (var m in metrics)
+            {
+                var obj = this.SerializeMetricsEntry(
+                    m with { DataCount = 0, IterationsCount = 0 },
+                    reused: true);
+                if (obj != null)
+                {
+                    this._metricsTree.Append(
+                        new GH_String(obj.ToString(Newtonsoft.Json.Formatting.None)),
+                        path);
+                }
+            }
         }
 
         /// <inheritdoc/>
@@ -198,6 +333,18 @@ namespace SmartHopper.Core.ComponentBase
         protected override void OnProcessingUnitComplete(GH_Path inputPath, List<GH_Path> targetPaths)
         {
             base.OnProcessingUnitComplete(inputPath, targetPaths);
+
+            // Cache-hit units replay their stored execution provenance so the
+            // Metrics output describes the complete current output, not only the
+            // calls made during this run. Replayed entries carry reused:true with
+            // zeroed data/iterations counts — they represent previously incurred
+            // work, not new processing.
+            if (this.LastUnitWasReused
+                && this.LastCompletedUnitKey != null
+                && this.ResultStore.TryGetMetrics(this.LastCompletedUnitKey, out var replay))
+            {
+                this.AppendReusedMetrics(replay);
+            }
 
             // When GroupIdenticalBranches is active, non-primary target paths reuse
             // results from the primary path. Replicate metrics to those reused paths
@@ -283,9 +430,9 @@ namespace SmartHopper.Core.ComponentBase
         protected override void OnSolveInstancePostSolve(IGH_DataAccess DA)
         {
             // Skip output if batch is still active - outputs will be set after batch completes
-            if (this._batchState.Submission != null)
+            if (this._batchState.BatchInFlight)
             {
-                Debug.WriteLine("[AIStatefulAsync] OnSolveInstancePostSolve: Batch still active, skipping output");
+                Logger.For<AIStatefulAsyncComponentBase>().Warning("[AIStatefulAsync] OnSolveInstancePostSolve: Batch still active, skipping output");
                 return;
             }
 
@@ -305,9 +452,9 @@ namespace SmartHopper.Core.ComponentBase
         protected override void RestorePersistentOutputs(IGH_DataAccess DA)
         {
             // If a batch is actively being processed, skip restoration of sentinel trees
-            if (this._batchState.Submission != null)
+            if (this._batchState.BatchInFlight)
             {
-                Debug.WriteLine("[AIStatefulAsync] RestorePersistentOutputs: Batch submission active, skipping sentinel tree output");
+                Logger.For<AIStatefulAsyncComponentBase>().Warning("[AIStatefulAsync] RestorePersistentOutputs: Batch submission active, skipping sentinel tree output");
                 return;
             }
 
@@ -322,25 +469,32 @@ namespace SmartHopper.Core.ComponentBase
             // IsDocumentBeingRemoved() checks the specific document id, so closing doc A does
             // not make components in doc B take the "preserve batch" path.
             var shuttingDown = IsDocumentBeingRemoved(document);
-            if (this._batchState.Submission != null)
+            if (this._batchState.BatchInFlight)
             {
                 if (shuttingDown)
                 {
-                    // Document/Rhino closing: preserve batch, just stop polling
-                    Debug.WriteLine($"[AIStatefulAsync] RemovedFromDocument (shutdown): Preserving batch {this._batchState.Submission.BatchId}");
+                    // Document/Rhino closing: preserve batch, just stop polling.
+                    // A still-pending submit cannot be persisted anyway — invalidate
+                    // it so the late provider response is dropped, not installed.
+                    Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] RemovedFromDocument (shutdown): Preserving batch {this._batchState.Submission?.BatchId ?? "(pending)"}");
                     this.StopBatchPollTimer();
+                    this._batchState.PendingSubmissionEpoch = -1;
                 }
                 else
                 {
                     // Manual component removal: cancel the batch (no UI update needed as component is being destroyed)
-                    var batchId = this._batchState.Submission.BatchId;
-                    Debug.WriteLine($"[AIStatefulAsync] RemovedFromDocument (manual removal): Cancelling batch {batchId}");
-                    _ = this.CancelRemoteBatchAsync(batchId);
+                    this._batchState.InvalidateAsyncWork();
+                    var batchId = this._batchState.Submission?.BatchId;
+                    if (batchId != null)
+                    {
+                        Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] RemovedFromDocument (manual removal): Cancelling batch {batchId}");
+                        _ = this.CancelRemoteBatchAsync(batchId);
+                    }
                 }
             }
             else if (this._batchPollTimer != null)
             {
-                Debug.WriteLine($"[AIStatefulAsync] RemovedFromDocument: Stopping batch poll timer");
+                Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] RemovedFromDocument: Stopping batch poll timer");
                 this.StopBatchPollTimer();
             }
 
@@ -350,20 +504,67 @@ namespace SmartHopper.Core.ComponentBase
         /// <inheritdoc/>
         protected override void OnWorkerCompleted()
         {
-            // If a batch is active, don't transition to Completed yet.
-            // The batch polling will handle the transition when results are ready.
-            if (this._batchState.Submission != null)
+            // If a batch is active — submitted/polling OR still on its way to
+            // the provider — don't transition to Completed yet. The pending
+            // case is what kept the submission window unguarded: Submission is
+            // only assigned after the provider call returns, so a second worker
+            // completing inside that window would have fallen through to
+            // base.OnWorkerCompleted and finished the run mid-submit.
+            if (this._batchState.BatchInFlight)
             {
-                Debug.WriteLine($"[AIStatefulAsync] OnWorkerCompleted: Batch submission active ({this._batchState.Submission.BatchId}), staying in Processing state");
+                Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] OnWorkerCompleted: Batch in flight ({this._batchState.Submission?.BatchId ?? "pending submission"}), staying in Processing state");
 
                 // Stay in Processing state - batch polling will transition to Completed
-                // Still commit hashes so we don't re-trigger processing
-                this.StateManager.CommitHashes();
+                // Still commit hashes so we don't re-trigger processing — commit the
+                // gather-time snapshot, not the live pending values, so mid-batch edits
+                // stay pending and surface via the re-request prompt.
+                this.CommitRunInputSnapshot();
                 this.StateManager.CancelDebounce();
 
                 // Don't call base.OnWorkerCompleted() which would transition to Completed
                 // Don't expire solution - the batch poll will do it when complete
                 return;
+            }
+
+            // Parent-owned deferred handoff: any queue collected during the run is
+            // submitted by the base itself — workers no longer need to remember the
+            // submission call, and a component can never complete with deferred work
+            // it merely queued but never sent (the AIListFilter D46 failure mode).
+            if (this._batchState.Queue?.Count > 0)
+            {
+                var sentinelTrees = this.DeriveSentinelTreesFromCollectedOutputs();
+                if (sentinelTrees.Count == 0)
+                {
+                    Logger.For<AIStatefulAsyncComponentBase>().Error("[AIStatefulAsync] OnWorkerCompleted: batch queue is populated but no sentinel-bearing output was collected — run cannot be submitted");
+                    this.SetPersistentRuntimeMessage(
+                        "batch_orphaned_queue",
+                        GH_RuntimeMessageLevel.Error,
+                        "Deferred batch work was collected but could not be mapped to any output; the run cannot be submitted.",
+                        false);
+                }
+                else
+                {
+                    Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] OnWorkerCompleted: submitting {this._batchState.Queue.Count} queued request(s) via parent-owned handoff ({sentinelTrees.Count} sentinel tree(s))");
+
+                    // Mark the submission in flight SYNCHRONOUSLY, before the
+                    // provider HTTP call begins: every lifecycle guard keys off
+                    // BatchInFlight, so the window between queue consumption and
+                    // Submission assignment can no longer spawn phantom workers
+                    // or race the run to Completed. The epoch is captured here on
+                    // the UI thread — inside the pooled task it could already be
+                    // stale.
+                    var submitEpoch = this._batchState.BeginPendingSubmission();
+                    _ = Task.Run(() => this.SubmitCollectedBatchAsync(sentinelTrees, submitEpoch));
+                }
+
+                // Either way do NOT fall through to normal completion: a failed
+                // submission transitions to Error via FailDeferredSubmission /
+                // the error message above; a successful one stays in Processing
+                // under the poll timer.
+                if (this.RuntimeMessageLevel != GH_RuntimeMessageLevel.Error)
+                {
+                    return;
+                }
             }
 
             // No active batch - proceed with normal completion
@@ -377,25 +578,82 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         protected override void OnTasksCancelDetected()
         {
-            // If a batch is active, cancel it on the provider and update UI with confirmation
-            if (this._batchState.Submission != null)
+            // If a batch is active — submitted or still on its way to the
+            // provider — cancel it and update UI with confirmation. A pending
+            // submit is invalidated synchronously so its late provider response
+            // is discarded (and remotely cancelled), never installed.
+            if (this._batchState.BatchInFlight)
             {
-                var batchId = this._batchState.Submission.BatchId;
-                Debug.WriteLine($"[AIStatefulAsync] OnTasksCancelDetected: Cancelling remote batch {batchId}");
+                this._batchState.InvalidateAsyncWork();
+                var batchId = this._batchState.Submission?.BatchId;
+                Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] OnTasksCancelDetected: Cancelling remote batch {batchId ?? "(pending submission)"}");
 
                 // Add immediate feedback that cancellation is in progress
                 this.SetPersistentRuntimeMessage(
                     "batch_cancelling",
                     GH_RuntimeMessageLevel.Warning,
-                    $"Cancelling batch {batchId}...",
+                    $"Cancelling batch {batchId ?? "submission"}...",
                     false);
 
                 // Start cancellation and update with confirmation when complete
-                _ = this.CancelRemoteBatchAsync(batchId);
+                if (batchId != null)
+                {
+                    _ = this.CancelRemoteBatchAsync(batchId);
+                }
             }
 
             // Transition to Cancelled immediately for UI responsiveness
             base.OnTasksCancelDetected();
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// Runs ending without reaching <c>SubmitBatchQueueAsync</c> must drop
+        /// an armed collect-only import — see <see cref="ClearCollectOnlyArm"/>.
+        /// </remarks>
+        protected override void OnEnteringCompleted()
+        {
+            base.OnEnteringCompleted();
+            this.ClearCollectOnlyArm();
+        }
+
+        /// <inheritdoc/>
+        protected override void OnEnteringError()
+        {
+            base.OnEnteringError();
+            this.ClearCollectOnlyArm();
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// During the batch poll phase no worker tasks exist, so
+        /// <see cref="OnTasksCancelDetected"/> never runs — the Cancelled
+        /// transition itself must tear down in-flight batch work. Without this
+        /// hook the poll timer kept polling and a late completion could
+        /// resurrect a cancelled component (and keep billing the remote job).
+        /// </remarks>
+        protected override void OnEnteringCancelled()
+        {
+            // A collect-only arm never survives a run end — the run it was
+            // armed for died without consuming it, and a stale arm could
+            // otherwise re-key its loaded results into an unrelated batch.
+            this.ClearCollectOnlyArm();
+            if (!this._batchState.BatchInFlight)
+            {
+                return;
+            }
+
+            this._batchState.InvalidateAsyncWork();
+            var batchId = this._batchState.Submission?.BatchId;
+            Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] OnEnteringCancelled: cancelling in-flight batch {batchId ?? "(pending submission)"}");
+            if (batchId != null)
+            {
+                _ = this.CancelRemoteBatchAsync(batchId);
+            }
+            else
+            {
+                this.StopBatchPollTimer();
+            }
         }
 
         /// <summary>
@@ -405,37 +663,56 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="batchId">The batch ID being cancelled (for logging and messages).</param>
         private async Task CancelRemoteBatchAsync(string batchId)
         {
+            // Claim the submission synchronously: multiple cancel paths can fire
+            // for one user gesture (task-cancel continuation AND the Cancelled
+            // state entry). Only the first caller issues the remote cancel —
+            // the rest observe a null Submission and return.
+            var submission = this._batchState.Submission;
+            if (submission == null)
+            {
+                return;
+            }
+
+            this._batchState.Submission = null;
+
+            // Invalidate first, before any await: in-flight poll finalizations
+            // and pending submits must observe the moved epoch and discard
+            // their result rather than reviving a cancelled batch.
+            this._batchState.InvalidateAsyncWork();
+
             bool cancelledSuccessfully = false;
             string errorMessage = null;
 
             try
             {
-                var submission = this._batchState.Submission;
-                if (submission != null)
+                var provider = ProviderManager.Instance.GetProvider(submission.ProviderName);
+                if (provider is IAIBatchProvider batchProvider)
                 {
-                    var provider = ProviderManager.Instance.GetProvider(submission.ProviderName);
-                    if (provider is IAIBatchProvider batchProvider)
-                    {
-                        await batchProvider.CancelBatchAsync(submission, CancellationToken.None).ConfigureAwait(false);
-                        cancelledSuccessfully = true;
-                        Debug.WriteLine($"[AIStatefulAsync] Remote batch cancelled successfully: {batchId}");
-                    }
-                    else
-                    {
-                        errorMessage = "Provider does not support batch cancellation";
-                        Debug.WriteLine($"[AIStatefulAsync] Provider does not support batch cancellation: {submission.ProviderName}");
-                    }
+                    await batchProvider.CancelBatchAsync(submission, CancellationToken.None).ConfigureAwait(false);
+                    cancelledSuccessfully = true;
+                    Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] Remote batch cancelled successfully: {batchId}");
+                }
+                else
+                {
+                    errorMessage = "Provider does not support batch cancellation";
+                    Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] Provider does not support batch cancellation: {submission.ProviderName}");
                 }
             }
             catch (Exception ex)
             {
                 errorMessage = ex.Message;
-                Debug.WriteLine($"[AIStatefulAsync] Error cancelling remote batch {batchId}: {ex.Message}");
+                Logger.For<AIStatefulAsyncComponentBase>().Exception(ex, $"[AIStatefulAsync] Error cancelling remote batch {batchId}: {ex.Message}");
             }
             finally
             {
-                this.StopBatchPollTimer();
-                this._batchState.Submission = null;
+                // Only tear down what still belongs to the claimed submission:
+                // a newer run may have installed its own submission and timer
+                // while the remote cancel awaited the provider.
+                this.StopBatchPollTimer(submission);
+                if (this._batchState.Submission == null || ReferenceEquals(this._batchState.Submission, submission))
+                {
+                    this._batchState.Submission = null;
+                }
 
                 // Update the UI with cancellation confirmation on the main thread
                 Rhino.RhinoApp.InvokeOnUiThread(() =>
@@ -462,6 +739,71 @@ namespace SmartHopper.Core.ComponentBase
                     this.OnDisplayExpired(true);
                 });
             }
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// Last-resort publication boundary: a <c>##SH_BATCH:</c> sentinel is
+        /// transport metadata inside the pending unit fragment — never component
+        /// output. Any publish path that bypasses <c>FinishResults</c>' own
+        /// strip (e.g. a worker forwarding its raw <c>RunProcessingAsync</c>
+        /// result through <c>SetPersistentOutput</c>) emits a sentinel-free
+        /// copy here: branch layout is preserved, sentinel items are removed,
+        /// and the real values arrive later via batch-completion reconstruction.
+        /// Before stripping, each sentinel is resolved against the committed
+        /// snapshot through its restored customId → unit key association —
+        /// after a mid-flight save whose run can no longer resume, unchanged
+        /// inputs still republish the last committed results instead of an
+        /// empty branch. Only sentinels with no committed counterpart are
+        /// dropped. The stored fragment keeps its placeholders — the rebuild
+        /// produces a new tree and never mutates the source.
+        /// </remarks>
+        protected override void SetPersistentOutput(string paramName, object value, IGH_DataAccess DA)
+        {
+            if (value is IGH_Structure structure && BatchSentinel.TreeContainsSentinel(structure))
+            {
+                var resolved = 0;
+                var stripped = 0;
+                var rebuilt = new GH_Structure<IGH_Goo>();
+                foreach (GH_Path path in structure.Paths)
+                {
+                    rebuilt.EnsurePath(path);
+                    if (structure.get_Branch(path) is not System.Collections.IList branch)
+                    {
+                        continue;
+                    }
+
+                    foreach (var item in branch)
+                    {
+                        if (item is GH_String sentinel
+                            && BatchSentinel.TryExtract(sentinel?.Value, out var customId))
+                        {
+                            if (this.ResultStore.TryGetCommittedForSentinel(customId, paramName, out var committedItems))
+                            {
+                                foreach (var committedItem in committedItems)
+                                {
+                                    rebuilt.Append(committedItem, path);
+                                }
+
+                                resolved++;
+                            }
+                            else
+                            {
+                                stripped++;
+                            }
+
+                            continue;
+                        }
+
+                        rebuilt.Append(item as IGH_Goo ?? new GH_String(item?.ToString() ?? string.Empty), path);
+                    }
+                }
+
+                Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] SetPersistentOutput('{paramName}'): resolved {resolved} sentinel placeholder(s) from committed results, stripped {stripped}");
+                value = rebuilt;
+            }
+
+            base.SetPersistentOutput(paramName, value, DA);
         }
 
         #endregion

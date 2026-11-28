@@ -53,6 +53,7 @@
     <ProjectReference Include="..\SmartHopper.Infrastructure\SmartHopper.Infrastructure.csproj" />
     <ProjectReference Include="..\SmartHopper.Core\SmartHopper.Core.csproj" />
     <ProjectReference Include="..\SmartHopper.Core.Grasshopper\SmartHopper.Core.Grasshopper.csproj" />
+    <ProjectReference Include="..\SmartHopper.Components\SmartHopper.Components.csproj" />
     <ProjectReference Include="..\SmartHopper.Providers.Anthropic\SmartHopper.Providers.Anthropic.csproj" />
     <ProjectReference Include="..\SmartHopper.Providers.DeepSeek\SmartHopper.Providers.DeepSeek.csproj" />
     <ProjectReference Include="..\SmartHopper.Providers.Gemini\SmartHopper.Providers.Gemini.csproj" />
@@ -61,6 +62,7 @@
     <ProjectReference Include="..\SmartHopper.Providers.Ollama\SmartHopper.Providers.Ollama.csproj" />
     <ProjectReference Include="..\SmartHopper.Providers.OpenAI\SmartHopper.Providers.OpenAI.csproj" />
     <ProjectReference Include="..\SmartHopper.Providers.OpenRouter\SmartHopper.Providers.OpenRouter.csproj" />
+    <ProjectReference Include="..\SmartHopper.Providers.Test\SmartHopper.Providers.Test.csproj" />
   </ItemGroup>
 
 

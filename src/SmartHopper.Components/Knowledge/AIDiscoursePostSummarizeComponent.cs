@@ -31,6 +31,7 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Knowledge
 {
     /// <summary>
@@ -38,45 +39,52 @@ namespace SmartHopper.Components.Knowledge
     /// </summary>
     public class AIDiscoursePostSummarizeComponent : AIStatefulAsyncComponentBase
     {
+        /// <summary>
+        /// This component's work has side effects or consumes external state
+        /// (canvas mutations, chat history, file/web fetches) so per-unit results
+        /// are not reusable across runs.
+        /// </summary>
+        protected override bool SupportsResultReuse => false;
+
         public override Guid ComponentGuid => new Guid("7D7B4EB1-4F58-48F2-9437-C71281943507");
 
-        protected override Bitmap Icon => Resources.discoursepostsummarize;
+        protected override Bitmap Icon => Resources.AIDiscoursePostSummarize;
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary | GH_Exposure.obscure;
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {
             "AIDiscoursePostSumm",
-            "discourse_post_summarize",
+            "discourse_forum_post_summarize",
             "Discourse Post",
             "Discourse Post Summary",
             "Forum Post Summary",
         };
 
         /// <inheritdoc/>
-        protected override IReadOnlyList<string> UsingAiTools => new[] { "discourse_post_summarize" };
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "discourse_forum_post_summarize" };
 
         public AIDiscoursePostSummarizeComponent()
             : base(
                   "AI Discourse Post Summarize",
                   "AIDiscoursePostSumm",
-                  "Generate a concise summary of a Discourse forum post by ID from any Discourse instance using the configured AI provider.",
+                  "Generate a concise AI summary of one or more Discourse forum posts by post ID from any Discourse forum.",
                   "SmartHopper",
-                  "Knowledge")
+                  "E. Forums")
         {
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Base URL", "U", "REQUIRED Base URL of the Discourse forum (e.g., https://discourse.example.com).", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Post Id", "P", "REQUIRED ID or list of IDs of the forum post(s) to summarize.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Instructions", "I", "Optional targeted summary instructions to focus on a specific question, target, or concern.", GH_ParamAccess.item, string.Empty);
+            pManager.AddTextParameter("Base URL", "U", "Base URL of the Discourse forum (e.g., 'https://discourse.example.com').", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Post Id", "P", "Numeric ID(s) of the forum post(s) to summarize.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Instructions", "I", "Optional instructions to focus the summary on a specific question or aspect.", GH_ParamAccess.item, string.Empty);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Summary", "S", "AI-generated summary of the forum post.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("URL", "U", "URL of the post.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("URL", "U", "Direct URL to the forum post.", GH_ParamAccess.tree);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
@@ -180,11 +188,11 @@ namespace SmartHopper.Components.Knowledge
                                     parameters["instructions"] = this.instructions;
                                 }
 
-                                var toolResult = await this.parent.CallAIToolAsync("discourse_post_summarize", parameters, token).ConfigureAwait(false);
+                                var toolResult = await this.parent.CallAIToolAsync("discourse_forum_post_summarize", parameters, token).ConfigureAwait(false);
 
                                 if (toolResult == null)
                                 {
-                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'discourse_post_summarize' returned no result.");
+                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'discourse_forum_post_summarize' returned no result.");
                                     continue;
                                 }
 
@@ -253,7 +261,7 @@ namespace SmartHopper.Components.Knowledge
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIDiscoursePostSummarizeWorker] Error: {ex.Message}");
+                    Logger.For<AIDiscoursePostSummarizeWorker>().Exception(ex, $"[AIDiscoursePostSummarizeWorker] Error: {ex.Message}");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }

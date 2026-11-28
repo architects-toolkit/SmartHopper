@@ -43,6 +43,9 @@ namespace SmartHopper.ProviderSdk.Tests.TestHelpers
         }
 
         /// <inheritdoc />
+        public bool SupportsApiModels => true;
+
+        /// <inheritdoc />
         public Task<List<string>> RetrieveApiModels()
         {
             return Task.FromResult(new List<string> { "fake-model" });

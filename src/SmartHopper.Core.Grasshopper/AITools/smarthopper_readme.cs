@@ -62,7 +62,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""instructions"": { ""type"": ""string"", ""description"": ""Markdown-formatted operational guidance for the agent."" }
                     },
                     ""required"": [""topic"", ""instructions""]
-                }");
+                }",
+                activityLabel: "reading SmartHopper docs",
+                resultLabel: "read SmartHopper docs");
         }
 
         private Task<AIReturn> ExecuteAsync(AIToolCall toolCall)

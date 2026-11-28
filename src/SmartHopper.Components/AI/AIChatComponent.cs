@@ -35,6 +35,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.AI
 {
     /// <summary>
@@ -58,12 +59,10 @@ namespace SmartHopper.Components.AI
             : base(
                 "AI Chat",
                 "AiChat",
-                "Interactive AI-powered conversational interface.",
+                "Open an interactive AI chat window bound to this component, with full access to SmartHopper's canvas and knowledge tools. The conversation is saved inside the Grasshopper file.",
                 "SmartHopper",
                 "A. AI")
         {
-            // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
-            this.RunOnlyOnInputChanges = false;
         }
 
         /// <inheritdoc/>
@@ -99,7 +98,7 @@ namespace SmartHopper.Components.AI
             pManager.AddTextParameter(
                 "Instructions",
                 "I",
-                "Optional instructions that specialize the built-in Grasshopper assistant for this chat.",
+                "Optional custom instructions that specialize the assistant's role or behavior for this chat session.",
                 GH_ParamAccess.item,
                 this._defaultSystemPrompt);
         }
@@ -114,7 +113,7 @@ namespace SmartHopper.Components.AI
             pManager.AddTextParameter(
                 "Chat History",
                 "H",
-                "Full chat transcript with timestamps and aggregated metrics",
+                "Conversation transcript with timestamps and per-message usage metrics.",
                 GH_ParamAccess.list);
         }
 
@@ -145,7 +144,7 @@ namespace SmartHopper.Components.AI
                     {
                         if (interaction == null) continue;
 
-                        Debug.WriteLine($"[AIChatComponent] Interaction from {interaction.Agent}: {interaction}");
+                        Logger.For<AIChatComponent>().Trace($"[AIChatComponent] Interaction from {interaction.Agent}: {interaction}");
 
                         var ts = interaction.Time.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture);
                         var role = interaction.Agent.ToDescription();
@@ -160,7 +159,7 @@ namespace SmartHopper.Components.AI
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[AIChatComponent] SolveInstance history build error: {ex.Message}");
+                Logger.For<AIChatComponent>().Exception(ex, $"[AIChatComponent] SolveInstance history build error: {ex.Message}");
             }
 
             // Persistently set (or clear) the chat history so downstream updates occur
@@ -203,11 +202,18 @@ namespace SmartHopper.Components.AI
         /// <summary>
         /// Gets the component's icon.
         /// </summary>
-        protected override Bitmap Icon => Properties.Resources.aichat;
+        protected override Bitmap Icon => Properties.Resources.AIChat;
 
         /// <summary>
         /// Gets the unique ID for this component type.
         /// </summary>
+        /// <summary>
+        /// This component's work has side effects or consumes external state
+        /// (canvas mutations, chat history, file/web fetches) so per-unit results
+        /// are not reusable across runs.
+        /// </summary>
+        protected override bool SupportsResultReuse => false;
+
         public override Guid ComponentGuid => new ("7D3F8B2A-E5C1-4F9D-B7A6-9C8D2E3F1A5B");
 
         /// <summary>
@@ -267,18 +273,18 @@ namespace SmartHopper.Components.AI
             {
                 try
                 {
-                    Debug.WriteLine("[AIChatWorker] Ensuring web chat dialog is open");
+                    Logger.For<AIChatWorker>().Trace("[AIChatWorker] Ensuring web chat dialog is open");
                     this.progressReporter?.Invoke("Starting web chat interface...");
 
                     // Get the actual provider name to use
                     string actualProvider = this.component.GetActualAIProviderName();
-                    Debug.WriteLine($"[AIChatWorker] Using Provider: {actualProvider} (Selected: {this.component.GetActualAIProviderName()})");
+                    Logger.For<AIChatWorker>().Trace($"[AIChatWorker] Using Provider: {actualProvider} (Selected: {this.component.GetActualAIProviderName()})");
 
                     // Ensure dialog is open (non-blocking) and wire incremental updates
                     WebChatUtils.EnsureDialogOpen(
                         providerName: actualProvider,
                         modelName: this.component.GetModel(),
-                        endpoint: "ai-chat",
+                        origin: "ai-chat",
                         systemPrompt: this.component.SystemPrompt,
                         toolFilter: "Canvas,GhJSON,Knowledge,AgentPlanning,Scripting,AIProviders",
                         componentId: this.component.InstanceGuid,
@@ -302,7 +308,7 @@ namespace SmartHopper.Components.AI
                             }
                             catch (Exception cbEx)
                             {
-                                Debug.WriteLine($"[AIChatWorker] onUpdate callback error: {cbEx.Message}");
+                                Logger.For<AIChatWorker>().Error($"[AIChatWorker] onUpdate callback error: {cbEx.Message}");
                             }
                         });
 
@@ -319,7 +325,7 @@ namespace SmartHopper.Components.AI
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIChatWorker] Error: {ex.Message}");
+                    Logger.For<AIChatWorker>().Exception(ex, $"[AIChatWorker] Error: {ex.Message}");
                     this.progressReporter?.Invoke($"Error: {ex.Message}");
                     throw;
                 }

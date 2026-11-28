@@ -19,26 +19,27 @@
 using System;
 using System.Drawing;
 using System.IO;
+using System.Windows.Forms;
 using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Attributes;
 using SmartHopper.Core.Types;
+using SmartHopper.ProviderSdk.Logging;
 
 namespace SmartHopper.Components.Audio
 {
     /// <summary>
     /// Custom display attributes for the AudioViewerComponent.
-    /// Renders a simplified audio timeline visualization with play/save controls.
+    /// Renders a simplified audio timeline visualization and a native-style Play button.
     /// </summary>
     public class AudioViewerAttributes : GH_ComponentAttributes
     {
         private readonly AudioViewerComponent _component;
         private RectangleF _timelineArea;
-        private RectangleF _playButtonArea;
-        private RectangleF _saveButtonArea;
+        private Rectangle _playButtonArea;
         private bool _isPlayHovered;
-        private bool _isSaveHovered;
+        private bool _isPlayClicked;
 
         /// <summary>
         /// Initializes a new instance of the AudioViewerAttributes class.
@@ -51,20 +52,35 @@ namespace SmartHopper.Components.Audio
         }
 
         /// <summary>
-        /// Layout the component bounds.
+        /// Layout the component bounds, the timeline area and the Play button.
         /// </summary>
         protected override void Layout()
         {
             // Let Grasshopper compute the natural bounds based on params, names, etc.
             base.Layout();
-            var baseBounds = this.Bounds;
+            var bounds = this.Bounds;
 
-            // Expand bounds to accommodate timeline and controls
+            const int margin = 5;
+            const int timelineHeight = 60;
+            const int buttonHeight = 24;
+
+            this._timelineArea = new RectangleF(
+                bounds.X + margin,
+                bounds.Bottom + margin,
+                bounds.Width - (2 * margin),
+                timelineHeight);
+
+            this._playButtonArea = new Rectangle(
+                (int)(bounds.X + margin),
+                (int)(this._timelineArea.Bottom + margin),
+                (int)(bounds.Width - (2 * margin)),
+                buttonHeight);
+
             this.Bounds = new RectangleF(
-                baseBounds.X,
-                baseBounds.Y,
-                baseBounds.Width,
-                baseBounds.Height + 120);
+                bounds.X,
+                bounds.Y,
+                bounds.Width,
+                bounds.Height + (3 * margin) + timelineHeight + buttonHeight);
         }
 
         /// <summary>
@@ -78,43 +94,28 @@ namespace SmartHopper.Components.Audio
 
             if (channel == GH_CanvasChannel.Objects)
             {
-                // Get component bounds
-                var bounds = this.Bounds;
-                var displayArea = new RectangleF(
-                    bounds.X + 5,
-                    bounds.Bottom - 115,
-                    bounds.Width - 10,
-                    110);
-
-                // Render timeline area
-                this._timelineArea = new RectangleF(
-                    displayArea.X,
-                    displayArea.Y,
-                    displayArea.Width,
-                    60);
-
                 this.RenderTimeline(graphics, this._timelineArea);
-
-                // Render control buttons
-                var buttonHeight = 25;
-                var buttonY = this._timelineArea.Bottom + 5;
-                var buttonWidth = (displayArea.Width - 10) / 2;
-
-                this._playButtonArea = new RectangleF(
-                    displayArea.X,
-                    buttonY,
-                    buttonWidth,
-                    buttonHeight);
-
-                this._saveButtonArea = new RectangleF(
-                    this._playButtonArea.Right + 5,
-                    buttonY,
-                    buttonWidth,
-                    buttonHeight);
-
-                this.RenderButton(graphics, this._playButtonArea, "▶ Play", this._isPlayHovered);
-                this.RenderButton(graphics, this._saveButtonArea, "💾 Save", this._isSaveHovered);
+                this.RenderPlayButton(graphics);
             }
+        }
+
+        /// <summary>
+        /// Renders the Play button in the native Grasshopper capsule style,
+        /// matching the Select button used by selecting components.
+        /// </summary>
+        private void RenderPlayButton(Graphics graphics)
+        {
+            var palette = this._isPlayClicked ? GH_Palette.White : (this._isPlayHovered ? GH_Palette.Grey : GH_Palette.Black);
+            var capsule = GH_Capsule.CreateCapsule(this._playButtonArea, palette);
+            capsule.Render(graphics, this.Selected, this._component.Locked, false);
+            capsule.Dispose();
+
+            var font = GH_FontServer.Standard;
+            var text = "Play";
+            var size = graphics.MeasureString(text, font);
+            var tx = this._playButtonArea.X + ((this._playButtonArea.Width - size.Width) / 2);
+            var ty = this._playButtonArea.Y + ((this._playButtonArea.Height - size.Height) / 2);
+            graphics.DrawString(text, font, (this._isPlayHovered || this._isPlayClicked) ? Brushes.Black : Brushes.White, new PointF(tx, ty));
         }
 
         /// <summary>
@@ -142,8 +143,9 @@ namespace SmartHopper.Components.Audio
                 // Draw waveform visualization (simplified)
                 this.DrawWaveform(graphics, area, audio);
 
-                // Draw audio info
-                var infoText = $"{audio.Kind}: {Path.GetFileName(audioPath)}";
+                // Draw audio info: a friendly label, never the raw audio payload
+                // (a DataUri/Base64 raw value would flood the component face).
+                var infoText = DescribeAudio(audio, audioPath, this._component.GetAudioData());
                 using (var font = new Font("Arial", 9))
                 using (var brush = new SolidBrush(Color.FromArgb(80, 80, 80)))
                 {
@@ -165,6 +167,26 @@ namespace SmartHopper.Components.Audio
                     var textY = area.Y + (area.Height - textSize.Height) / 2;
                     graphics.DrawString(text, font, brush, textX, textY);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Builds the compact label shown under the waveform. Describes the
+        /// audio source without exposing the raw payload.
+        /// </summary>
+        private static string DescribeAudio(VersatileAudio audio, string audioPath, byte[] audioData)
+        {
+            switch (audio.Kind)
+            {
+                case VersatileAudioKind.LocalFile:
+                    return $"Local file: {Path.GetFileName(audioPath)}";
+                case VersatileAudioKind.Url:
+                    var tail = audioPath.Split('?')[0].TrimEnd('/');
+                    var name = tail.Substring(tail.LastIndexOf('/') + 1);
+                    return string.IsNullOrEmpty(name) ? "Remote audio (Url)" : $"Url: {name}";
+                default:
+                    var size = audioData?.Length > 0 ? $" — {audioData.Length / 1024.0:F1} KB" : string.Empty;
+                    return $"{audio.Kind} audio{size}";
             }
         }
 
@@ -207,40 +229,10 @@ namespace SmartHopper.Components.Audio
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Silently fail waveform rendering
-            }
-        }
-
-        /// <summary>
-        /// Renders a control button.
-        /// </summary>
-        private void RenderButton(Graphics graphics, RectangleF area, string text, bool isHovered)
-        {
-            // Background
-            var bgColor = isHovered ? Color.FromArgb(0, 120, 215) : Color.FromArgb(200, 200, 200);
-            using (var brush = new SolidBrush(bgColor))
-            {
-                graphics.FillRectangle(brush, area);
-            }
-
-            // Border
-            var borderColor = isHovered ? Color.FromArgb(0, 80, 160) : Color.FromArgb(100, 100, 100);
-            using (var pen = new Pen(borderColor, 1))
-            {
-                graphics.DrawRectangle(pen, area.X, area.Y, area.Width, area.Height);
-            }
-
-            // Text
-            var textColor = isHovered ? Color.White : Color.FromArgb(50, 50, 50);
-            using (var font = new Font("Arial", 9, FontStyle.Bold))
-            using (var brush = new SolidBrush(textColor))
-            {
-                var textSize = graphics.MeasureString(text, font);
-                var textX = area.X + (area.Width - textSize.Width) / 2;
-                var textY = area.Y + (area.Height - textSize.Height) / 2;
-                graphics.DrawString(text, font, brush, textX, textY);
+                // Rendering-only failure — keep it out of the error stream but traceable.
+                Logger.For<AudioViewerAttributes>().Trace($"[AudioViewerAttributes] Waveform rendering failed: {ex.Message}");
             }
         }
 
@@ -249,13 +241,10 @@ namespace SmartHopper.Components.Audio
         /// </summary>
         public override GH_ObjectResponse RespondToMouseMove(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
-            var oldPlayHovered = this._isPlayHovered;
-            var oldSaveHovered = this._isSaveHovered;
+            var wasHovered = this._isPlayHovered;
+            this._isPlayHovered = this._playButtonArea.Contains((int)e.CanvasLocation.X, (int)e.CanvasLocation.Y);
 
-            this._isPlayHovered = this._playButtonArea.Contains(e.CanvasLocation);
-            this._isSaveHovered = this._saveButtonArea.Contains(e.CanvasLocation);
-
-            if (oldPlayHovered != this._isPlayHovered || oldSaveHovered != this._isSaveHovered)
+            if (wasHovered != this._isPlayHovered)
             {
                 sender.Invalidate();
             }
@@ -264,37 +253,33 @@ namespace SmartHopper.Components.Audio
         }
 
         /// <summary>
-        /// Handles mouse click events for button interactions.
+        /// Handles mouse click events for the Play button.
         /// </summary>
         public override GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
-            if (this._playButtonArea.Contains(e.CanvasLocation))
+            if (e.Button == MouseButtons.Left && this._playButtonArea.Contains((int)e.CanvasLocation.X, (int)e.CanvasLocation.Y))
             {
-                // Trigger play action
-                var audio = this._component.GetAudio();
-                if (audio != null)
-                {
-                    // We'll use a workaround: set the Play input to true
-                    // This requires the component to have proper input handling
-                    this._component.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Play triggered via UI button");
-                }
-
-                return GH_ObjectResponse.Handled;
-            }
-
-            if (this._saveButtonArea.Contains(e.CanvasLocation))
-            {
-                // Trigger save action
-                var audio = this._component.GetAudio();
-                if (audio != null)
-                {
-                    this._component.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Save triggered via UI button");
-                }
-
+                this._isPlayClicked = true;
+                this._component.PlayCurrentAudio();
+                this._component.OnDisplayExpired(false);
                 return GH_ObjectResponse.Handled;
             }
 
             return base.RespondToMouseDown(sender, e);
+        }
+
+        /// <summary>
+        /// Clears the pressed state so the button repaints in its idle palette.
+        /// </summary>
+        public override GH_ObjectResponse RespondToMouseUp(GH_Canvas sender, GH_CanvasMouseEvent e)
+        {
+            if (this._isPlayClicked)
+            {
+                this._isPlayClicked = false;
+                this._component.OnDisplayExpired(false);
+            }
+
+            return base.RespondToMouseUp(sender, e);
         }
     }
 }

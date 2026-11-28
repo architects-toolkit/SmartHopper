@@ -17,6 +17,7 @@
  */
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.Diagnostics;
@@ -83,6 +84,26 @@ namespace SmartHopper.ProviderSdk.AICall.Validation
     public static class ProviderTrustPolicy
     {
         /// <summary>
+        /// Session-scoped verdict cache keyed by provider name. Trust state changes only
+        /// when providers are refreshed or hashes are re-verified; per-request and
+        /// per-badge evaluations share the cached result instead of rebuilding the same
+        /// diagnostics every time. Only results computed against the default trust host
+        /// are cached so custom hosts (tests, alternate stores) evaluate fresh.
+        /// </summary>
+        private static readonly ConcurrentDictionary<string, ProviderTrustResult> VerdictCache =
+            new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Clears cached verdicts. Hosts must call this whenever provider registration or
+        /// hash-verification state changes (provider refresh, hash re-check, trust-mode
+        /// changes) so the next evaluation observes the new state.
+        /// </summary>
+        public static void InvalidateCache()
+        {
+            VerdictCache.Clear();
+        }
+
+        /// <summary>
         /// Evaluates whether the provider for <paramref name="request"/> is trusted enough to call.
         /// </summary>
         /// <param name="request">The request whose provider should be evaluated.</param>
@@ -106,11 +127,17 @@ namespace SmartHopper.ProviderSdk.AICall.Validation
         /// <returns>A <see cref="ProviderTrustResult"/> containing the verdict and diagnostics.</returns>
         public static ProviderTrustResult Evaluate(string providerName, IProviderTrustHost trustHost = null)
         {
+            var usingDefaultHost = trustHost == null;
             trustHost ??= ProviderSdkHost.ProviderTrust ?? new NullProviderTrustHost();
 
             if (string.IsNullOrEmpty(providerName))
             {
                 return new ProviderTrustResult(ProviderTrustVerdict.Allow, new List<SHRuntimeMessage>());
+            }
+
+            if (usingDefaultHost && VerdictCache.TryGetValue(providerName, out var cached))
+            {
+                return cached;
             }
 
             var effectiveMode = trustHost.EffectiveIntegrityCheckMode;
@@ -184,7 +211,13 @@ namespace SmartHopper.ProviderSdk.AICall.Validation
                 verdict = UpdateVerdict(verdict, conditionVerdict);
             }
 
-            return new ProviderTrustResult(verdict, messages);
+            var result = new ProviderTrustResult(verdict, messages);
+            if (usingDefaultHost)
+            {
+                VerdictCache[providerName] = result;
+            }
+
+            return result;
         }
 
         private enum Condition

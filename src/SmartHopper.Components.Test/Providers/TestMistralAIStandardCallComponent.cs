@@ -30,6 +30,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Components.Test.Providers
@@ -92,10 +93,13 @@ namespace SmartHopper.Components.Test.Providers
                     var builder = AIBodyBuilder.FromImmutable(call.Body);
                     builder.Add(new AIInteractionText
                     {
-                        Agent = AIAgent.Context,
+                        Agent = AIAgent.User,
                         Content = "Say 'test' in one word."
                     });
                     call.Body = builder.Build();
+
+                    // Initialize like production requests (provider/model/endpoint/capability)
+                    call.Initialize("MistralAI", this._parent.GetModel(), call.Body, "/chat/completions", AICapability.Text2Text);
 
                     // Get provider from manager
                     var providerManager = SmartHopper.Infrastructure.AIProviders.ProviderManager.Instance;

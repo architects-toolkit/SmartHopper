@@ -18,14 +18,11 @@
 
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using Grasshopper;
 using Grasshopper.Kernel;
-using Grasshopper.Kernel.Special;
 using Newtonsoft.Json.Linq;
-using Rhino;
 using SmartHopper.Core.ComponentBase.Contracts;
 using SmartHopper.Core.ComponentBase.Cores;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
@@ -69,7 +66,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 enabled: true,
                 tags: new[] { "canvas", "components", "mutating", "settings", "provider", "model" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""componentGuid"": { ""type"": ""string"" }, ""providerSet"": { ""type"": ""boolean"" }, ""selectedProvider"": { ""type"": ""string"" }, ""provider"": { ""type"": ""string"" }, ""panelConnected"": { ""type"": ""boolean"" }, ""panelGuid"": { ""type"": ""string"" }, ""model"": { ""type"": ""string"" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "setting component AI provider",
+                resultLabel: "set component AI provider");
         }
 
         private async Task<AIReturn> GhComponentSetProviderAsync(AIToolCall toolCall)
@@ -193,76 +192,46 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["componentGuid"] = componentGuidStr,
                 };
 
-                GH_Panel? panel = null;
-
-                RhinoApp.InvokeOnUiThread(() =>
-                {
-                    var doc = CanvasAccess.GetCurrentCanvas();
-                    if (doc == null)
+                await UiThreadMarshal.RunOnUiThreadAsync(
+                    () =>
                     {
-                        throw new InvalidOperationException("No active Grasshopper document.");
-                    }
-
-                    var undo = doc.UndoUtil.CreateGenericObjectEvent(
-                        "[SH] Set AI provider and model",
-                        ghComp);
-
-                    if (!string.IsNullOrWhiteSpace(provider))
-                    {
-                        providerComp.SetSelectedProviderName(provider);
-                        toolResult["providerSet"] = true;
-                        toolResult["provider"] = provider;
-                    }
-
-                    if (!string.IsNullOrWhiteSpace(model) && settingsParam != null)
-                    {
-                        var inputBounds = settingsParam.Attributes?.Bounds ?? ghComp.Attributes.Bounds;
-
-                        panel = new GH_Panel()
+                        var doc = CanvasAccess.GetCurrentCanvas();
+                        if (doc == null)
                         {
-                            NickName = "Model",
-                            UserText = model,
-                        };
-
-                        panel.CreateAttributes();
-
-                        // Start with a rough left-aligned position and measure the panel bounds,
-                        // then align the panel's right edge to the left of the Settings input
-                        // and vertically center it with the input.
-                        panel.Attributes.Pivot = new PointF(inputBounds.X - 220, inputBounds.Y);
-                        panel.Attributes.ExpireLayout();
-
-                        var panelBounds = panel.Attributes.Bounds;
-                        if (panelBounds.Width > 0 && panelBounds.Height > 0)
-                        {
-                            float x = inputBounds.X - panelBounds.Width - 20;
-                            float y = inputBounds.Y + ((inputBounds.Height - panelBounds.Height) / 2);
-                            panel.Attributes.Pivot = new PointF(x, y);
-                            panel.Attributes.ExpireLayout();
+                            throw new InvalidOperationException("No active Grasshopper document.");
                         }
 
-                        doc.AddObject(panel, false);
+                        var outcome = ComponentProviderOps.ApplySetProviderOnUiThread(
+                            ghComp,
+                            providerComp,
+                            provider,
+                            model,
+                            settingsParam,
+                            doc);
 
-                        settingsParam.RecordUndoEvent(undo);
-                        settingsParam.RemoveAllSources();
-                        settingsParam.AddSource(panel);
+                        if (!outcome.Success)
+                        {
+                            throw new InvalidOperationException(outcome.Error ?? "Set provider failed.");
+                        }
 
-                        toolResult["panelConnected"] = true;
-                        toolResult["panelGuid"] = panel.InstanceGuid.ToString();
-                        toolResult["model"] = model;
-                    }
+                        if (outcome.ProviderSet)
+                        {
+                            toolResult["providerSet"] = true;
+                            toolResult["provider"] = provider;
+                        }
 
-                    doc.UndoUtil.RecordEvent(undo);
+                        if (outcome.Inverse?.AddedPanel != null)
+                        {
+                            toolResult["panelConnected"] = true;
+                            toolResult["panelGuid"] = outcome.PanelGuid!.Value.ToString();
+                            toolResult["model"] = model;
+                        }
 
-                    if (panel != null)
-                    {
-                        doc.UndoUtil.RecordAddObjectEvent("[SH] Add model panel", panel);
-                    }
-
-                    ghComp.ExpireSolution(true);
-                    doc.NewSolution(false);
-                    Instances.RedrawCanvas();
-                });
+                        doc.ScheduleSolution(5);
+                        Instances.RedrawCanvas();
+                        return true;
+                    },
+                    toolCall.CancellationToken).ConfigureAwait(false);
 
                 toolResult["success"] = true;
 

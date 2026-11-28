@@ -105,11 +105,11 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Requests
         }
 
 #if NET7_WINDOWS
-        [Fact(DisplayName = "Initialize_SetsProviderModelEndpointBodyCapabilityAndParameters [Windows]")]
+        [Fact(DisplayName = "Initialize_SetsProviderModelOriginBodyCapabilityAndParameters [Windows]")]
 #else
-        [Fact(DisplayName = "Initialize_SetsProviderModelEndpointBodyCapabilityAndParameters [Core]")]
+        [Fact(DisplayName = "Initialize_SetsProviderModelOriginBodyCapabilityAndParameters [Core]")]
 #endif
-        public void Initialize_SetsProviderModelEndpointBodyCapabilityAndParameters()
+        public void Initialize_SetsProviderModelOriginBodyCapabilityAndParameters()
         {
             var body = AIBodyBuilder.Create()
                 .AddUser("hello")
@@ -120,12 +120,12 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Requests
                 provider: null!,
                 model: "test-model",
                 body: body,
-                endpoint: "https://test/endpoint",
+                origin: "https://test/endpoint",
                 capability: AICapability.None);
 
             Assert.Null(request.Provider);
             Assert.Equal("test-model", request.Model);
-            Assert.Equal("https://test/endpoint", request.Endpoint);
+            Assert.Equal("https://test/endpoint", request.Origin);
             Assert.Same(body, request.Body);
             Assert.Equal(AICapability.None, request.Capability);
             Assert.NotNull(request.Parameters);

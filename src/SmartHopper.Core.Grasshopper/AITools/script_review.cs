@@ -38,6 +38,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -128,6 +129,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""question"": {
                             ""type"": ""string"",
                             ""description"": ""Optional user question or focus for the review.""
+                        },
+                        ""contextFilter"": {
+                            ""type"": ""string"",
+                            ""description"": ""Optional context-provider filter controlling which context providers feed the request (e.g., 'time,file', '-time', '*', '-*').""
                         }
                     },
                     ""required"": [""guid""]
@@ -137,7 +142,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "scripting", "script", "review", "read-only", "ghjson" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""review"": { ""type"": ""string"", ""description"": ""AI-generated code review."" }, ""warnings"": { ""type"": ""array"" }, ""errors"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
+                activityLabel: "reviewing script code",
+                resultLabel: "reviewed script code");
         }
 
         /// <summary>
@@ -210,14 +217,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         componentData["outputCount"] = props.OutputSettings?.Count ?? 0;
                         componentData["codeLines"] = scriptCode.Split('\n').Length;
 
-                        Debug.WriteLine($"[script_review] Extracted via GhJsonSerializer: {language}, {scriptCode.Length} chars");
+                        Logger.For<script_review>().Trace($"[script_review] Extracted via GhJsonSerializer: {language}, {scriptCode.Length} chars");
                     }
                     else
                     {
                         // Fallback to direct access
                         scriptCode = ScriptComponentReflection.GetScriptText(target);
                         language = ScriptComponentRegistry.GetLanguageKey((activeTarget as IGH_Component)?.ComponentGuid);
-                        Debug.WriteLine($"[script_review] Using fallback extraction");
+                        Logger.For<script_review>().Trace($"[script_review] Using fallback extraction");
                     }
                 }
                 catch (Exception ex)
@@ -225,7 +232,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     // Fallback if serialization fails
                     scriptCode = ScriptComponentReflection.GetScriptText(target);
                     language = target is IGH_ActiveObject ao ? ScriptComponentRegistry.GetLanguageKey((ao as IGH_Component)?.ComponentGuid) : "unknown";
-                    Debug.WriteLine($"[script_review] Serialization failed, using fallback: {ex.Message}");
+                    Logger.For<script_review>().Exception(ex, $"[script_review] Serialization failed, using fallback: {ex.Message}");
                 }
 
                 // Validate we actually got script code
@@ -308,8 +315,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     provider: providerName,
                     model: modelName,
                     capability: AICapability.TextInput | AICapability.TextOutput,
-                    endpoint: endpoint,
+                    origin: endpoint,
                     body: immutableBody);
+
+                // Forward per-request parameters (extras, sampling, timeout) to the provider call
+                if (toolCall.Parameters != null)
+                {
+                    request.Parameters = toolCall.Parameters;
+                }
 
                 var result = await request.Exec().ConfigureAwait(false);
 

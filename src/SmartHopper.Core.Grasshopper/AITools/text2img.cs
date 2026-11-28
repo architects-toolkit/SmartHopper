@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Types;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
@@ -30,6 +31,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Hosting;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -55,7 +57,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Generates an image based on a text prompt using AI image generation models. Example: text2img({ prompt: 'A minimalist timber pavilion in a forest', size: '1024x1024' }).",
+                description: "Generates an image based on a text prompt using AI image generation models. Example: text2img({ prompt: 'A minimalist timber pavilion in a forest', size: '1024x1024', aspect_ratio: '16:9' }).",
                 category: "Data.Media",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -66,18 +68,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         },
                         ""size"": {
                             ""type"": ""string"",
-                            ""description"": ""The size of the generated image (e.g., '1024x1024', '1792x1024', '1024x1792')"",
+                            ""description"": ""Target resolution: explicit dimensions ('1024x1024') or resolution tier ('1K', '2K', '4K'); each provider maps it to its native size vocabulary"",
                             ""default"": ""1024x1024""
                         },
-                        ""quality"": {
+                        ""aspect_ratio"": {
                             ""type"": ""string"",
-                            ""description"": ""The quality of the generated image ('standard' or 'hd')"",
-                            ""default"": ""standard""
-                        },
-                        ""style"": {
-                            ""type"": ""string"",
-                            ""description"": ""The style of the generated image ('vivid' or 'natural')"",
-                            ""default"": ""vivid""
+                            ""description"": ""Aspect ratio as 'W:H' (e.g., '1:1', '16:9', '4:3', '9:16'); each provider maps it to its native size vocabulary"",
+                            ""default"": """"
                         }
                     },
                     ""required"": [""prompt""]
@@ -88,7 +85,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "image", "ai-generation", "read-only", "external" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""image"": { ""type"": ""string"", ""description"": ""Base64-encoded generated image or URL."" } } }",
                 annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
-                surfaces: AIToolSurface.Direct | AIToolSurface.Batch);
+                surfaces: AIToolSurface.Direct | AIToolSurface.Batch,
+                activityLabel: "generating image",
+                resultLabel: "generated image");
         }
 
         /// <summary>
@@ -106,7 +105,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                Debug.WriteLine("[ImageTools] Running GenerateImageToolWrapper");
+                Logger.For<text2img>().Trace("[ImageTools] Running GenerateImageToolWrapper");
 
                 // Extract parameters
                 string providerName = toolCall.Provider;
@@ -115,8 +114,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var args = toolInfo.GetArgumentsOrEmpty();
                 string? prompt = args["prompt"]?.ToString();
                 string size = args["size"]?.ToString() ?? "1024x1024";
-                string quality = args["quality"]?.ToString() ?? "standard";
-                string style = args["style"]?.ToString() ?? "vivid";
+                string aspectRatio = args["aspect_ratio"]?.ToString() ?? string.Empty;
 
                 if (string.IsNullOrEmpty(prompt))
                 {
@@ -126,7 +124,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Create immutable request body with image interaction
                 var requestBody = AIBodyBuilder.Create()
-                    .AddImageRequest(prompt: prompt, size: size, quality: quality, style: style)
+                    .AddImageRequest(prompt: prompt, size: size, aspectRatio: aspectRatio)
                     .Build();
 
                 // Create AI request for image generation
@@ -135,8 +133,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     provider: providerName,
                     model: modelName,
                     capability: this.toolCapabilityRequirements,
-                    endpoint: "/images/generations",
+                    origin: this.toolName,
                     body: requestBody);
+
+                // Forward per-request parameters (extras, sampling, timeout) to the provider call
+                if (toolCall.Parameters != null)
+                {
+                    aiRequest.Parameters = toolCall.Parameters;
+                }
 
                 // Execute the request
                 var result = await aiRequest.Exec().ConfigureAwait(false);
@@ -150,22 +154,22 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Extract image result from interactions
-                var resultImageInteraction = result.Body.GetLastInteraction(AIAgent.Assistant) as AIInteractionImage;
+                var resultImageInteraction = result.Body.GetLastAssistantImage();
                 if (resultImageInteraction == null)
                 {
                     output.CreateError("No image result received from AI provider");
                     return output;
                 }
 
-                // Return the image URL or data (prioritize URL over base64 data for performance)
-                string imageResult = resultImageInteraction.ImageUrl != null
-                    ? resultImageInteraction.ImageUrl.ToString()
-                    : resultImageInteraction.ImageData;
-
-                // Check if we have valid image data
-                if (string.IsNullOrEmpty(imageResult))
+                // URL results stay URLs; inline data becomes a self-describing data URI.
+                string imageResult;
+                try
                 {
-                    output.CreateError("No image data received from AI provider");
+                    imageResult = VersatileImage.FromInteraction(resultImageInteraction).RawValue;
+                }
+                catch (Exception ex)
+                {
+                    output.CreateError($"Failed to create VersatileImage from image interaction: {ex.Message}");
                     return output;
                 }
 
@@ -174,8 +178,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 toolResult.Add("result", imageResult);
                 toolResult.Add("revisedPrompt", resultImageInteraction.RevisedPrompt ?? string.Empty);
                 toolResult.Add("imageSize", resultImageInteraction.ImageSize ?? string.Empty);
-                toolResult.Add("imageQuality", resultImageInteraction.ImageQuality ?? string.Empty);
-                toolResult.Add("imageStyle", resultImageInteraction.ImageStyle ?? string.Empty);
+                toolResult.Add("aspectRatio", resultImageInteraction.AspectRatio ?? string.Empty);
 
                 // Attach non-breaking result envelope
                 toolResult.WithEnvelope(
@@ -196,7 +199,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ImageTools] Error in GenerateImageToolWrapper: {ex.Message}");
+                Logger.For<text2img>().Exception(ex, $"[ImageTools] Error in GenerateImageToolWrapper: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }

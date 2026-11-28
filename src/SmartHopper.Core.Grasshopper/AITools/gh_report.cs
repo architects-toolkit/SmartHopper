@@ -43,6 +43,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -83,7 +84,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "canvas", "components", "read-only", "report" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""report"": { ""type"": ""string"", ""description"": ""Structured markdown report of the canvas status."" }, ""aiSummary"": { ""type"": ""string"", ""description"": ""AI-generated summary of the file purpose and current view."" } } }",
                 requiredCapabilities: AICapability.TextInput | AICapability.TextOutput,
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true),
+                activityLabel: "generating canvas report",
+                resultLabel: "generated canvas report");
         }
 
         /// <summary>
@@ -99,7 +102,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var args = toolInfo.GetArgumentsOrEmpty();
                 var includeSummary = args["includeSummary"]?.ToObject<bool>() ?? false;
 
-                Debug.WriteLine($"[gh_report] includeSummary: {includeSummary}");
+                Logger.For<gh_report>().Trace($"[gh_report] includeSummary: {includeSummary}");
 
                 // Gather all canvas data on UI thread
                 var canvasData = GatherCanvasData();
@@ -131,8 +134,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         provider: providerName,
                         model: modelName,
                         body: requestBody,
-                        endpoint: this.toolName,
+                        origin: this.toolName,
                         capability: AICapability.TextInput | AICapability.TextOutput);
+
+                    // Forward per-request parameters (extras, sampling, timeout) to the provider call
+                    if (toolCall.Parameters != null)
+                    {
+                        request.Parameters = toolCall.Parameters;
+                    }
 
                     aiResult = await request.Exec().ConfigureAwait(false);
 
@@ -171,7 +180,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[gh_report] Error: {ex.Message}");
+                Logger.For<gh_report>().Exception(ex, $"[gh_report] Error: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }
@@ -333,7 +342,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[gh_report] Error serializing in-view components: {ex.Message}");
+                    Logger.For<gh_report>().Exception(ex, $"[gh_report] Error serializing in-view components: {ex.Message}");
                     data.InViewGhJson = null;
                 }
             }
@@ -370,7 +379,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[gh_report] Error extracting metadata: {ex.Message}");
+                Logger.For<gh_report>().Exception(ex, $"[gh_report] Error extracting metadata: {ex.Message}");
             }
 
             return data;

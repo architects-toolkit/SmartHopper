@@ -35,6 +35,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Knowledge
 {
     /// <summary>
@@ -44,9 +45,9 @@ namespace SmartHopper.Components.Knowledge
     {
         public override Guid ComponentGuid => new Guid("B3C4D5E6-F7A8-4B9C-0D1E-2F3A4B5C6D7E");
 
-        protected override Bitmap Icon => Resources.ladybugforumsearch;
+        protected override Bitmap Icon => Resources.LadybugForumSearch;
 
-        public override GH_Exposure Exposure => GH_Exposure.quarternary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
         {
@@ -57,23 +58,22 @@ namespace SmartHopper.Components.Knowledge
 
         public LadybugForumSearchComponent()
             : base(
-                  "LadybugForum Search",
+                  "Ladybug Forum Search",
                   "LadybugSearch",
-                  "Search for Ladybug Tools Discourse forum posts by query string.",
+                  "Search the Ladybug Tools Discourse forum (discourse.ladybug.tools) by query and return matching posts as JSON.",
                   "SmartHopper",
-                  "Knowledge")
+                  "E. Forums")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Query", "Q", "REQUIRED search query or queries for the Ladybug Tools Discourse forum.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Query", "Q", "Search query or keywords for the Ladybug Tools forum.", GH_ParamAccess.tree);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("LadybugForum Posts", "LbP", "Tree of JSON objects, one per matching forum post.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Ladybug Forum Posts", "LbP", "Matching forum posts in JSON format (connect to Deconstruct Discourse Post or Ladybug Forum Post Open).", GH_ParamAccess.tree);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
@@ -116,7 +116,7 @@ namespace SmartHopper.Components.Knowledge
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Query is required.");
                 }
 
-                Debug.WriteLine($"[LadybugForumSearchWorker] GatherInput - QueryTreeCount={queryTree?.DataCount ?? 0}, HasWork={this.hasWork}");
+                Logger.For<LadybugForumSearchWorker>().Trace($"[LadybugForumSearchWorker] GatherInput - QueryTreeCount={queryTree?.DataCount ?? 0}, HasWork={this.hasWork}");
 
                 dataCount = 0;
             }
@@ -125,7 +125,7 @@ namespace SmartHopper.Components.Knowledge
             {
                 if (!this.hasWork)
                 {
-                    Debug.WriteLine("[LadybugForumSearchWorker] DoWorkAsync called with hasWork=false, exiting.");
+                    Logger.For<LadybugForumSearchWorker>().Trace("[LadybugForumSearchWorker] DoWorkAsync called with hasWork=false, exiting.");
                     return;
                 }
 
@@ -153,7 +153,7 @@ namespace SmartHopper.Components.Knowledge
                                     continue;
                                 }
 
-                                Debug.WriteLine($"[LadybugForumSearchWorker] DoWorkAsync starting. Query='{queryValue}'");
+                                Logger.For<LadybugForumSearchWorker>().Trace($"[LadybugForumSearchWorker] DoWorkAsync starting. Query='{queryValue}'");
                                 var parameters = new JObject
                                 {
                                     ["query"] = queryValue,
@@ -181,15 +181,15 @@ namespace SmartHopper.Components.Knowledge
                                 }
                                 catch (Exception ex)
                                 {
-                                    Debug.WriteLine($"[LadybugForumSearchWorker] Error executing tool: {ex}");
+                                    Logger.For<LadybugForumSearchWorker>().Exception(ex, $"[LadybugForumSearchWorker] Error executing tool: {ex}");
                                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                                     continue;
                                 }
 
-                                Debug.WriteLine($"[LadybugForumSearchWorker] Tool call completed. Success={aiResult?.Success}, Status={aiResult?.Status}, HasBody={aiResult?.Body != null}");
+                                Logger.For<LadybugForumSearchWorker>().Trace($"[LadybugForumSearchWorker] Tool call completed. Success={aiResult?.Success}, Status={aiResult?.Status}, HasBody={aiResult?.Body != null}");
                                 if (aiResult?.Body != null)
                                 {
-                                    Debug.WriteLine($"[LadybugForumSearchWorker] Body interactions count={aiResult.Body.Interactions?.Count ?? 0}");
+                                    Logger.For<LadybugForumSearchWorker>().Error($"[LadybugForumSearchWorker] Body interactions count={aiResult.Body.Interactions?.Count ?? 0}");
                                 }
 
                                 var toolResult = ToolCallResult.FromAIReturn(aiResult);
@@ -200,7 +200,7 @@ namespace SmartHopper.Components.Knowledge
                                 }
 
                                 var resultsArray = toolResult["results"] as JArray ?? new JArray();
-                                Debug.WriteLine($"[LadybugForumSearchWorker] Parsed results array. Count={resultsArray.Count}");
+                                Logger.For<LadybugForumSearchWorker>().Trace($"[LadybugForumSearchWorker] Parsed results array. Count={resultsArray.Count}");
                                 foreach (var post in resultsArray)
                                 {
                                     outputs["LadybugForumPosts"].Add(new GH_String(post?.ToString() ?? string.Empty));
@@ -220,7 +220,7 @@ namespace SmartHopper.Components.Knowledge
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[LadybugForumSearchWorker] Error: {ex}");
+                    Logger.For<LadybugForumSearchWorker>().Exception(ex, $"[LadybugForumSearchWorker] Error: {ex}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
@@ -228,8 +228,8 @@ namespace SmartHopper.Components.Knowledge
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
                 var postsTree = this.resultPosts ?? new GH_Structure<GH_String>();
-                Debug.WriteLine($"[LadybugForumSearchWorker] SetOutput - resultPosts.DataCount={postsTree.DataCount}");
-                this.parent.SetPersistentOutput("LadybugForum Posts", postsTree, DA);
+                Logger.For<LadybugForumSearchWorker>().Trace($"[LadybugForumSearchWorker] SetOutput - resultPosts.DataCount={postsTree.DataCount}");
+                this.parent.SetPersistentOutput("Ladybug Forum Posts", postsTree, DA);
                 message = postsTree.DataCount == 0 ? "No search executed" : "Search completed";
             }
         }

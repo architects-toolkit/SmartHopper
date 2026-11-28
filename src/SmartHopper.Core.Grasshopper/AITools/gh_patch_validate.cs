@@ -27,6 +27,7 @@ using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -57,7 +58,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "canvas", "components", "patch", "validation", "read-only", "ghjson" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""isValid"": { ""type"": ""boolean"" }, ""errors"": { ""type"": ""array"" }, ""warnings"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true),
+                activityLabel: "validating canvas patch",
+                resultLabel: "validated canvas patch");
         }
 
         private async Task<AIReturn> GhPatchValidateToolAsync(AIToolCall toolCall)
@@ -76,8 +79,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var args = toolInfo.GetArgumentsOrEmpty();
                 var patchJson = args["patch"]?.ToString() ?? string.Empty;
 
-                Debug.WriteLine("[gh_patch_validate] Validating patch...");
+                Logger.For<gh_patch_validate>().Trace("[gh_patch_validate] Validating patch...");
                 var validationResult = GhJson.ValidatePatch(patchJson);
+                if (!validationResult.IsValid)
+                {
+                }
 
                 var errors = new JArray();
                 foreach (var error in validationResult.Errors)
@@ -115,7 +121,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[gh_patch_validate] Error: {ex.Message}");
+                Logger.For<gh_patch_validate>().Exception(ex, $"[gh_patch_validate] Error: {ex.Message}");
                 output.CreateError(ex.Message);
                 return output;
             }

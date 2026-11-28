@@ -28,6 +28,7 @@ using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -68,7 +69,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.GhTogglePreviewAsync,
                 tags: new[] { "canvas", "components", "mutating", "preview", "viewport" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "toggling component preview",
+                resultLabel: "toggled component preview");
 
             // Specialized wrapper: gh_hide_preview_selected
             yield return new AIMutatingTool(
@@ -82,7 +85,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: (toolCall) => this.GhTogglePreviewSelectedAsync(toolCall, previewOn: false),
                 tags: new[] { "canvas", "components", "mutating", "preview", "viewport" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "toggling component preview",
+                resultLabel: "toggled component preview");
 
             // Specialized wrapper: gh_show_preview_selected
             yield return new AIMutatingTool(
@@ -96,7 +101,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: (toolCall) => this.GhTogglePreviewSelectedAsync(toolCall, previewOn: true),
                 tags: new[] { "canvas", "components", "mutating", "preview", "viewport" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "toggling component preview",
+                resultLabel: "toggled component preview");
         }
 
         private async Task<AIReturn> GhTogglePreviewAsync(AIToolCall toolCall)
@@ -115,7 +122,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var args = toolInfo.GetArgumentsOrEmpty();
                 var guids = args["guids"]?.ToObject<List<string>>() ?? new List<string>();
                 var previewOn = args["previewOn"]?.ToObject<bool>() ?? false;
-                Debug.WriteLine($"[GhObjTools] GhTogglePreviewAsync: previewOn={previewOn}, guids count={guids.Count}");
+                Logger.For<gh_component_toggle_preview>().Trace($"[GhObjTools] GhTogglePreviewAsync: previewOn={previewOn}, guids count={guids.Count}");
                 var requested = guids
                     .Select(value => Guid.TryParse(value, out var guid) ? (Guid?)guid : null)
                     .OfType<Guid>()

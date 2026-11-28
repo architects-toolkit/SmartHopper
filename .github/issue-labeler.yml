@@ -17,6 +17,8 @@
   - '/\bOpenAI\b/i'
 "provider: OpenRouter":
   - '/\bOpenRouter\b/i'
+"provider: Test":
+  - '/\bTest\b/i'
 
 "scope: Mcp":
   - '/\bMCP\b|\bMcpServer\b|\bSmartHopperMcpServer\b/i'

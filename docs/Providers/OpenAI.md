@@ -61,7 +61,7 @@ Get your API key from [OpenAI Platform](https://platform.openai.com/):
 - **API Key**: Your OpenAI API key (optional when signed in with ChatGPT)
 - **Model**: Select from available OpenAI models (default resolved from registry)
 - **Enable Streaming**: Allow streaming responses (default: enabled)
-- **Max Tokens**: Maximum output tokens (default: 2000, range: 1–100000)
+- **Max Tokens**: Maximum output tokens (default: 2000, range: 0–100000 — 0 means unlimited)
 - **Temperature**: Controls randomness (0.0–2.0, default: 0.5)
 
 #### Continue with ChatGPT
@@ -86,7 +86,7 @@ For image generation, select an image-capable request or use DALL-E models:
 
 1. The provider routes to `/images/generations` when `ImageOutput` capability is requested
 2. Returns image URLs or base64-encoded data
-3. Supports quality, size, and style parameters via extras
+3. Supports `quality`, `background`, `output_format`, and `output_compression` via extras; size and aspect ratio are provider-agnostic inputs on the image request
 
 ### Streaming
 

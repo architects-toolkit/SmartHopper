@@ -25,23 +25,21 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Infrastructure.Mcp
 {
     /// <summary>
     /// Local HTTP MCP server. Serves <c>http://127.0.0.1:&lt;port&gt;/mcp</c> over a raw
     /// <see cref="TcpListener"/> bound to <see cref="IPAddress.Loopback"/>, rejects
     /// non-loopback peers and cross-origin browser requests, and forwards every
-    /// JSON-RPC request to a <see cref="JsonRpcDispatcher"/>. When
-    /// <see cref="McpServerOptions.AllowExternalConnections"/> is set it binds all
-    /// interfaces instead — allowed only together with a bearer token — and serves
-    /// other machines on the network via <see cref="ExternalUrl"/>.
+    /// JSON-RPC request to a <see cref="JsonRpcDispatcher"/>. Direct LAN access is
+    /// not supported: authentication alone does not encrypt the transport.
     /// </summary>
     /// <remarks>
     /// A raw socket is used instead of <see cref="HttpListener"/> on purpose: on
@@ -71,7 +69,6 @@ namespace SmartHopper.Infrastructure.Mcp
         private int started;
         private int acceptErrors;
         private volatile bool running;
-        private HashSet<IPAddress>? localAddresses;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="McpServer"/> class.
@@ -86,7 +83,12 @@ namespace SmartHopper.Infrastructure.Mcp
         /// </summary>
         private static JsonRpcDispatcher BuildDefaultDispatcher(McpServerOptions options)
         {
-            var adapter = new AIToolMcpAdapter(options);
+            var adapter = new AIToolMcpAdapter(
+                options,
+                () => AITools.AIToolManager.GetTools(),
+                (call, ct) => call.Exec(ct),
+                (call, _) => AITools.AIToolManager.ExecuteTool(call),
+                options.DocumentBindingResolver);
             var resourceProvider = new StaticMcpResourceProvider();
             var promptProvider = new StaticMcpPromptProvider();
             return new JsonRpcDispatcher(options, adapter, resourceProvider, promptProvider);
@@ -108,27 +110,16 @@ namespace SmartHopper.Infrastructure.Mcp
         /// </summary>
         public bool IsRunning => this.started == 1 && this.running;
 
+        /// <summary>Gets the actual listener endpoint for locality contract tests.</summary>
+        internal EndPoint? BoundEndpoint => this.listener?.LocalEndpoint;
+
         /// <summary>Gets the configured loopback URL the server listens on.</summary>
         public string Url => $"http://127.0.0.1:{this.options.Port}{Endpoint}";
 
         /// <summary>
-        /// Gets the LAN-reachable URL when <see cref="McpServerOptions.AllowExternalConnections"/>
-        /// is set and a non-loopback IPv4 address is available; <c>null</c> otherwise.
-        /// The loopback <see cref="Url"/> keeps working in either mode.
+        /// Gets no external URL: LAN transport has been removed.
         /// </summary>
-        public string? ExternalUrl
-        {
-            get
-            {
-                if (!this.options.AllowExternalConnections)
-                {
-                    return null;
-                }
-
-                var address = PrimaryLanAddress();
-                return address == null ? null : $"http://{address}:{this.options.Port}{Endpoint}";
-            }
-        }
+        public string? ExternalUrl => null;
 
         /// <summary>Gets the options this server was started with (read-only copy).</summary>
         internal McpServerOptions Options => this.options;
@@ -137,9 +128,7 @@ namespace SmartHopper.Infrastructure.Mcp
         /// Starts the server. Subsequent calls are no-ops.
         /// </summary>
         /// <exception cref="InvalidOperationException">
-        /// Thrown when the port is unavailable, or when external connections are
-        /// allowed without a bearer token — remote access without authentication is
-        /// never permitted.
+        /// Thrown when the port is unavailable.
         /// </exception>
         public void Start()
         {
@@ -148,19 +137,10 @@ namespace SmartHopper.Infrastructure.Mcp
                 return;
             }
 
-            if (this.options.AllowExternalConnections && string.IsNullOrEmpty(this.options.BearerToken))
-            {
-                Interlocked.Exchange(ref this.started, 0);
-                throw new InvalidOperationException(
-                    "Allow external connections requires a Bearer Token — remote access without authentication is not permitted.");
-            }
-
             try
             {
                 this.cancellation = new CancellationTokenSource();
-                this.localAddresses = this.options.AllowExternalConnections ? BuildLocalAddresses() : null;
-                var bindAddress = this.options.AllowExternalConnections ? IPAddress.Any : IPAddress.Loopback;
-                this.listener = new TcpListener(bindAddress, this.options.Port);
+                this.listener = new TcpListener(IPAddress.Loopback, this.options.Port);
                 this.listener.Start();
             }
             catch (Exception ex)
@@ -172,7 +152,8 @@ namespace SmartHopper.Infrastructure.Mcp
                 throw new InvalidOperationException($"Failed to start MCP listener on port {this.options.Port}: {ex.Message}", ex);
             }
 
-            Debug.WriteLine($"[Mcp] Server listening on {this.Url}");
+            Logger.For<McpServer>().Trace($"[Mcp] Server listening on {this.Url}");
+            this.running = true;
             this.acceptLoop = Task.Run(() => this.AcceptLoopAsync(this.cancellation.Token));
         }
 
@@ -206,14 +187,14 @@ namespace SmartHopper.Infrastructure.Mcp
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[Mcp] Error stopping listener: {ex.Message}");
+                Logger.For<McpServer>().Exception(ex, $"[Mcp] Error stopping listener: {ex.Message}");
             }
 
             this.listener = null;
             this.cancellation?.Dispose();
             this.cancellation = null;
             this.acceptLoop = null;
-            Debug.WriteLine("[Mcp] Server stopped");
+            Logger.For<McpServer>().Trace("[Mcp] Server stopped");
         }
 
         /// <inheritdoc/>
@@ -225,7 +206,6 @@ namespace SmartHopper.Infrastructure.Mcp
 
         private async Task AcceptLoopAsync(CancellationToken ct)
         {
-            this.running = true;
             try
             {
                 while (!ct.IsCancellationRequested)
@@ -250,10 +230,10 @@ namespace SmartHopper.Infrastructure.Mcp
                     catch (Exception ex)
                     {
                         var errors = Interlocked.Increment(ref this.acceptErrors);
-                        Debug.WriteLine($"[Mcp] Accept error: {ex.Message}");
+                        Logger.For<McpServer>().Exception(ex, $"[Mcp] Accept error: {ex.Message}");
                         if (errors >= MaxConsecutiveAcceptErrors)
                         {
-                            Debug.WriteLine("[Mcp] Accept loop stopped after repeated errors; disable and re-enable the component to restart the server.");
+                            Logger.For<McpServer>().Error("[Mcp] Accept loop stopped after repeated errors; disable and re-enable the component to restart the server.");
                             break;
                         }
 
@@ -302,17 +282,16 @@ namespace SmartHopper.Infrastructure.Mcp
                 var remote = (client.Client.RemoteEndPoint as IPEndPoint)?.Address;
                 if (remote == null || !IPAddress.IsLoopback(remote))
                 {
-                    Debug.WriteLine($"[Mcp] Rejected non-loopback request from {remote}");
                     await WriteStatusAsync(client, 403, "Non-loopback origin", ct).ConfigureAwait(false);
                     return;
                 }
 
-                // A non-loopback Host header indicates DNS rebinding; a non-loopback
-                // Origin/Referer indicates a browser cross-origin fetch. MCP clients
-                // send neither — or loopback values only.
-                if (!IsAllowedHost(head) || !IsAllowedOrigin(head))
+                // A Host header that does not identify this machine indicates DNS
+                // rebinding; a non-loopback Origin/Referer indicates a browser
+                // cross-origin fetch. MCP clients send neither.
+                if (!this.IsAllowedHost(head) || !IsAllowedOrigin(head))
                 {
-                    Debug.WriteLine("[Mcp] Rejected cross-origin request");
+                    Logger.For<McpServer>().Trace("[Mcp] Rejected cross-origin request");
                     await WriteStatusAsync(client, 403, "Cross-origin requests are not allowed", ct).ConfigureAwait(false);
                     return;
                 }
@@ -339,7 +318,7 @@ namespace SmartHopper.Infrastructure.Mcp
 
                 if (!this.AuthorizeRequest(head, out var authError))
                 {
-                    Debug.WriteLine($"[Mcp] Rejected unauthorized request: {authError}");
+                    Logger.For<McpServer>().Trace($"[Mcp] Rejected unauthorized request: {authError}");
                     await WriteStatusAsync(client, 401, authError, ct).ConfigureAwait(false);
                     return;
                 }
@@ -365,27 +344,34 @@ namespace SmartHopper.Infrastructure.Mcp
                     return;
                 }
 
-                var responseBody = await this.dispatcher.DispatchAsync(body, ct).ConfigureAwait(false);
-                if (responseBody == null)
+                head.Headers.TryGetValue(JsonRpcDispatcher.SessionHeader, out var sessionId);
+                var dispatch = await this.dispatcher.DispatchRequestAsync(body, sessionId, ct).ConfigureAwait(false);
+                if (dispatch.StatusHint == 404)
+                {
+                    await WriteStatusAsync(client, 404, "Unknown or expired Mcp-Session-Id", ct).ConfigureAwait(false);
+                    return;
+                }
+
+                if (dispatch.Body == null || dispatch.StatusHint == 204)
                 {
                     // JSON-RPC notification — 204 with an empty body.
                     await WriteJsonAsync(client, 204, string.Empty, ct).ConfigureAwait(false);
                     return;
                 }
 
-                await WriteJsonAsync(client, 200, responseBody, ct).ConfigureAwait(false);
+                await WriteJsonAsync(client, 200, dispatch.Body, ct, dispatch.SessionId).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
                 // Server stopping, or the client stalled past the I/O timeout —
                 // either way the connection is torn down in finally.
-                Debug.WriteLine(ct.IsCancellationRequested
+                Logger.For<McpServer>().Trace(ct.IsCancellationRequested
                     ? "[Mcp] Request aborted: server stopping"
                     : "[Mcp] Request aborted: client I/O timed out");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[Mcp] Request error: {ex.Message}");
+                Logger.For<McpServer>().Exception(ex, $"[Mcp] Request error: {ex.Message}");
                 try
                 {
                     await WriteStatusAsync(client, 500, "Internal server error", CancellationToken.None).ConfigureAwait(false);
@@ -462,10 +448,8 @@ namespace SmartHopper.Infrastructure.Mcp
         }
 
         /// <summary>
-        /// DNS-rebinding guard: a <c>Host</c> header must identify this machine —
-        /// a loopback address, <c>localhost</c>, the machine hostname, or (when
-        /// external connections are allowed) one of the machine's own interface
-        /// addresses. Raw clients that omit Host pass.
+        /// DNS-rebinding guard: Host must identify literal loopback or localhost,
+        /// never a LAN address or a machine/DNS alias. Raw clients that omit Host pass.
         /// </summary>
         private bool IsAllowedHost(HttpRequestHead head)
         {
@@ -482,17 +466,10 @@ namespace SmartHopper.Infrastructure.Mcp
             var name = uri.Host;
             if (IPAddress.TryParse(name, out var ip))
             {
-                if (IPAddress.IsLoopback(ip))
-                {
-                    return true;
-                }
-
-                var mapped = ip.IsIPv4MappedToIPv6 ? ip.MapToIPv4() : ip;
-                return this.localAddresses != null && this.localAddresses.Contains(mapped);
+                return IPAddress.IsLoopback(ip.IsIPv4MappedToIPv6 ? ip.MapToIPv4() : ip);
             }
 
-            return string.Equals(name, "localhost", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(name, Dns.GetHostName(), StringComparison.OrdinalIgnoreCase);
+            return string.Equals(name, "localhost", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -519,58 +496,6 @@ namespace SmartHopper.Infrastructure.Mcp
         private static bool IsLoopbackUri(string value)
         {
             return Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.IsLoopback;
-        }
-
-        /// <summary>
-        /// The machine's own IPv4 interface addresses, computed once at start —
-        /// used by the Host guard to decide whether a <c>Host</c> header names this
-        /// machine when external connections are allowed.
-        /// </summary>
-        private static HashSet<IPAddress> BuildLocalAddresses()
-        {
-            var addresses = new HashSet<IPAddress> { IPAddress.Loopback, IPAddress.IPv6Loopback };
-            try
-            {
-                foreach (var address in Dns.GetHostAddresses(Dns.GetHostName()))
-                {
-                    addresses.Add(address);
-                }
-            }
-            catch
-            {
-                // Name resolution unavailable — only literal loopback Hosts pass.
-            }
-
-            return addresses;
-        }
-
-        /// <summary>
-        /// Resolves the primary outbound IPv4 address for <see cref="ExternalUrl"/>.
-        /// A UDP "connect" picks the default-route interface without sending traffic;
-        /// falls back to the first non-loopback DNS address when there is no route.
-        /// </summary>
-        private static IPAddress? PrimaryLanAddress()
-        {
-            try
-            {
-                using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                socket.Connect("8.8.8.8", 53);
-                return (socket.LocalEndPoint as IPEndPoint)?.Address;
-            }
-            catch
-            {
-            }
-
-            try
-            {
-                return Array.Find(
-                    Dns.GetHostAddresses(Dns.GetHostName()),
-                    a => a.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(a));
-            }
-            catch
-            {
-                return null;
-            }
         }
 
         private static string RequestPath(string target)
@@ -758,13 +683,17 @@ namespace SmartHopper.Infrastructure.Mcp
             return -1;
         }
 
-        private static async Task WriteJsonAsync(TcpClient client, int statusCode, string body, CancellationToken ct)
+        private static async Task WriteJsonAsync(TcpClient client, int statusCode, string body, CancellationToken ct, string? sessionId = null)
         {
             using var io = IoTimeout(ct);
             var bodyBytes = Encoding.UTF8.GetBytes(body ?? string.Empty);
+            var sessionHeader = string.IsNullOrEmpty(sessionId)
+                ? string.Empty
+                : $"{JsonRpcDispatcher.SessionHeader}: {sessionId}\r\n";
             var header = Encoding.ASCII.GetBytes(
                 $"HTTP/1.1 {statusCode} {StatusText(statusCode)}\r\n" +
                 "Content-Type: application/json; charset=utf-8\r\n" +
+                sessionHeader +
                 $"Content-Length: {bodyBytes.Length}\r\n" +
                 "Connection: close\r\n\r\n");
             var stream = client.GetStream();

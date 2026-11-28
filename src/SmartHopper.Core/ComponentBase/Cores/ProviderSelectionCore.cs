@@ -25,6 +25,7 @@ using SmartHopper.Core.ComponentBase.Contracts;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.ProviderSdk.AIProviders;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.ComponentBase.Cores
 {
     /// <summary>
@@ -105,6 +106,19 @@ namespace SmartHopper.Core.ComponentBase.Cores
         }
 
         /// <summary>
+        /// Acknowledges a change against an explicit selection snapshot instead of
+        /// the current selection. Used when an earlier-consumed selection (e.g. the
+        /// one a batch submission was built with) must be committed while a later
+        /// user selection stays pending.
+        /// </summary>
+        /// <param name="providerSelection">The selection to record as committed;
+        /// <c>null</c> or whitespace is normalized to <see cref="DEFAULT_PROVIDER"/>.</param>
+        public void CommitChange(string providerSelection)
+        {
+            this.committedProvider = string.IsNullOrWhiteSpace(providerSelection) ? DEFAULT_PROVIDER : providerSelection;
+        }
+
+        /// <summary>
         /// Resolves <see cref="CurrentProvider"/> through
         /// <see cref="ProviderManager"/> so <see cref="DEFAULT_PROVIDER"/> becomes the
         /// concrete default-provider name at the moment of the call.
@@ -155,12 +169,12 @@ namespace SmartHopper.Core.ComponentBase.Cores
             try
             {
                 writer.SetString(PersistenceKeys.SelectedProvider, this.currentProvider);
-                Debug.WriteLine($"[ProviderSelectionCore] [Write] Stored AI provider: {this.currentProvider}");
+                Logger.For<ProviderSelectionCore>().Trace($"[ProviderSelectionCore] [Write] Stored AI provider: {this.currentProvider}");
                 return true;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ProviderSelectionCore] [Write] Exception: {ex.Message}");
+                Logger.For<ProviderSelectionCore>().Exception(ex, $"[ProviderSelectionCore] [Write] Exception: {ex.Message}");
                 return false;
             }
         }
@@ -279,28 +293,28 @@ namespace SmartHopper.Core.ComponentBase.Cores
                 if (reader.ItemExists(PersistenceKeys.SelectedProvider))
                 {
                     string storedProvider = reader.GetString(PersistenceKeys.SelectedProvider);
-                    Debug.WriteLine($"[ProviderSelectionCore] [Read] Read stored AI provider: {storedProvider}");
+                    Logger.For<ProviderSelectionCore>().Trace($"[ProviderSelectionCore] [Read] Read stored AI provider: {storedProvider}");
 
                     var providers = ProviderManager.Instance.GetProviders();
                     if (storedProvider == DEFAULT_PROVIDER || providers.Any(p => p.Name == storedProvider))
                     {
                         selectedProvider = storedProvider;
-                        Debug.WriteLine($"[ProviderSelectionCore] [Read] Successfully restored AI provider: {selectedProvider}");
+                        Logger.For<ProviderSelectionCore>().Trace($"[ProviderSelectionCore] [Read] Successfully restored AI provider: {selectedProvider}");
                         return true;
                     }
 
-                    Debug.WriteLine($"[ProviderSelectionCore] [Read] Stored provider '{storedProvider}' not found, using default");
+                    Logger.For<ProviderSelectionCore>().Trace($"[ProviderSelectionCore] [Read] Stored provider '{storedProvider}' not found, using default");
                     selectedProvider = DEFAULT_PROVIDER;
                     return true;
                 }
 
-                Debug.WriteLine("[ProviderSelectionCore] [Read] No stored AI provider found, using default");
+                Logger.For<ProviderSelectionCore>().Trace("[ProviderSelectionCore] [Read] No stored AI provider found, using default");
                 selectedProvider = DEFAULT_PROVIDER;
                 return true;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ProviderSelectionCore] [Read] Exception: {ex.Message}");
+                Logger.For<ProviderSelectionCore>().Exception(ex, $"[ProviderSelectionCore] [Read] Exception: {ex.Message}");
                 selectedProvider = DEFAULT_PROVIDER;
                 return false;
             }

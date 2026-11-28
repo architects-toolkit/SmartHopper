@@ -33,6 +33,7 @@ using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AIProviders;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.AI
 {
     /// <summary>
@@ -55,10 +56,10 @@ namespace SmartHopper.Components.AI
         public override Guid ComponentGuid => new Guid("133A3D6E-1DF0-4FD3-92B5-F686C2FD587D");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.settings;
+        protected override Bitmap Icon => Resources.AISettings;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {
@@ -75,7 +76,7 @@ namespace SmartHopper.Components.AI
             : base(
                 "Settings",
                 "Settings",
-                "Assembles AI request settings (model, temperature, tokens, extras) to pass to any AI component.",
+                "Bundle AI request settings (model, token limit, temperature, batch mode, timeout, and provider extras) to wire into any AI component's 'Settings' input.",
                 "SmartHopper",
                 "A. AI")
         {
@@ -96,7 +97,7 @@ namespace SmartHopper.Components.AI
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[AISettingsComponent] Infrastructure check failed: {ex.Message}");
+                Logger.For<AISettingsComponent>().Exception(ex, $"[AISettingsComponent] Infrastructure check failed: {ex.Message}");
                 return false;
             }
         }
@@ -113,12 +114,13 @@ namespace SmartHopper.Components.AI
         /// <inheritdoc/>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Model", "M", "AI model name override. Leave empty to use the provider default model.", GH_ParamAccess.item, string.Empty);
-            pManager.AddIntegerParameter("Max Tokens", "Tok", "Maximum number of output tokens. Leave disconnected to use the global provider setting.", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Temperature", "T", "Sampling temperature. The accepted range depends on the provider. Leave disconnected to use the global provider setting.\nSupported by OpenAI, Anthropic, MistralAI, DeepSeek.", GH_ParamAccess.item);
-            pManager.AddBooleanParameter("Batch", "B", "When true, all AI calls in a single run are aggregated into one batch HTTP request (async, lower cost). Requires the active provider to support batch processing.", GH_ParamAccess.item, false);
-            pManager.AddIntegerParameter("Timeout", "Tout", "HTTP timeout in seconds. Leave disconnected to use the global setting.", GH_ParamAccess.item);
-            pManager.AddTextParameter("Extras", "X", "Provider-specific extra settings as a JSON object. Connect an AI Extra Settings component output here.", GH_ParamAccess.item, string.Empty);
+            pManager.AddTextParameter("Model", "M", "Model name to use for the request. Leave empty to use the provider's default model.", GH_ParamAccess.item, string.Empty);
+            pManager.AddIntegerParameter("Max Tokens", "Tok", "Maximum number of tokens the model may generate. Set to 0 for unlimited. Leave disconnected to use the provider's default limit.", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Temperature", "T", "Sampling temperature controlling randomness (lower = more deterministic, higher = more creative). Leave disconnected to use the provider's default.", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Batch", "B", "When true, queues all AI calls from a single component run into one asynchronous batch request (lower cost on providers that support batching).", GH_ParamAccess.item, false);
+            pManager.AddIntegerParameter("Timeout", "Tout", "Request timeout in seconds. Leave disconnected to use the global timeout from SmartHopper settings.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Extras", "X", "Provider-specific options as a JSON object. Connect the output of an Extra Settings component.", GH_ParamAccess.item, string.Empty);
+            pManager.AddBooleanParameter("Share", "Sh", "When true (default), identical units within a run share one generated result. When false, each occurrence generates independently. Local execution policy — never sent to the provider.", GH_ParamAccess.item, true);
 
             // All inputs are optional - use safe index access with bounds checking
             try
@@ -131,14 +133,14 @@ namespace SmartHopper.Components.AI
             catch (Exception ex)
             {
                 // Silently handle any parameter manager issues during initialization
-                System.Diagnostics.Debug.WriteLine($"[AISettingsComponent] Warning: Could not set parameter optional flags: {ex.Message}");
+                Logger.For<AISettingsComponent>().Exception(ex, $"[AISettingsComponent] Warning: Could not set parameter optional flags: {ex.Message}");
             }
         }
 
         /// <inheritdoc/>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Settings", "S", "AI request settings. Connect to any AI component's Settings input.", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Settings", "S", "Configured AI request settings. Connect to the 'Settings' (S) input of any AI component.", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>
@@ -190,7 +192,7 @@ namespace SmartHopper.Components.AI
                 }
 
                 int maxTokens = 0;
-                if (DA.GetData("Max Tokens", ref maxTokens) && maxTokens > 0)
+                if (DA.GetData("Max Tokens", ref maxTokens) && maxTokens >= 0)
                 {
                     builder.WithMaxTokens(maxTokens);
                 }
@@ -224,12 +226,18 @@ namespace SmartHopper.Components.AI
                     builder.WithTimeout(timeoutSeconds);
                 }
 
+                bool shareIdentical = true;
+                if (DA.GetData("Share", ref shareIdentical) && !shareIdentical)
+                {
+                    builder.WithShareIdenticalResults(false);
+                }
+
                 DA.SetData("Settings", new GH_AIRequestParameters(builder.Build()));
             }
             catch (IndexOutOfRangeException ex)
             {
                 // Fallback for unexpected index errors during initialization
-                Debug.WriteLine($"[AISettingsComponent] Index out of range: {ex.Message}");
+                Logger.For<AISettingsComponent>().Exception(ex, $"[AISettingsComponent] Index out of range: {ex.Message}");
                 this.AddRuntimeMessage(
                     GH_RuntimeMessageLevel.Warning,
                     "Unexpected initialization error. Please recompute the component.");
@@ -238,7 +246,7 @@ namespace SmartHopper.Components.AI
             catch (Exception ex)
             {
                 // Catch any other unexpected errors
-                Debug.WriteLine($"[AISettingsComponent] Unexpected error: {ex.Message}");
+                Logger.For<AISettingsComponent>().Exception(ex, $"[AISettingsComponent] Unexpected error: {ex.Message}");
                 this.AddRuntimeMessage(
                     GH_RuntimeMessageLevel.Error,
                     $"Unexpected error assembling AI settings: {ex.Message}");
@@ -275,14 +283,14 @@ namespace SmartHopper.Components.AI
                             }
                             catch (Exception ex)
                             {
-                                Debug.WriteLine($"[AISettingsComponent] Error during solution expiration: {ex.Message}");
+                                Logger.For<AISettingsComponent>().Exception(ex, $"[AISettingsComponent] Error during solution expiration: {ex.Message}");
                                 this._retryScheduled = false;
                             }
                         });
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[AISettingsComponent] Error during retry scheduling: {ex.Message}");
+                        Logger.For<AISettingsComponent>().Exception(ex, $"[AISettingsComponent] Error during retry scheduling: {ex.Message}");
                         this._retryScheduled = false;
                     }
                 }, TaskScheduler.Default);

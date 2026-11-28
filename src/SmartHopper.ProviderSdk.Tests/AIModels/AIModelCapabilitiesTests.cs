@@ -158,8 +158,8 @@ namespace SmartHopper.ProviderSdk.Tests.AIModels
         {
             var batchPricing = new AIModelPricing
             {
-                Prompt = 0.000001m,
-                Completion = 0.000002m,
+                TextInput = 0.000001m,
+                TextOutput = 0.000002m,
             };
 
             var capabilities = new AIModelCapabilities
@@ -171,8 +171,8 @@ namespace SmartHopper.ProviderSdk.Tests.AIModels
             };
 
             Assert.NotNull(capabilities.BatchPricing);
-            Assert.Equal(0.000001m, capabilities.BatchPricing.Prompt);
-            Assert.Equal(0.000002m, capabilities.BatchPricing.Completion);
+            Assert.Equal(0.000001m, capabilities.BatchPricing.TextInput);
+            Assert.Equal(0.000002m, capabilities.BatchPricing.TextOutput);
         }
     }
 }

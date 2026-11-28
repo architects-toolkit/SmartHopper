@@ -27,6 +27,7 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Knowledge
 {
     /// <summary>
@@ -37,20 +38,18 @@ namespace SmartHopper.Components.Knowledge
     {
         public override Guid ComponentGuid => new Guid("D5EB98E2-27BF-4692-BEC7-DA1CE1CE49DB");
 
-        protected override Bitmap Icon => Resources.discoursepostopen;
+        protected override Bitmap Icon => Resources.DiscoursePostOpen;
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary | GH_Exposure.obscure;
 
         public DiscoursePostOpenComponent()
             : base(
                   "Discourse Post Open",
                   "DiscoursePostOpen",
-                  "Open a Discourse forum post in the default web browser by its numeric ID from any Discourse instance.",
+                  "Open a Discourse forum post in your default web browser from its post JSON object.",
                   "SmartHopper",
-                  "Knowledge")
+                  "E. Forums")
         {
-            // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
-            this.RunOnlyOnInputChanges = false;
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
@@ -58,13 +57,13 @@ namespace SmartHopper.Components.Knowledge
             pManager.AddTextParameter(
                 "Base URL",
                 "U",
-                "Base URL of the Discourse forum (e.g., https://discourse.mcneel.com or https://discourse.ladybug.tools). If empty, will try to extract from post JSON.",
+                "Optional base URL of the Discourse forum (e.g., 'https://discourse.mcneel.com'). Leave empty if the post JSON already contains a full URL.",
                 GH_ParamAccess.item,
                 string.Empty);
             pManager.AddTextParameter(
                 "Discourse Post",
                 "P",
-                "JSON object representing the full forum post (e.g. from DiscoursePostGetComponent).",
+                "Forum post JSON object from Discourse Search or Discourse Post Get.",
                 GH_ParamAccess.item);
         }
 
@@ -211,14 +210,14 @@ namespace SmartHopper.Components.Knowledge
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[DiscoursePostOpenWorker] Error opening browser: {ex.Message}");
+                        Logger.For<DiscoursePostOpenWorker>().Exception(ex, $"[DiscoursePostOpenWorker] Error opening browser: {ex.Message}");
                         this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                         this.resultUrl = string.Empty;
                     }
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[DiscoursePostOpenWorker] Error parsing JSON: {ex.Message}");
+                    Logger.For<DiscoursePostOpenWorker>().Exception(ex, $"[DiscoursePostOpenWorker] Error parsing JSON: {ex.Message}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                     this.resultUrl = string.Empty;
                 }

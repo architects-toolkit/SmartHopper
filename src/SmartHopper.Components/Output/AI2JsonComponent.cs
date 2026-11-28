@@ -29,6 +29,7 @@ using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AIModels;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Output
 {
     /// <summary>
@@ -44,7 +45,7 @@ namespace SmartHopper.Components.Output
         private JToken _fallback;
 
         public AI2JsonComponent()
-            : base("AI to JSON", "AI→JSON", "Generate structured JSON data from AI input", GH_Exposure.secondary)
+            : base("AI to JSON", "AI2JSON", "Call the AI provider on the connected input(s) and return structured JSON (optionally constrained to a JSON Schema).", GH_Exposure.tertiary)
         {
         }
 
@@ -56,7 +57,7 @@ namespace SmartHopper.Components.Output
         /// <summary>
         /// Gets the component icon.
         /// </summary>
-        protected override Bitmap Icon => Resources.aitojson;
+        protected override Bitmap Icon => Resources.AI2Json;
 
         /// <summary>
         /// Gets the AI tools used by this component.
@@ -98,7 +99,7 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "JSON",
                     NickName = "J",
-                    Description = "Generated JSON data (minified). Falls back to the Fallback input when the AI response cannot be parsed as JSON.",
+                    Description = "Generated JSON string (or the Fallback JSON when unparsable).",
                     ParamType = typeof(Param_String),
                     Access = GH_ParamAccess.tree,
                     Extractor = OutputMapping.Single(aiReturn =>
@@ -114,7 +115,7 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "Used Fallback",
                     NickName = "UF",
-                    Description = "True when the AI response could not be parsed as JSON and the Fallback value was used (or null was emitted because no fallback was provided).",
+                    Description = "True when the AI response could not be parsed as JSON and the fallback behavior was used.",
                     ParamType = typeof(Param_Boolean),
                     Access = GH_ParamAccess.tree,
                     Extractor = OutputMapping.Single(aiReturn =>
@@ -132,8 +133,8 @@ namespace SmartHopper.Components.Output
         /// </summary>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Schema", "S", "Optional JSON schema for structured output", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Fallback", "F", "OPTIONAL fallback JSON (object or array) to emit when the AI response cannot be parsed. If not provided, the output will be null for unparsable responses.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Schema", "S", "Optional JSON Schema string to constrain the AI output (build one with the JSON Schema component).", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Fallback", "F", "Optional fallback JSON object or array returned when the AI response cannot be parsed as JSON (leave disconnected to output null on parse failure).", GH_ParamAccess.item);
             pManager[pManager.ParamCount - 1].Optional = true;
         }
 
@@ -157,7 +158,7 @@ namespace SmartHopper.Components.Output
                 }
                 catch (Newtonsoft.Json.JsonException ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[AI2JsonComponent] Invalid Fallback JSON ignored: {ex.Message}");
+                    Logger.For<AI2JsonComponent>().Exception(ex, $"[AI2JsonComponent] Invalid Fallback JSON ignored: {ex.Message}");
                 }
             }
         }
@@ -186,7 +187,7 @@ namespace SmartHopper.Components.Output
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"[AI2JsonComponent] Error applying schema: {ex.Message}");
+                        Logger.For<AI2JsonComponent>().Exception(ex, $"[AI2JsonComponent] Error applying schema: {ex.Message}");
                     }
                 }
             }

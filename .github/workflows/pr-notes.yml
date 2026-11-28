@@ -77,13 +77,14 @@ jobs:
           prompt_path = pathlib.Path(sys.argv[2])
           template = pathlib.Path(".github/prompts/pr-notes.md").read_text(encoding="utf-8")
 
-          # mistral-medium-latest has a 256k-token context window. Reserve 4k
-          # for the generated response and another 4k for JSON/message overhead.
-          # Assuming a conservative 3 characters per token for mixed code/English
-          # text gives the character budget below. The diff is then capped so the
-          # full prompt (template + branch + commits + files + unreleased + diff)
-          # fits inside that budget.
-          CONTEXT_WINDOW_TOKENS = 256000
+          # The default model (mistral-large-4-0) has a 1M-token context window.
+          # Reserve 4k for the generated response and another 4k for JSON/message
+          # overhead. If MISTRAL_MODEL is overridden with a smaller-context model,
+          # this constant must be reduced accordingly. Assuming a conservative
+          # 3 characters per token for mixed code/English text gives the character
+          # budget below. The diff is then capped so the full prompt (template +
+          # branch + commits + files + unreleased + diff) fits inside that budget.
+          CONTEXT_WINDOW_TOKENS = 1000000
           MAX_OUTPUT_TOKENS = 4096
           SAFETY_TOKENS = 4096
           CHARS_PER_TOKEN = 3.0
@@ -278,7 +279,7 @@ jobs:
         uses: ./.github/actions/ai/mistral-chat
         with:
           api-key: ${{ secrets.MISTRAL_API_KEY }}
-          model: mistral-medium-latest
+          model: ${{ vars.MISTRAL_MODEL || 'mistral-large-4-0' }}
           temperature: '0.0'
           max-tokens: '10'
           user-prompt-file: ${{ steps.assess-prep.outputs.severity-prompt-file }}
@@ -322,7 +323,7 @@ jobs:
         uses: ./.github/actions/ai/mistral-chat
         with:
           api-key: ${{ secrets.MISTRAL_API_KEY }}
-          model: mistral-medium-latest
+          model: ${{ vars.MISTRAL_MODEL || 'mistral-large-4-0' }}
           temperature: '0.3'
           max-tokens: '4096'
           user-prompt-file: ${{ steps.context.outputs.prompt-file }}

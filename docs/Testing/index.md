@@ -87,7 +87,6 @@ public abstract class ProviderTestComponentBase : AIStatefulAsyncComponentBase
         string subCategory = "Testing Providers")
         : base(name, nickname, description, category, subCategory)
     {
-        this.RunOnlyOnInputChanges = false;
         this.SetSelectedProviderName(this.TestProviderName);
     }
 
@@ -172,3 +171,4 @@ Result and messages surfaced on the component outputs
 - [Grasshopper Test Components](../Components/GrasshopperTestComponents.md)
 - [Async Worker Base](../Components/ComponentBase/AsyncWorkerBase.md)
 - [AI Stateful Async Component Base](../Components/ComponentBase/AIStatefulAsyncComponentBase.md)
+- [Multimodal Document Verification](multimodal-documents.md) — manual verification matrix for document extraction, image transport, and model comprehension

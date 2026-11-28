@@ -25,6 +25,7 @@ using Rhino.DocObjects;
 using SmartHopper.Core.Grasshopper.Utils.Rhino;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.FileSystem;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
@@ -86,7 +87,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>
         /// Executes the Rhino read 3DM tool.
         /// </summary>
-        private Task<AIReturn> RhinoRead3dmToolAsync(AIToolCall toolCall)
+        private async Task<AIReturn> RhinoRead3dmToolAsync(AIToolCall toolCall)
         {
             var output = new AIReturn()
             {
@@ -113,13 +114,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         .ToHashSet();
                 }
 
+                // Model-supplied file reads require approval.
+                await LocalFileAccess.RequireAsync(
+                    filePath, LocalFileCapability.Read, this.toolName, toolCall.CancellationToken)
+                    .ConfigureAwait(false);
+
                 // Use utility to read 3DM file
                 var toolResult = File3dmReader.Read3dmFile(filePath, includeDetails, maxObjects, typeFilter);
 
                 if (toolResult == null)
                 {
                     output.CreateError($"Failed to read 3DM file: {filePath}");
-                    return Task.FromResult(output);
+                    return output;
                 }
 
                 var body = AIBodyBuilder.Create()
@@ -127,12 +133,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .Build();
 
                 output.CreateSuccess(body, toolCall);
-                return Task.FromResult(output);
+                return output;
             }
             catch (Exception ex)
             {
                 output.CreateError($"Error reading 3DM file: {ex.Message}");
-                return Task.FromResult(output);
+                return output;
             }
         }
     }

@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 namespace SmartHopper.ProviderSdk.AIModels
 {
@@ -313,8 +314,11 @@ namespace SmartHopper.ProviderSdk.AIModels
 
         /// <summary>
         /// Derives the input-modality capabilities required to send the given interactions
-        /// to a model: an <see cref="AIInteractionImage"/> requires <see cref="AICapability.ImageInput"/>
-        /// and an <see cref="AIInteractionAudio"/> requires <see cref="AICapability.AudioInput"/>.
+        /// to a model: an <see cref="AIInteractionImage"/> requires <see cref="AICapability.ImageInput"/>,
+        /// an <see cref="AIInteractionAudio"/> requires <see cref="AICapability.AudioInput"/>,
+        /// and an <see cref="AIInteractionToolResult"/> requires <see cref="AICapability.ImageInput"/>
+        /// only when it carries images flagged <see cref="ToolResultImage.SendToModel"/>.
+        /// Display-only tool images never reach the model and add no requirement.
         /// Text, tool, and other interaction kinds add no requirement.
         /// </summary>
         /// <param name="interactions">The interactions to inspect. Null-safe.</param>
@@ -329,13 +333,19 @@ namespace SmartHopper.ProviderSdk.AIModels
 
             foreach (var interaction in interactions)
             {
-                if (interaction is AIInteractionImage)
+                if (interaction is AIInteractionImage image && image.HasContent)
                 {
                     required |= AICapability.ImageInput;
                 }
-                else if (interaction is AIInteractionAudio)
+                else if (interaction is AIInteractionAudio audio && audio.HasContent)
                 {
                     required |= AICapability.AudioInput;
+                }
+                else if (interaction is AIInteractionToolResult toolResult
+                    && toolResult.Images != null
+                    && toolResult.Images.Any(i => i?.IsModelVisible == true))
+                {
+                    required |= AICapability.ImageInput;
                 }
             }
 

@@ -2,6 +2,30 @@
 
 How tool calls are represented, executed, and orchestrated within AICall.
 
+## Execution Authorization
+
+Tool listing is not authorization. `AIToolManager.ExecuteTool` requires an enabled
+current registry entry, the permitted execution surface and the host-owned
+`InvocationContext.ToolScopeFilter`. Sessions copy
+the originating request filter into the invocation before reconstructing a tool
+body, so model output cannot widen it. A missing invocation context fails closed;
+null filters on explicit direct-host calls retain their existing unscoped meaning.
+The reconstructed local tool body's `ToolFilter` defaults to `-*` (no nested
+model tool calls); it is not the authorization context for this invocation.
+The manager rechecks the registry/scope immediately before dispatch after async
+undo setup. Disabled/replaced registrations are not executed from a stale snapshot.
+
+Progressive loading is not an allow-list of only the inline tools: all eligible
+tools remain callable by name. `search_tools` is authorized outside its own
+category only when the eligible catalogue exceeds the inline threshold, matching
+provider formatting; its results stay inside that same filtered catalogue.
+
+For large catalogues the inline set is selected by explicit tool names, not
+categories. It covers inspection, user interaction, generation, local guides and
+a McNeel forum search/read pair. Other eligible tools remain discovery-first;
+small catalogues retain all eligible schemas. See the
+[default tool policy and chat prompt contract](../../Tools/index.md#progressive-tool-loading).
+
 ---
 
 ## Metadata

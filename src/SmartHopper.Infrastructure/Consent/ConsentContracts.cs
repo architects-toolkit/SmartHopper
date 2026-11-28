@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using SmartHopper.Infrastructure.AICall.Subagents;
 using SmartHopper.Infrastructure.Interaction;
 using SmartHopper.Infrastructure.Planning;
 using SmartHopper.ProviderSdk.Hosting;
@@ -146,6 +147,35 @@ namespace SmartHopper.Infrastructure.Consent
         /// <summary>Gets or sets an invocation-specific user question presenter.</summary>
         public IUserQuestionPresenter? UserQuestionPresenter { get; set; }
 
+        /// <summary>Gets or sets an invocation-specific GhJSON artifact presenter.</summary>
+        public IGhJsonArtifactPresenter? GhJsonArtifactPresenter { get; set; }
+
+        /// <summary>
+        /// Gets or sets the owning session's subagent host, when the session has one.
+        /// Conductor tools (spawn/send/wait/list) resolve their registry through it;
+        /// child sessions carry no host, which keeps subagent depth at one level.
+        /// </summary>
+        public ISubagentHost? SubagentHost { get; set; }
+
+        /// <summary>
+        /// Gets or sets the tool filter that scoped the originating request's
+        /// inline tool set. Both final dispatch authorization and discovery
+        /// re-resolve it so reconstructed model output cannot widen the host's
+        /// scope. Null deliberately means unscoped for direct host calls.
+        /// </summary>
+        public string? ToolScopeFilter { get; set; }
+
+        /// <summary>
+        /// Gets or sets the shared execution lifecycle for this invocation. The
+        /// MCP adapter, UI admission executor and commit path read it to decide
+        /// whether the operation may still have side effects in flight — an
+        /// observer timeout must never fabricate a dead operation while the
+        /// commit was claimed. Child calls mint their own lifecycle via
+        /// <see cref="ForTool"/> so one call's commit claim cannot leak into
+        /// another's outcome.
+        /// </summary>
+        public SmartHopper.Infrastructure.AITools.ToolExecutionLifecycle? Lifecycle { get; set; }
+
         /// <summary>Creates a defensive copy for one tool call.</summary>
         public MutationInvocationContext ForTool(string? toolCallId, string? toolName)
         {
@@ -162,6 +192,11 @@ namespace SmartHopper.Infrastructure.Consent
                 TaskPlanPresenter = this.TaskPlanPresenter,
                 CanvasPointerPresenter = this.CanvasPointerPresenter,
                 UserQuestionPresenter = this.UserQuestionPresenter,
+                GhJsonArtifactPresenter = this.GhJsonArtifactPresenter,
+                SubagentHost = this.SubagentHost,
+                ToolScopeFilter = this.ToolScopeFilter,
+
+                // Lifecycle deliberately not copied: each tool call owns its own.
             };
         }
     }

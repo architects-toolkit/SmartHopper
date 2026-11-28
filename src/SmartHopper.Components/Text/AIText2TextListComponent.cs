@@ -37,13 +37,14 @@ using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Text
 {
     public class AIText2TextListComponent : AIStatefulAsyncComponentBase
     {
         public override Guid ComponentGuid => new Guid("66AE34E5-E615-4631-9A1E-D87FB5B76321");
 
-        protected override Bitmap Icon => Resources.textlistgenerate;
+        protected override Bitmap Icon => Resources.AIText2TextList;
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
@@ -83,25 +84,25 @@ namespace SmartHopper.Components.Text
             : base(
                 "AI Text To Text List",
                 "AIText2TextList",
-                "Generate a list of text items from a prompt and count using AI.\nIf a tree is provided, prompts and counts will match by branch path.",
+                "Generate a list of text items of a requested length from a prompt using AI.\nWhen data trees are provided, prompts and counts are matched by branch path.",
                 "SmartHopper",
-                "Text")
+                "I. Text & Lists")
         {
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Prompt", "P", "REQUIRED The user's prompt", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Count", "C", "REQUIRED Number of items to generate", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Prompt", "P", "Prompt describing the list of items to generate.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Count", "C", "Number of list items to generate.", GH_ParamAccess.tree);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Result", "R", "Generated list of text items", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Result", "R", "Generated list of text items.", GH_ParamAccess.tree);
         }
 
         /// <inheritdoc/>
-        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<SHRuntimeMessage> messages = null)
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject>? results, IReadOnlyList<SHRuntimeMessage>? messages = null)
         {
             var sentinel = this.GetSentinelTree("Result");
             if (results == null || sentinel == null) return;
@@ -172,7 +173,7 @@ namespace SmartHopper.Components.Text
             {
                 try
                 {
-                    Debug.WriteLine($"[AIText2TextList] Starting DoWorkAsync");
+                    Logger.For<AIText2TextListWorker>().Trace($"[AIText2TextList] Starting DoWorkAsync");
 
                     this.result = await this.parent.RunProcessingAsync(
                         this.inputTree,
@@ -183,7 +184,7 @@ namespace SmartHopper.Components.Text
                     var batchSubmitted = await this.parent.TrySubmitBatchAsync("Result", this.result, token).ConfigureAwait(false);
                     if (batchSubmitted)
                     {
-                        Debug.WriteLine($"[AIText2TextList] Sentinel tree stored, batch submitted");
+                        Logger.For<AIText2TextListWorker>().Trace($"[AIText2TextList] Sentinel tree stored, batch submitted");
                     }
                     else if (this.result.TryGetValue("Result", out var resultTree))
                     {
@@ -191,11 +192,11 @@ namespace SmartHopper.Components.Text
                         this.parent.FinishResults("Result", resultTree);
                     }
 
-                    Debug.WriteLine($"[AIText2TextList] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
+                    Logger.For<AIText2TextListWorker>().Trace($"[AIText2TextList] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIText2TextList] Error: {ex.Message}");
+                    Logger.For<AIText2TextListWorker>().Exception(ex, $"[AIText2TextList] Error: {ex.Message}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
@@ -224,7 +225,7 @@ namespace SmartHopper.Components.Text
                     string prompt = normalizedPrompts[i]?.Value ?? string.Empty;
                     if (!int.TryParse(normalizedCounts[i]?.Value, out int count) || count <= 0)
                     {
-                        Debug.WriteLine($"[AIText2TextList] Invalid count at branch {i}: '{normalizedCounts[i]?.Value}'");
+                        Logger.For<AIText2TextListWorker>().Error($"[AIText2TextList] Invalid count at branch {i}: '{normalizedCounts[i]?.Value}'");
                         continue;
                     }
 

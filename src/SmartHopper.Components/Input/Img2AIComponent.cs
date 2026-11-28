@@ -35,23 +35,23 @@ namespace SmartHopper.Components.Input
     {
         public override Guid ComponentGuid => new Guid("538086D1-E762-4F13-8305-42109B045722");
 
-        protected override Bitmap Icon => Resources.toaiimg;
+        protected override Bitmap Icon => Resources.Img2AI;
 
         public Img2AIComponent()
             : base(
                   "Image to AI",
                   "Img2AI",
-                  "Wraps image input into an AIInputPayload for AI processing.",
-                  GH_Exposure.secondary)
+                  "Package an image (Bitmap, file path, URL, or base64) for vision analysis in any AI output component.",
+                  GH_Exposure.tertiary)
         {
         }
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddParameter(new VersatileImageParameter(), "Image", "I", "Image source (Bitmap, file path, URL, base64, or data-URI).", GH_ParamAccess.item);
+            pManager.AddParameter(new VersatileImageParameter(), "Image", "I", "Image source (VersatileImage, Bitmap, local file path, HTTP/HTTPS URL, data URI, or base64 string).", GH_ParamAccess.item);
         }
 
-        protected override string PayloadOutputDescription => "AIInputPayload wrapping the image for AI vision processing.";
+        protected override string PayloadOutputDescription => "Packaged image input ready to wire into any vision-capable AI output component's 'Input >' parameter.";
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {

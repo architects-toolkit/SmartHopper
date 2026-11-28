@@ -21,6 +21,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
     using SmartHopper.ProviderSdk.AICall.Core.Base;
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
@@ -283,8 +284,11 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
             var unnamed = new AIInteractionToolCall();
             var named = new AIInteractionToolCall { Name = "my_tool" };
 
-            Assert.Equal("Tool Call", unnamed.GetDisplayNameForRender());
-            Assert.Equal("Tool Call: my_tool", named.GetDisplayNameForRender());
+            // Pending calls carry the tool-card contract (queued state) until dispatch/result.
+            Assert.Contains("Tool Call", unnamed.GetDisplayNameForRender());
+            Assert.Contains("Tool Call: my_tool", named.GetDisplayNameForRender());
+            Assert.Contains("data-state=\"pending\"", unnamed.GetDisplayNameForRender());
+            Assert.Contains("data-callid", unnamed.GetDisplayNameForRender());
         }
 
         [Fact(DisplayName = nameof(ToolCall_GetRawContentForRender) + PlatformSuffix)]
@@ -292,16 +296,74 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
         {
             var interaction = new AIInteractionToolCall
             {
+                Name = "my_tool",
                 Arguments = new JObject { ["x"] = 1 },
             };
 
             var result = interaction.GetRawContentForRender();
 
-            Assert.Contains("\"x\": 1", result);
+            Assert.Contains("tool-call-line", result);
+            Assert.Contains("my_tool(x: 1)", result);
 
             var empty = new AIInteractionToolCall();
 
             Assert.Equal(string.Empty, empty.GetRawContentForRender());
+        }
+
+        [Fact(DisplayName = nameof(ToolCall_GetRawContentForRender_SkipsArgsTableForSimpleParams) + PlatformSuffix)]
+        public void ToolCall_GetRawContentForRender_SkipsArgsTableForSimpleParams()
+        {
+            var interaction = new AIInteractionToolCall
+            {
+                Name = "my_tool",
+                Arguments = new JObject { ["a"] = 1, ["b"] = "two" },
+            };
+
+            var result = interaction.GetRawContentForRender();
+
+            Assert.DoesNotContain("tool-args-table", result);
+            Assert.Contains("a: 1", result);
+            Assert.Contains("b: &quot;two&quot;", result);
+        }
+
+        [Fact(DisplayName = nameof(ToolCall_GetRawContentForRender_RendersArgsTableForComplexParams) + PlatformSuffix)]
+        public void ToolCall_GetRawContentForRender_RendersArgsTableForComplexParams()
+        {
+            var interaction = new AIInteractionToolCall
+            {
+                Name = "my_tool",
+                Arguments = new JObject
+                {
+                    ["a"] = 1,
+                    ["nested"] = new JObject { ["inner"] = "v" },
+                },
+            };
+
+            var result = interaction.GetRawContentForRender();
+
+            Assert.Contains("tool-args-table", result);
+            Assert.Contains("ta-name", result);
+            Assert.Contains("nested", result);
+            Assert.Contains("jt-key", result);
+        }
+
+        [Fact(DisplayName = nameof(ToolCall_GetCopyTextForRender) + PlatformSuffix)]
+        public void ToolCall_GetCopyTextForRender()
+        {
+            var interaction = new AIInteractionToolCall
+            {
+                Name = "my_tool",
+                Arguments = new JObject { ["x"] = 1 },
+            };
+
+            var copy = interaction.GetCopyTextForRender();
+
+            Assert.Contains("Tool Call: my_tool", copy);
+            Assert.Contains("```json", copy);
+            Assert.Contains("\"x\": 1", copy);
+
+            var empty = new AIInteractionToolCall { Name = "my_tool" };
+            Assert.Equal("Tool Call: my_tool", empty.GetCopyTextForRender());
         }
 
         [Fact(DisplayName = nameof(ToolCall_GetRawReasoningForRender) + PlatformSuffix)]
@@ -351,8 +413,9 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
                 Name = "my_tool",
             };
 
-            Assert.Equal("tool.result:tr_1", withoutTurn.GetStreamKey());
-            Assert.Equal("turn:turn-1:tool.result:my_tool", withTurn.GetStreamKey());
+            // Results share the originating call's key so they merge into one chat card.
+            Assert.Equal("tool.call:tr_1", withoutTurn.GetStreamKey());
+            Assert.Equal("turn:turn-1:tool.call:my_tool", withTurn.GetStreamKey());
         }
 
         [Fact(DisplayName = nameof(ToolResult_GetDedupKey) + PlatformSuffix)]
@@ -366,8 +429,32 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
 
             var key = interaction.GetDedupKey();
 
-            Assert.StartsWith("tool.result:tr_1:", key);
-            Assert.Equal("tool.result:tr_1:".Length + 16, key.Length);
+            // Merged with the originating call: same dedup key, no result suffix.
+            Assert.Equal("tool.call:tr_1:none", key);
+        }
+
+        [Fact(DisplayName = nameof(ToolResult_GetDisplayNameForRender) + PlatformSuffix)]
+        public void ToolResult_GetDisplayNameForRender()
+        {
+            var ok = new AIInteractionToolResult
+            {
+                Name = "my_tool",
+                Result = new JObject { ["items"] = 3 },
+            };
+            var withError = new AIInteractionToolResult
+            {
+                Name = "my_tool",
+                Result = new JObject { ["error"] = "rejected by the user" },
+            };
+            var failed = new AIInteractionToolResult
+            {
+                Name = "my_tool",
+                Result = new JObject { ["success"] = false },
+            };
+
+            Assert.Contains("data-state=\"done\"", ok.GetDisplayNameForRender());
+            Assert.Contains("data-state=\"error\"", withError.GetDisplayNameForRender());
+            Assert.Contains("data-state=\"error\"", failed.GetDisplayNameForRender());
         }
 
         [Fact(DisplayName = nameof(ToolResult_MessagesPropagation) + PlatformSuffix)]
@@ -389,6 +476,84 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
 
             Assert.Single(interaction.Messages);
             Assert.Equal("warning message", interaction.Messages[0].Message);
+        }
+
+        [Fact(DisplayName = nameof(ToolResult_GetRawContentForRender_RendersCard) + PlatformSuffix)]
+        public void ToolResult_GetRawContentForRender_RendersCard()
+        {
+            var payload = new string('y', 500);
+            var interaction = new AIInteractionToolResult
+            {
+                Name = "my_tool",
+                Arguments = new JObject { ["aim"] = "test" },
+                Result = new JObject { ["report"] = payload },
+            };
+
+            var render = interaction.GetRawContentForRender();
+
+            // Digest line grounds the call; the label-only "aim" arg is filtered.
+            Assert.Contains("my_tool", render);
+            Assert.Contains("→ done", render);
+            Assert.DoesNotContain("aim:", render);
+
+            // Full result payload survives in the pretty block, and the raw
+            // compact JSON rides along in the copy button's data-copy attribute.
+            Assert.Contains("tool-result", render);
+            Assert.Contains("cui-copy-raw", render);
+            Assert.Contains("data-copy=", render);
+            Assert.Contains(payload, render);
+            var start = render.IndexOf("data-copy=\"", StringComparison.Ordinal) + "data-copy=\"".Length;
+            var end = render.IndexOf('"', start);
+            var decoded = System.Net.WebUtility.HtmlDecode(render.Substring(start, end - start));
+            Assert.Equal(JsonConvert.SerializeObject(interaction.Result, Formatting.None), decoded);
+        }
+
+        [Fact(DisplayName = nameof(ToolResult_GetRawContentForRender_ErrorCallout) + PlatformSuffix)]
+        public void ToolResult_GetRawContentForRender_ErrorCallout()
+        {
+            var interaction = new AIInteractionToolResult
+            {
+                Name = "my_tool",
+                Result = new JObject { ["error"] = "rejected by the user" },
+            };
+
+            var render = interaction.GetRawContentForRender();
+
+            Assert.Contains("→ failed", render);
+            Assert.Contains("tool-error", render);
+            Assert.Contains("rejected by the user", render);
+        }
+
+        [Fact(DisplayName = nameof(ToolResult_GetRawContentForRender_EmptyArgsSkipsTable) + PlatformSuffix)]
+        public void ToolResult_GetRawContentForRender_EmptyArgsSkipsTable()
+        {
+            var interaction = new AIInteractionToolResult
+            {
+                Name = "my_tool",
+                Result = new JObject { ["ok"] = true },
+            };
+
+            var render = interaction.GetRawContentForRender();
+
+            Assert.DoesNotContain("tool-args-table", render);
+            Assert.Contains("my_tool", render);
+        }
+
+        [Fact(DisplayName = nameof(ToolResult_GetCopyTextForRender) + PlatformSuffix)]
+        public void ToolResult_GetCopyTextForRender()
+        {
+            var interaction = new AIInteractionToolResult
+            {
+                Name = "my_tool",
+                Arguments = new JObject { ["a"] = 1 },
+                Result = new JObject { ["ok"] = true },
+            };
+
+            var copy = interaction.GetCopyTextForRender();
+
+            Assert.Contains("``{\"a\":1}`` → ``{\"ok\":true}``", copy);
+            Assert.Contains("```json", copy);
+            Assert.Contains("\"ok\": true", copy);
         }
 
         #endregion
@@ -436,14 +601,10 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
             var interaction = new AIInteractionImage().WithRequest(
                 prompt: "a red apple",
                 size: "512x512",
-                quality: "hd",
-                style: "natural",
                 aspectRatio: "16:9");
 
             Assert.Equal("a red apple", interaction.OriginalPrompt);
             Assert.Equal("512x512", interaction.ImageSize);
-            Assert.Equal("hd", interaction.ImageQuality);
-            Assert.Equal("natural", interaction.ImageStyle);
             Assert.Equal("16:9", interaction.AspectRatio);
         }
 
@@ -527,6 +688,16 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
             var neither = new AIInteractionImage().WithRequest("a cat");
 
             Assert.Contains("generated from 'a cat'", neither.GetRawContentForRender());
+        }
+
+        [Fact(DisplayName = nameof(Image_HasContent) + PlatformSuffix)]
+        public void Image_HasContent()
+        {
+            Assert.False(new AIInteractionImage().HasContent);
+            Assert.False(new AIInteractionImage { ImageData = "   " }.HasContent);
+            Assert.True(new AIInteractionImage().WithVisionInput("https://example.com/image.png").HasContent);
+            Assert.True(new AIInteractionImage().WithVisionInputFromBase64("QUJD").HasContent);
+            Assert.True(new AIInteractionImage().WithResult("https://example.com/image.png").HasContent);
         }
 
         #endregion
@@ -804,6 +975,16 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
             var empty = new AIInteractionAudio { MimeType = "audio/wav" };
 
             Assert.Equal("Audio(audio/wav, unknown)", empty.ToString());
+        }
+
+        [Fact(DisplayName = nameof(Audio_HasContent) + PlatformSuffix)]
+        public void Audio_HasContent()
+        {
+            Assert.False(new AIInteractionAudio().HasContent);
+            Assert.False(new AIInteractionAudio { Data = new byte[0] }.HasContent);
+            Assert.False(new AIInteractionAudio { FilePath = "   " }.HasContent);
+            Assert.True(new AIInteractionAudio { Data = new byte[] { 1 } }.HasContent);
+            Assert.True(new AIInteractionAudio { FilePath = @"C:\audio.wav" }.HasContent);
         }
 
         #endregion

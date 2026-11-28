@@ -22,6 +22,7 @@ using System.Diagnostics;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Providers.Gemini
@@ -74,11 +75,11 @@ namespace SmartHopper.Providers.Gemini
                     Type = typeof(int),
                     DefaultValue = 2000,
                     DisplayName = "Max Tokens",
-                    Description = "Maximum number of tokens to generate",
+                    Description = "Maximum number of tokens to generate. Set to 0 for unlimited.",
                     ControlParams = new NumericSettingDescriptorControl
                     {
                         UseSlider = false,
-                        Min = 1,
+                        Min = 0,
                         Max = 100000,
                         Step = 1,
                     },
@@ -90,6 +91,14 @@ namespace SmartHopper.Providers.Gemini
                     DefaultValue = "1.0",
                     DisplayName = "Temperature",
                     Description = "Controls randomness (0.0–2.0). Higher values make the output more random; lower values make it more deterministic. Google recommends keeping this value at 1.0.",
+                },
+                new SettingDescriptor
+                {
+                    Name = "ThinkingLevel",
+                    Type = typeof(string),
+                    DefaultValue = string.Empty,
+                    DisplayName = "Thinking Level",
+                    Description = "Reasoning effort for thinking-capable models. Gemini 3: minimal, low, medium, high. Gemini 2.5: integer token budget as string (0=off). Empty leaves the API default. Value can be overridden per-request via the 'thinking_level' extra.",
                 },
                 new SettingDescriptor
                 {
@@ -142,7 +151,7 @@ namespace SmartHopper.Providers.Gemini
                 return false;
             }
 
-            Debug.WriteLine($"Validating Gemini settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}");
+            Logger.For<GeminiProviderSettings>().Trace($"Validating Gemini settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}");
             return true;
         }
     }

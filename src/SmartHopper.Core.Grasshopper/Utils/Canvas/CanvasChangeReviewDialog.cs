@@ -18,12 +18,14 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Eto.Drawing;
 using Eto.Forms;
 using Grasshopper;
 using Rhino.UI;
+using SmartHopper.Infrastructure.Dialogs;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 {
@@ -70,15 +72,23 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 TextColor = Colors.Gray,
             };
 
-            var changesLayout = new DynamicLayout
+            // TableLayout rows keep their natural height; DynamicLayout rows scale
+            // vertically and stretched each entry (most visibly short wire rows)
+            // to fill the scrollable.
+            var changesLayout = new TableLayout
             {
-                DefaultSpacing = new Size(8, 5),
+                Spacing = new Size(8, 5),
                 Padding = new Padding(0, 8),
             };
             foreach (var item in session.Items)
             {
-                changesLayout.Add(this.CreateChangeRow(item));
+                changesLayout.Rows.Add(new TableRow(this.CreateChangeRow(item)));
             }
+
+            // Eto auto-scales the LAST row when no row declares ScaleHeight —
+            // without a trailing spacer the last entry (usually a wire row) is
+            // stretched to fill the scrollable, pushing its detail text down.
+            changesLayout.Rows.Add(new TableRow { ScaleHeight = true });
 
             var scrollable = new Scrollable
             {
@@ -91,9 +101,17 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 TextColor = Colors.Gray,
             };
 
-            var acceptAllButton = new Button { Text = "Accept all" };
+            var acceptAllButton = new Button
+            {
+                Text = "Select all",
+                ToolTip = "Check every change in the list. Nothing is applied until you click \"Apply selected\".",
+            };
             acceptAllButton.Click += (_, _) => this.SetAll(true);
-            var rejectAllButton = new Button { Text = "Reject all" };
+            var rejectAllButton = new Button
+            {
+                Text = "Select none",
+                ToolTip = "Uncheck every change in the list.",
+            };
             rejectAllButton.Click += (_, _) => this.SetAll(false);
             var cancelButton = new Button { Text = "Cancel" };
             cancelButton.Click += (_, _) => this.Close();
@@ -167,24 +185,51 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         {
             var dialog = new CanvasChangeReviewDialog(session);
             var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            cancellationToken.Register(() =>
-                Application.Instance?.AsyncInvoke(() =>
+            void CloseDialog()
+            {
+                try
                 {
-                    try
+                    dialog.Close();
+                }
+                catch
+                {
+                    // The window may already be closed or belong to another dispatcher;
+                    // release the awaiting review either way so the approval never hangs.
+                    completion.TrySetResult(false);
+                }
+            }
+
+            var closeRegistration = cancellationToken.Register(() =>
+            {
+                try
+                {
+                    if (Application.Instance != null)
                     {
-                        dialog.Close();
+                        Application.Instance.AsyncInvoke(CloseDialog);
                     }
-                    catch (ObjectDisposedException)
+                    else
                     {
-                        // The dialog was already closed and disposed.
+                        global::Rhino.RhinoApp.InvokeOnUiThread(CloseDialog);
                     }
-                }));
+                }
+                catch
+                {
+                    completion.TrySetResult(false);
+                }
+            });
             dialog.Closed += (_, _) =>
             {
-                CanvasChangePreviewOverlay.End(session);
                 var result = dialog.ApplyRequested;
-                dialog.Dispose();
-                completion.TrySetResult(result);
+                closeRegistration.Dispose();
+                try
+                {
+                    CanvasChangePreviewOverlay.End(session);
+                    dialog.Dispose();
+                }
+                finally
+                {
+                    completion.TrySetResult(result);
+                }
             };
 
             CanvasChangePreviewOverlay.Begin(session);
@@ -199,6 +244,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 }
 
                 dialog.Show();
+                dialog.BringToFrontAndFocus();
             }
             catch
             {
@@ -265,24 +311,31 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             };
             var detailLabel = new Label
             {
-                Text = item.Detail,
+                Text = BuildDetailText(item),
                 TextColor = Colors.Gray,
                 Font = new Font(SystemFont.Default, 9),
                 Wrap = WrapMode.Word,
             };
-            var textLayout = new DynamicLayout
+            var textLayout = new TableLayout
             {
-                DefaultSpacing = new Size(0, 2),
+                Spacing = new Size(0, 2),
+                Rows = { new TableRow(titleLabel) },
             };
-            textLayout.Add(titleLabel);
-            if (!string.IsNullOrWhiteSpace(item.Detail))
+            if (!string.IsNullOrWhiteSpace(detailLabel.Text))
             {
-                textLayout.Add(detailLabel);
+                textLayout.Rows.Add(new TableRow(detailLabel));
             }
+
+            // Same auto-scale rule inside the row: keep title/detail top-packed
+            // even if the row panel ever receives extra height.
+            textLayout.Rows.Add(new TableRow { ScaleHeight = true });
 
             var row = new Panel
             {
                 Padding = new Padding(7),
+                // Subtle fill gives each checklist entry a visible boundary for the
+                // hover-to-canvas-highlight interaction.
+                BackgroundColor = Color.FromArgb(128, 128, 128, 16),
                 ToolTip = "Double-click to zoom to this change",
                 Content = new TableLayout
                 {
@@ -313,12 +366,61 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 
         private void OnSelectionChanged(object? sender, EventArgs e)
         {
-            this.UpdateSummary();
+            // SelectionChanged can fire on tool/background threads when the consent
+            // pipeline applies its decision while the window is still open; label
+            // updates must happen on the Eto UI thread.
+            if (Application.Instance == null)
+            {
+                return;
+            }
+
+            Application.Instance.AsyncInvoke(() =>
+            {
+                try
+                {
+                    this.UpdateSummary();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // The dialog was already disposed.
+                }
+            });
+        }
+
+        private string BuildDetailText(CanvasChangeReviewItem item)
+        {
+            var detail = item.Detail;
+
+            // Surface when the proposed component resolves to a different Grasshopper
+            // type than its name suggests (for example a wrong componentGuid silently
+            // winning over the name during deserialization).
+            if (item.ComponentId.HasValue &&
+                this.session.TryGetResolvedComponentName(item.ComponentId.Value, out var resolvedName) &&
+                !string.IsNullOrWhiteSpace(resolvedName))
+            {
+                var proposedName = this.session.ProposedDocument.Components?
+                    .FirstOrDefault(c => c.Id == item.ComponentId.Value)?.Name;
+                if (!string.Equals(proposedName, resolvedName, StringComparison.OrdinalIgnoreCase))
+                {
+                    var mismatch = $"Resolves to \"{resolvedName}\".";
+                    detail = string.IsNullOrWhiteSpace(detail) ? mismatch : $"{mismatch} {detail}";
+                }
+            }
+
+            return detail;
         }
 
         private void UpdateSummary()
         {
-            this.summaryLabel.Text = $"{this.session.AcceptedCount} of {this.session.Items.Count} changes selected. Applied changes are recorded in Grasshopper's undo history.";
+            var blocked = this.session.Items.Count(item =>
+                item.IsAccepted && !this.session.IsEffectivelyAccepted(item));
+            var text = $"{this.session.AcceptedCount} of {this.session.Items.Count} changes selected. Applied changes are recorded in Grasshopper's undo history.";
+            if (blocked > 0)
+            {
+                text += $" {blocked} selected change(s) will not apply because their required changes are unchecked.";
+            }
+
+            this.summaryLabel.Text = text;
         }
 
         private static string GetKindLabel(CanvasChangeKind kind)

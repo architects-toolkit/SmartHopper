@@ -29,7 +29,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.ProviderSdk.AICall.Batch;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
-
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Providers.OpenRouter
 {
     public sealed partial class OpenRouterProvider : IAIBatchProvider
@@ -177,14 +177,11 @@ namespace SmartHopper.Providers.OpenRouter
                 // Normalize :batch alias to the base model slug before encoding.
                 request.Model = StripBatchSuffix(request.Model);
 
-                var preparedRequest = await this.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
-                var encodedBody = this.Encode(preparedRequest);
+                var (preparedRequest, bodyObj) = await this.EncodeBatchItemAsync(request, cancellationToken).ConfigureAwait(false);
                 if (firstEncodedBody == null)
                 {
-                    firstEncodedBody = encodedBody;
+                    firstEncodedBody = bodyObj.ToString();
                 }
-
-                var bodyObj = JObject.Parse(encodedBody);
 
                 // OpenRouter batch is text-only and uses one endpoint/model for the whole batch.
                 ValidateBatchTextOnly(bodyObj);
@@ -247,7 +244,7 @@ namespace SmartHopper.Providers.OpenRouter
             var batchId = result["id"]?.ToString()
                 ?? throw new InvalidOperationException("[OpenRouter] Batch submission response missing 'id'.");
 
-            Debug.WriteLine($"[OpenRouter] Batch submitted: batchId={batchId}, count={items.Count}");
+            Logger.For<OpenRouterProvider>().Trace($"[OpenRouter] Batch submitted: batchId={batchId}, count={items.Count}");
 
             return new AIBatchSubmission(batchId, this.Name, firstEncodedBody ?? string.Empty, (IReadOnlyList<string>)customIds.AsReadOnly());
         }
@@ -267,7 +264,7 @@ namespace SmartHopper.Providers.OpenRouter
             }
 
             var status = json["status"]?.ToString() ?? string.Empty;
-            Debug.WriteLine($"[OpenRouter] Batch status check: id={submission.BatchId}, status={status}");
+            Logger.For<OpenRouterProvider>().Trace($"[OpenRouter] Batch status check: id={submission.BatchId}, status={status}");
 
             switch (status.ToLowerInvariant())
             {
@@ -332,11 +329,12 @@ namespace SmartHopper.Providers.OpenRouter
             if (!response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                Debug.WriteLine($"[OpenRouter] Batch cancel failed ({(int)response.StatusCode}): {content}");
+                Logger.For<OpenRouterProvider>().Warning($"[OpenRouter] Batch cancel failed ({(int)response.StatusCode}): {content}");
+                throw new InvalidOperationException($"HTTP {(int)response.StatusCode}: {content}");
             }
             else
             {
-                Debug.WriteLine($"[OpenRouter] Batch {submission.BatchId} cancel accepted.");
+                Logger.For<OpenRouterProvider>().Trace($"[OpenRouter] Batch {submission.BatchId} cancel accepted.");
             }
         }
 
@@ -394,7 +392,7 @@ namespace SmartHopper.Providers.OpenRouter
 
             if (!response.IsSuccessStatusCode)
             {
-                Debug.WriteLine($"[OpenRouter] Batch status fetch failed ({(int)response.StatusCode}): {content}");
+                Logger.For<OpenRouterProvider>().Warning($"[OpenRouter] Batch status fetch failed ({(int)response.StatusCode}): {content}");
                 return null;
             }
 

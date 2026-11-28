@@ -16,7 +16,9 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System;
 using System.Windows.Forms;
+using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Menu.Dialogs;
 
 namespace SmartHopper.Menu.Items
@@ -29,12 +31,32 @@ namespace SmartHopper.Menu.Items
         /// <returns>A ToolStripMenuItem configured to show the settings dialog</returns>
         public static ToolStripMenuItem Create()
         {
-            var item = new System.Windows.Forms.ToolStripMenuItem("Settings");
-            item.Click += (sender, e) =>
+            // Register the opener so Infrastructure UI (integrity report, assistant
+            // no-provider errors) can deep-link into Settings without a backwards
+            // project reference to SmartHopper.Menu. Registration is idempotent.
+            SettingsLauncher.RegisterOpenSettings(tab =>
             {
-                var dialog = new SettingsDialog();
-                dialog.ShowModal(Rhino.UI.RhinoEtoApp.MainWindow);
-            };
+                try
+                {
+                    var initialTab = string.Equals(tab, SettingsLauncher.SecurityTab, StringComparison.OrdinalIgnoreCase)
+                        ? SettingsTab.Security
+                        : SettingsTab.General;
+                    var dialog = new SettingsDialog(initialTab);
+                    dialog.ShowModalInFront(Rhino.UI.RhinoEtoApp.MainWindow);
+                }
+                catch (Exception ex)
+                {
+                    // Construction or display failures must surface: the click path
+                    // runs inside message-loop dispatch where an escaping exception
+                    // would be swallowed silently.
+                    StyledMessageDialog.ShowError(
+                        $"SmartHopper Settings failed to open: {ex.Message}",
+                        "SmartHopper Settings");
+                }
+            });
+
+            var item = new System.Windows.Forms.ToolStripMenuItem("Settings");
+            item.Click += (sender, e) => SettingsLauncher.Open();
             return item;
         }
     }

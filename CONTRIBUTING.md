@@ -38,6 +38,7 @@ Are you skilled in coding and want to contribute to SmartHopper? You can help fi
      ```bash
      git config core.hooksPath .githooks
      ```
+     Hook Git commands must use `git -C $repoRoot`: helper scripts can change their working directory. Clean worktrees skip the post-commit signing-metadata refresh until a local signing key exists. Run `pwsh -File tools/Test-GitHooks.ps1` to check linked-worktree staging without creating signing keys.
    - Submit a Pull Request following the [Pull Request Guidelines](#pull-request-guidelines) explained below
 
 ### 4. **Validate Models**

@@ -30,6 +30,7 @@ using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.ProviderSdk.AIProviders;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.AI
 {
     /// <summary>
@@ -52,10 +53,10 @@ namespace SmartHopper.Components.AI
         public override Guid ComponentGuid => new Guid("8872AB8F-A76E-4FBB-96B8-1C3838D2C51B");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.settingsextra;
+        protected override Bitmap Icon => Resources.AIExtraSettings;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {
@@ -71,7 +72,7 @@ namespace SmartHopper.Components.AI
             : base(
                 "Extra Settings",
                 "Extras",
-                "Generates provider-specific AI settings (service tier, reasoning effort, etc.) as a JSON extras object.\nConnect output to the Extras input of AI Settings component.\nRight-click to select provider.",
+                "Configure provider-specific request options (such as reasoning effort, service tier, or safety settings) and output them as a JSON object for the AI Settings component.\nRight-click the component to select the target AI provider.",
                 "SmartHopper",
                 "A. AI")
         {
@@ -92,7 +93,7 @@ namespace SmartHopper.Components.AI
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[AIExtraSettingsComponent] Infrastructure check failed: {ex.Message}");
+                Logger.For<AIExtraSettingsComponent>().Exception(ex, $"[AIExtraSettingsComponent] Infrastructure check failed: {ex.Message}");
                 return false;
             }
         }
@@ -115,7 +116,7 @@ namespace SmartHopper.Components.AI
         /// <inheritdoc/>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Extras", "X", "Provider-specific settings as a JSON object. Connect to AI Settings component Extras input.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Extras", "X", "Provider-specific options serialized as a JSON object. Connect to the 'Extras' input on the AI Settings component.", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>
@@ -251,7 +252,7 @@ namespace SmartHopper.Components.AI
             // Guard: don't attempt to rebuild if infrastructure isn't ready
             if (!this.IsInfrastructureReady())
             {
-                Debug.WriteLine("[AIExtraSettingsComponent] Skipping RebuildInputParams - infrastructure not ready");
+                Logger.For<AIExtraSettingsComponent>().Warning("[AIExtraSettingsComponent] Skipping RebuildInputParams - infrastructure not ready");
                 return;
             }
 
@@ -318,14 +319,14 @@ namespace SmartHopper.Components.AI
                             }
                             catch (Exception ex)
                             {
-                                Debug.WriteLine($"[AIExtraSettingsComponent] Error during solution expiration: {ex.Message}");
+                                Logger.For<AIExtraSettingsComponent>().Exception(ex, $"[AIExtraSettingsComponent] Error during solution expiration: {ex.Message}");
                                 this._retryScheduled = false;
                             }
                         });
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[AIExtraSettingsComponent] Error during retry scheduling: {ex.Message}");
+                        Logger.For<AIExtraSettingsComponent>().Exception(ex, $"[AIExtraSettingsComponent] Error during retry scheduling: {ex.Message}");
                         this._retryScheduled = false;
                     }
                 }, System.Threading.Tasks.TaskScheduler.Default);

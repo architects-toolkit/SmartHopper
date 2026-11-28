@@ -37,10 +37,10 @@ namespace SmartHopper.Components.JSON
         public override Guid ComponentGuid => new Guid("A2117C14-09F4-4993-8ADD-2451F7F74FCD");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.jsonitem;
+        protected override Bitmap Icon => Resources.JsonSetValue;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonSetValueComponent"/> class.
@@ -49,24 +49,24 @@ namespace SmartHopper.Components.JSON
             : base(
                 "JSON Set Value",
                 "JsonSetValue",
-                "Set a nested value in a JSON object using a dot-notation path.\nExample: \"address.city\" sets the city in the address object.",
+                "Set or update a value inside a JSON object or array using a dot- or bracket-notation path (e.g., 'address.city' or 'items[0].name').",
                 "SmartHopper",
-                "JSON")
+                "H. JSON")
         {
         }
 
         /// <inheritdoc/>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("JSON", "J", "JSON string (object or array)", GH_ParamAccess.item);
-            pManager.AddTextParameter("Path", "P", "Dot-notation path to the value (e.g. \"address.city\")", GH_ParamAccess.item);
-            pManager.AddTextParameter("Value", "V", "Value to set. JSON literals (123, true, [1,2], {\"a\":1}) are parsed; otherwise treated as a string.", GH_ParamAccess.item);
+            pManager.AddTextParameter("JSON", "J", "Base JSON object or array string to update.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Path", "P", "Dot- or bracket-notation path to set (e.g., 'address.city', 'results[0].name'). Intermediate objects or arrays are created automatically.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Value", "V", "New value to assign. Valid JSON literals (numbers, true/false, objects, arrays) are stored as native JSON values; other text is stored as a string.", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("JSON", "J", "Updated JSON string", GH_ParamAccess.item);
+            pManager.AddTextParameter("JSON", "J", "Updated JSON string.", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>

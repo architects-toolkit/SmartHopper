@@ -24,6 +24,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
 using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Metadata;
 namespace SmartHopper.Infrastructure.AIProviders
 {
@@ -174,16 +175,19 @@ namespace SmartHopper.Infrastructure.AIProviders
             catch (BadImageFormatException ex)
             {
                 diagnostic = $"Provider '{Path.GetFileName(assemblyPath)}' is not a valid managed assembly: {ex.Message}";
+                Logger.Warning(typeof(ProviderAssemblyLoader).FullName, $"[ProviderAssemblyLoader] {diagnostic}");
                 return ProviderLoadOutcome.InvalidAssembly;
             }
             catch (FileLoadException ex)
             {
                 diagnostic = $"Provider '{Path.GetFileName(assemblyPath)}' failed to load: {ex.Message}";
+                Logger.Warning(typeof(ProviderAssemblyLoader).FullName, $"[ProviderAssemblyLoader] {diagnostic}");
                 return ProviderLoadOutcome.InvalidAssembly;
             }
             catch (Exception ex)
             {
                 diagnostic = $"Unexpected error loading provider '{Path.GetFileName(assemblyPath)}': {ex.Message}";
+                Logger.Exception(typeof(ProviderAssemblyLoader).FullName, ex, $"[ProviderAssemblyLoader] {diagnostic}");
                 return ProviderLoadOutcome.InvalidAssembly;
             }
 
@@ -197,7 +201,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             catch (ReflectionTypeLoadException ex)
             {
                 exportedTypes = ex.Types.Where(t => t != null).ToArray()!;
-                Debug.WriteLine($"[ProviderAssemblyLoader] ReflectionTypeLoadException in {Path.GetFileName(assemblyPath)}: {ex.Message}");
+                Logger.Exception(typeof(ProviderAssemblyLoader).FullName, ex, $"[ProviderAssemblyLoader] ReflectionTypeLoadException in {Path.GetFileName(assemblyPath)}: {ex.Message}");
             }
 
             var factoryTypeFromHost = typeof(IAIProviderFactory);
@@ -238,7 +242,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     diagnostic = compatDiagnostic;
                     return ProviderLoadOutcome.SdkVersionIncompatible;
                 case SdkCompatibility.CompatibilityResult.MissingMetadata:
-                    Debug.WriteLine($"[ProviderAssemblyLoader] {compatDiagnostic}");
+                    Logger.Error(typeof(ProviderAssemblyLoader).FullName, $"[ProviderAssemblyLoader] {compatDiagnostic}");
                     break;
             }
 

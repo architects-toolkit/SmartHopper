@@ -26,6 +26,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
+
 namespace SmartHopper.ProviderSdk.Catalogue
 {
     /// <summary>
@@ -44,6 +46,30 @@ namespace SmartHopper.ProviderSdk.Catalogue
     }
 
     /// <summary>
+    /// Outcome of the last refresh's remote round-trip — independent of which
+    /// source is currently applied. Lets callers distinguish "service
+    /// unreachable" from "checked: already current" and "update rejected",
+    /// all of which otherwise collapse onto <see cref="ModelCatalogueSource.Cache"/>.
+    /// </summary>
+    public enum ModelCatalogueRemoteStatus
+    {
+        /// <summary>Remote was not checked (no refresh has completed, or a concurrent refresh collapsed onto an in-flight one).</summary>
+        NotChecked = 0,
+
+        /// <summary>The remote was reached and reports no release newer than the applied floor.</summary>
+        UpToDate = 1,
+
+        /// <summary>A newer signed remote catalogue was fetched, verified and applied.</summary>
+        Updated = 2,
+
+        /// <summary>The remote could not be reached, or its artefacts could not be fetched.</summary>
+        Unreachable = 3,
+
+        /// <summary>The remote was reached but the update was rejected or failed (see <see cref="ModelCatalogueService.LastError"/>).</summary>
+        Failed = 4,
+    }
+
+    /// <summary>
     /// Non-blocking catalogue refresh: verifies and applies the signed local
     /// cache first, then fetches the remote manifest and — only when it is
     /// newer — the catalogue + signature, verifies them before parsing, merges
@@ -59,6 +85,9 @@ namespace SmartHopper.ProviderSdk.Catalogue
         private static readonly TimeSpan HttpTimeout = TimeSpan.FromSeconds(15);
         private static readonly TimeSpan RetryBaseDelay = TimeSpan.FromMilliseconds(750);
 
+        /// <summary>How far into the future a <c>published_at</c> may sit before the artefact is rejected as misdated.</summary>
+        private static readonly TimeSpan AllowedFutureSkew = TimeSpan.FromDays(1);
+
         private static readonly Lazy<ModelCatalogueService> _instance =
             new Lazy<ModelCatalogueService>(() => new ModelCatalogueService());
 
@@ -67,6 +96,8 @@ namespace SmartHopper.ProviderSdk.Catalogue
         private readonly IProviderHttpClientFactory _httpFactory;
         private readonly SemaphoreSlim _gate = new SemaphoreSlim(1, 1);
         private readonly Dictionary<string, string> _trustedKeys;
+        private readonly TimeSpan? _maxCatalogueAge;
+        private readonly Func<DateTime> _utcNow;
         private int _floor;
 
         /// <summary>
@@ -76,17 +107,31 @@ namespace SmartHopper.ProviderSdk.Catalogue
         /// <param name="cache">Cache store; defaults to the standard Grasshopper settings dir.</param>
         /// <param name="trustedKeys">Trusted key set (key_id → base64 SPKI); defaults to <see cref="ModelCatalogueTrust.EmbeddedKeys"/>.</param>
         /// <param name="httpFactory">HTTP client factory; defaults to <see cref="ProviderSdkHost.HttpClientFactory"/> resolved at call time.</param>
+        /// <param name="maxCatalogueAge">Maximum accepted age of a remote document's <c>published_at</c>; when null the live <see cref="DefaultMaxCatalogueAge"/> applies. Non-positive disables the freshness check.</param>
+        /// <param name="utcNow">Clock override for tests; defaults to <see cref="DateTime.UtcNow"/>.</param>
         public ModelCatalogueService(
             string baseUrl = null,
             ModelCatalogueCache cache = null,
             IReadOnlyDictionary<string, string> trustedKeys = null,
-            IProviderHttpClientFactory httpFactory = null)
+            IProviderHttpClientFactory httpFactory = null,
+            TimeSpan? maxCatalogueAge = null,
+            Func<DateTime> utcNow = null)
         {
             this._baseUrl = (baseUrl ?? ModelCatalogueTrust.DefaultBaseUrl).TrimEnd('/');
             this._cache = cache ?? new ModelCatalogueCache();
             this._httpFactory = httpFactory;
             this._trustedKeys = new Dictionary<string, string>(trustedKeys ?? ModelCatalogueTrust.EmbeddedKeys, StringComparer.Ordinal);
+            this._maxCatalogueAge = maxCatalogueAge;
+            this._utcNow = utcNow ?? (() => DateTime.UtcNow);
         }
+
+        /// <summary>
+        /// Gets or sets the freshness window applied to remote catalogue documents when the
+        /// service is constructed without an explicit limit. Wired from settings at
+        /// initialization so a stale-but-validly-signed artefact cannot be replayed forever;
+        /// non-positive disables the check.
+        /// </summary>
+        public static TimeSpan DefaultMaxCatalogueAge { get; set; } = TimeSpan.FromDays(30);
 
         /// <summary>
         /// Raised for every progress line the service emits ("Info: applied
@@ -110,6 +155,9 @@ namespace SmartHopper.ProviderSdk.Catalogue
 
         /// <summary>Gets where the applied catalogue came from.</summary>
         public ModelCatalogueSource Source { get; private set; } = ModelCatalogueSource.None;
+
+        /// <summary>Gets the outcome of the last refresh's remote round-trip.</summary>
+        public ModelCatalogueRemoteStatus RemoteStatus { get; private set; } = ModelCatalogueRemoteStatus.NotChecked;
 
         /// <summary>Gets the last failure message, or null.</summary>
         public string LastError { get; private set; }
@@ -140,6 +188,7 @@ namespace SmartHopper.ProviderSdk.Catalogue
             try
             {
                 this.Log(ProviderLogLevel.Info, "starting catalogue refresh");
+                this.RemoteStatus = ModelCatalogueRemoteStatus.NotChecked;
 
                 // Seed the anti-rollback floor from disk before anything remote
                 // is evaluated: the ratchet survives cache deletion/corruption.
@@ -156,6 +205,7 @@ namespace SmartHopper.ProviderSdk.Catalogue
             catch (Exception ex)
             {
                 this.LastError = ex.Message;
+                this.RemoteStatus = ModelCatalogueRemoteStatus.Failed;
                 this.Log(ProviderLogLevel.Warning, $"catalogue refresh failed: {ex.Message}");
             }
             finally
@@ -225,6 +275,7 @@ namespace SmartHopper.ProviderSdk.Catalogue
             var factory = this._httpFactory ?? ProviderSdkHost.HttpClientFactory;
             if (factory == null)
             {
+                this.RemoteStatus = ModelCatalogueRemoteStatus.Unreachable;
                 return;
             }
 
@@ -234,12 +285,14 @@ namespace SmartHopper.ProviderSdk.Catalogue
                 manifest = await this.GetManifestAsync(client, cancellationToken).ConfigureAwait(false);
                 if (manifest == null)
                 {
+                    this.RemoteStatus = ModelCatalogueRemoteStatus.Unreachable;
                     this.Log(ProviderLogLevel.Warning, "catalogue manifest unreachable — keeping applied metadata");
                     return;
                 }
 
                 if (manifest.LatestVersion <= this._floor)
                 {
+                    this.RemoteStatus = ModelCatalogueRemoteStatus.UpToDate;
                     this.Log(ProviderLogLevel.Info, $"catalogue already up to date (floor v{this._floor}, remote latest v{manifest.LatestVersion})");
                     return;
                 }
@@ -248,6 +301,7 @@ namespace SmartHopper.ProviderSdk.Catalogue
                 var signature = await this.GetTextAsync(client, "/api/v1/catalogue.sig", cancellationToken).ConfigureAwait(false);
                 if (catalogueBytes == null || signature == null)
                 {
+                    this.RemoteStatus = ModelCatalogueRemoteStatus.Unreachable;
                     return;
                 }
 
@@ -271,15 +325,40 @@ namespace SmartHopper.ProviderSdk.Catalogue
                     throw new CatalogueProtocolException($"catalogue_version {document.Version} is not newer than the persisted floor v{this._floor}");
                 }
 
+                this.EnforceFreshness(document);
+
                 var applied = this.MergeIntoRegistry(document);
                 this.AppliedVersion = document.Version;
                 this._floor = document.Version;
                 this.Source = ModelCatalogueSource.Remote;
+                this.RemoteStatus = ModelCatalogueRemoteStatus.Updated;
                 this.LastError = null;
 
                 var sha256 = Convert.ToHexString(SHA256.HashData(catalogueBytes)).ToLowerInvariant();
                 this._cache.Save(catalogueBytes, signature, manifest.KeyId, sha256, document.Version);
                 this.Log(ProviderLogLevel.Info, $"applied remote catalogue v{document.Version} ({applied} models)");
+            }
+        }
+
+        /// <summary>
+        /// Rejects a verified remote document whose <c>published_at</c> is implausible:
+        /// further than <see cref="AllowedFutureSkew"/> in the future (misdated or replayed
+        /// pre-release artefact) or older than the configured freshness window (a replayed
+        /// stale-but-validly-signed release). Applied only to remote acceptance — the
+        /// signed cache stays a pure offline fallback, its staleness bounded by the floor.
+        /// </summary>
+        private void EnforceFreshness(CatalogueDocument document)
+        {
+            var now = this._utcNow();
+            var maxAge = this._maxCatalogueAge ?? DefaultMaxCatalogueAge;
+            if (document.PublishedAt > now + AllowedFutureSkew)
+            {
+                throw new CatalogueProtocolException($"catalogue published_at {document.PublishedAt:O} is in the future");
+            }
+
+            if (maxAge > TimeSpan.Zero && now - document.PublishedAt > maxAge)
+            {
+                throw new CatalogueProtocolException($"catalogue published_at {document.PublishedAt:O} is older than the {maxAge.TotalDays:0.#}-day freshness window");
             }
         }
 
@@ -327,7 +406,7 @@ namespace SmartHopper.ProviderSdk.Catalogue
             }
 
             var document = CatalogueWire.ParseDocument(bytes);
-            if (document.MinClientProtocol > 1)
+            if (document.MinClientProtocol > CatalogueWire.ClientProtocolVersion)
             {
                 throw new CatalogueProtocolException($"catalogue requires client protocol {document.MinClientProtocol}");
             }

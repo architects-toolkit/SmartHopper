@@ -27,6 +27,7 @@ using Grasshopper;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 {
     /// <summary>
@@ -160,9 +161,9 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             {
                 Instances.ActiveCanvas?.Refresh();
             }
-            catch (InvalidOperationException ex)
+            catch (Exception ex)
             {
-                Debug.WriteLine($"[CanvasChangePreviewOverlay] Canvas refresh skipped: {ex.Message}");
+                Logger.Exception(typeof(CanvasChangePreviewOverlay).FullName, ex, $"[CanvasChangePreviewOverlay] Canvas refresh skipped: {ex.Message}");
             }
         }
 

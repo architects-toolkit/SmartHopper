@@ -28,6 +28,7 @@ using Newtonsoft.Json;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 namespace SmartHopper.Infrastructure.Settings
 {
@@ -58,6 +59,22 @@ namespace SmartHopper.Infrastructure.Settings
         [ThreadStatic]
         private static HashSet<string> _currentlyGettingSettings;
 
+        // Per-provider descriptor-construction guard. Descriptor factories are required
+        // to be pure metadata builders; a factory that nevertheless reads live state can
+        // re-enter GetSetting -> GetProviderDescriptors through rotating setting keys, which
+        // the per-key guard above cannot see. While a provider's descriptors are being
+        // built on this thread, nested enumerations return an empty set so the cycle is
+        // bounded: inner reads resolve stored values without descriptor metadata.
+        [ThreadStatic]
+        private static HashSet<string> _currentlyBuildingDescriptors;
+
+        // Serializes access to ProviderSettings. Provider background workers write settings
+        // (OAuth grants, connection status) while UI threads read them, so the plain
+        // Dictionary must never be read or enumerated while another thread mutates it.
+        // The lock is only held for the dictionary operation itself, never across calls
+        // into providers or descriptors.
+        private readonly object _providerSettingsLock = new object();
+
         /// <summary>
         /// Gets or sets the persisted provider settings dictionary keyed by provider name, then setting name.
         /// </summary>
@@ -78,6 +95,14 @@ namespace SmartHopper.Infrastructure.Settings
         [JsonProperty]
         public int DebounceTime { get; set; }
 
+        /// <summary>Gets or sets the maximum decompressed external-source download size in MiB.</summary>
+        [JsonProperty]
+        public int ExternalDownloadLimitMiB { get; set; } = 16;
+
+        /// <summary>Gets or sets the maximum accepted age in days of a remote catalogue's <c>published_at</c>; 0 disables the freshness check.</summary>
+        [JsonProperty]
+        public int CatalogueMaxAgeDays { get; set; } = 30;
+
         /// <summary>
         /// Gets or sets the default AI provider name to use when none is specified.
         /// </summary>
@@ -91,24 +116,52 @@ namespace SmartHopper.Infrastructure.Settings
         public Dictionary<string, bool> TrustedProviders { get; set; }
 
         /// <summary>
-        /// Gets or sets the provider integrity check mode for verification.
-        /// Controls how provider DLL hash verification failures are handled.
-        /// Default is Soft (warn but allow).
+        /// Gets or sets the verification snapshot per trusted provider — the bytes consented
+        /// to and whether consent followed a catalogue match. A trusted file that no longer
+        /// matches its record falls back to verification before it may load again.
         /// </summary>
         [JsonProperty]
-        public ProviderIntegrityCheckMode ProviderIntegrityCheckMode { get; set; }
+        public Dictionary<string, ProviderTrustRecord> ProviderTrustRecords { get; set; } = new();
+
+        /// <summary>
+        /// Gets or sets the provider integrity check mode for verification.
+        /// Controls how provider DLL hash verification failures are handled.
+        /// Default is Hard (block altered and unknown providers, permissive
+        /// when hash servers are offline).
+        /// </summary>
+        [JsonProperty]
+        public ProviderIntegrityCheckMode ProviderIntegrityCheckMode
+        {
+            get => this._providerIntegrityCheckMode;
+            set
+            {
+                if (this._providerIntegrityCheckMode == value)
+                {
+                    return;
+                }
+
+                this._providerIntegrityCheckMode = value;
+
+                // Cached trust verdicts embed the effective mode; drop them so the
+                // next evaluation observes the new configuration.
+                ProviderSdk.AICall.Validation.ProviderTrustPolicy.InvalidateCache();
+            }
+        }
+
+        private ProviderIntegrityCheckMode _providerIntegrityCheckMode;
 
         /// <summary>
         /// Gets the effective provider integrity check mode, accounting for DEBUG builds.
         /// In DEBUG builds, this always returns Soft mode to allow local development.
         /// In RELEASE builds, this returns the configured mode from settings.
         /// </summary>
+        [JsonIgnore]
         public ProviderIntegrityCheckMode EffectiveProviderIntegrityCheckMode
         {
             get
             {
 #if DEBUG
-                Debug.WriteLine("[SmartHopperSettings] DEBUG build: forcing soft integrity check mode");
+                Logger.For<SmartHopperSettings>().Trace("[SmartHopperSettings] DEBUG build: forcing soft integrity check mode");
                 return ProviderIntegrityCheckMode.Soft;
 #else
                 return this.ProviderIntegrityCheckMode;
@@ -147,22 +200,40 @@ namespace SmartHopper.Infrastructure.Settings
         public Dictionary<string, AICall.Fallback.FallbackProviderPin> FallbackProviderPins { get; set; } = new();
 
         /// <summary>
+        /// Gets or sets whether log entries are echoed to Rhino's command-line output.
+        /// </summary>
+        [JsonProperty]
+        public bool LiveOutputEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the minimum level echoed to the live output.
+        /// </summary>
+        [JsonProperty]
+        public SmartHopper.ProviderSdk.Logging.ProviderLogLevel LiveOutputLevel { get; set; } = SmartHopper.ProviderSdk.Logging.ProviderLogLevel.Error;
+
+        /// <summary>
+        /// Gets or sets whether log entries are written to the rolling log file.
+        /// </summary>
+        [JsonProperty]
+        public bool LogFileEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the minimum level written to the log file.
+        /// </summary>
+        [JsonProperty]
+        public SmartHopper.ProviderSdk.Logging.ProviderLogLevel LogFileLevel { get; set; } = SmartHopper.ProviderSdk.Logging.ProviderLogLevel.Trace;
+
+        /// <summary>
+        /// Gets or sets how many days log files are retained before deletion.
+        /// </summary>
+        [JsonProperty]
+        public int LogRetentionDays { get; set; } = 3;
+
+        /// <summary>
         /// Raised after settings are successfully saved to disk and providers refreshed.
         /// Subscribers can react to settings updates (e.g., UI toggles).
         /// </summary>
         public event EventHandler? SettingsSaved;
-
-        /// <summary>
-        /// Gets the highest encryption envelope this runtime can write: 4 = AES-256-GCM (SH04:),
-        /// 3 = AES-256-CBC (SH03:) where <see cref="AesGcm"/> is unsupported (net7.0 on macOS).
-        /// </summary>
-        private static int CurrentEncryptionVersion => AesGcm.IsSupported ? 4 : 3;
-
-        /// <summary>
-        /// Gets or sets version of the encryption method used. 4 = OS secure store (SH04:, AES-256-GCM).
-        /// </summary>
-        [JsonProperty]
-        public int EncryptionVersion { get; set; } = CurrentEncryptionVersion;
 
         private static SmartHopperSettings? instance;
 
@@ -180,9 +251,8 @@ namespace SmartHopper.Infrastructure.Settings
             this.DebounceTime = 1000;
             this.DefaultAIProvider = string.Empty;
             this.TrustedProviders = new Dictionary<string, bool>();
-            this.ProviderIntegrityCheckMode = ProviderIntegrityCheckMode.Soft; // Default to soft verification
+            this.ProviderIntegrityCheckMode = ProviderIntegrityCheckMode.Hard; // Default to hard verification
             this.SmartHopperAssistant = new SmartHopperAssistantSettings();
-            this.EncryptionVersion = CurrentEncryptionVersion;
         }
 
         /// <summary>
@@ -202,7 +272,7 @@ namespace SmartHopper.Infrastructure.Settings
             // Check for recursion
             if (_currentlyGettingSettings.Contains(settingKey))
             {
-                Debug.WriteLine($"[Settings] Recursion detected for {settingKey}, returning null to break cycle");
+                Logger.For<SmartHopperSettings>().Trace($"[Settings] Recursion detected for {settingKey}, returning null to break cycle");
                 return null;
             }
 
@@ -210,8 +280,18 @@ namespace SmartHopper.Infrastructure.Settings
             {
                 _currentlyGettingSettings.Add(settingKey);
 
-                if (this.ProviderSettings.TryGetValue(providerName, out var settings) &&
-                    settings.TryGetValue(settingName, out var value))
+                object value = null;
+                var found = false;
+                lock (this._providerSettingsLock)
+                {
+                    if (this.ProviderSettings.TryGetValue(providerName, out var settings) &&
+                        settings.TryGetValue(settingName, out value))
+                    {
+                        found = true;
+                    }
+                }
+
+                if (found)
                 {
                     var descriptors = this.GetProviderDescriptors(providerName);
                     var descriptor = descriptors.FirstOrDefault(d => d.Name == settingName);
@@ -224,11 +304,11 @@ namespace SmartHopper.Infrastructure.Settings
                             return null;
                         }
 
-                        Debug.WriteLine($"[Settings] Found {providerName}.{settingName} in storage (secret)");
+                        Logger.For<SmartHopperSettings>().Trace($"[Settings] Found {providerName}.{settingName} in storage (secret)");
                         return this.Decrypt(encrypted);
                     }
 
-                    Debug.WriteLine($"[Settings] Found {providerName}.{settingName} in storage = {value}");
+                    Logger.For<SmartHopperSettings>().Trace($"[Settings] Found {providerName}.{settingName} in storage = {value}");
                     return value;
                 }
 
@@ -238,11 +318,11 @@ namespace SmartHopper.Infrastructure.Settings
 
                 if (missingDescriptor?.DefaultValue != null)
                 {
-                    Debug.WriteLine($"[Settings] Using default for {providerName}.{settingName} = {(missingDescriptor.IsSecret ? "<secret>" : missingDescriptor.DefaultValue)}");
+                    Logger.For<SmartHopperSettings>().Trace($"[Settings] Using default for {providerName}.{settingName} = {(missingDescriptor.IsSecret ? "<secret>" : missingDescriptor.DefaultValue)}");
                     return missingDescriptor.DefaultValue;
                 }
 
-                Debug.WriteLine($"[Settings] No value or default found for {providerName}.{settingName}");
+                Logger.For<SmartHopperSettings>().Trace($"[Settings] No value or default found for {providerName}.{settingName}");
                 return null;
             }
             finally
@@ -259,41 +339,55 @@ namespace SmartHopper.Infrastructure.Settings
         /// <param name="value">The setting value.</param>
         internal void SetSetting(string providerName, string settingName, object value)
         {
-            if (!this.ProviderSettings.TryGetValue(providerName, out Dictionary<string, object>? settingsValue))
-            {
-                settingsValue = new Dictionary<string, object>();
-                this.ProviderSettings[providerName] = settingsValue;
-            }
-
             var descriptors = this.GetProviderDescriptors(providerName);
             var descriptor = descriptors.FirstOrDefault(d => d.Name == settingName);
+
+            object? storedValue = value;
+            var remove = false;
 
             if (descriptor?.IsSecret == true && value != null)
             {
                 var secret = value.ToString();
                 if (string.IsNullOrEmpty(secret))
                 {
-                    settingsValue.Remove(settingName);
+                    remove = true;
                 }
                 else
                 {
-                    Debug.WriteLine($"[Settings] Storing encrypted secret for {providerName}.{settingName}");
+                    Logger.For<SmartHopperSettings>().Trace($"[Settings] Storing encrypted secret for {providerName}.{settingName}");
                     try
                     {
-                        settingsValue[settingName] = this.Encrypt(secret);
+                        storedValue = this.Encrypt(secret);
                     }
                     catch (Exception ex)
                     {
                         // Broad catch is intentional: any encryption failure must not leave the secret in plaintext.
-                        Debug.WriteLine($"[Settings] Refusing to store secret for {providerName}.{settingName}: {ex.Message}");
-                        settingsValue.Remove(settingName);
+                        Logger.For<SmartHopperSettings>().Exception(ex, $"[Settings] Refusing to store secret for {providerName}.{settingName}: {ex.Message}");
+                        remove = true;
                     }
                 }
             }
             else
             {
-                Debug.WriteLine($"[Settings] Storing value for {providerName}.{settingName} = {value}");
-                settingsValue[settingName] = value;
+                Logger.For<SmartHopperSettings>().Trace($"[Settings] Storing value for {providerName}.{settingName} = {value}");
+            }
+
+            lock (this._providerSettingsLock)
+            {
+                if (!this.ProviderSettings.TryGetValue(providerName, out Dictionary<string, object>? settingsValue))
+                {
+                    settingsValue = new Dictionary<string, object>();
+                    this.ProviderSettings[providerName] = settingsValue;
+                }
+
+                if (remove)
+                {
+                    settingsValue.Remove(settingName);
+                }
+                else
+                {
+                    settingsValue[settingName] = storedValue!;
+                }
             }
         }
 
@@ -308,12 +402,12 @@ namespace SmartHopper.Infrastructure.Settings
 
                 if (string.IsNullOrWhiteSpace(setting.Value?.ToString()))
                 {
-                    Debug.WriteLine($"[ProviderManager] Removing {providerName}.{setting.Key}");
+                    Logger.For<SmartHopperSettings>().Trace($"[ProviderManager] Removing {providerName}.{setting.Key}");
                     this.RemoveSetting(providerName, setting.Key);
                 }
                 else
                 {
-                    Debug.WriteLine($"[ProviderManager] Updating {providerName}.{setting.Key} = {(isSecret ? "<secret>" : setting.Value)}");
+                    Logger.For<SmartHopperSettings>().Trace($"[ProviderManager] Updating {providerName}.{setting.Key} = {(isSecret ? "<secret>" : setting.Value)}");
                     this.SetSetting(providerName, setting.Key, setting.Value);
                 }
             }
@@ -326,9 +420,12 @@ namespace SmartHopper.Infrastructure.Settings
         /// <param name="settingName">The name of the setting.</param>
         internal void RemoveSetting(string providerName, string settingName)
         {
-            if (this.ProviderSettings.TryGetValue(providerName, out var settings))
+            lock (this._providerSettingsLock)
             {
-                settings.Remove(settingName);
+                if (this.ProviderSettings.TryGetValue(providerName, out var settings))
+                {
+                    settings.Remove(settingName);
+                }
             }
         }
 
@@ -363,14 +460,19 @@ namespace SmartHopper.Infrastructure.Settings
             var providers = ProviderManager.Instance.GetProviders(includeUntrusted: true);
             if (providers == null || !providers.Any())
             {
-                Debug.WriteLine("[Settings] Skipping integrity check: no providers loaded yet.");
+                Logger.For<SmartHopperSettings>().Warning("[Settings] Skipping integrity check: no providers loaded yet.");
                 return true;
             }
 
             bool isValid = true;
             var invalidSettings = new List<(string Provider, string Setting)>();
+            List<string> providerNames;
+            lock (this._providerSettingsLock)
+            {
+                providerNames = this.ProviderSettings.Keys.ToList();
+            }
 
-            foreach (var provider in this.ProviderSettings.Keys.ToList())
+            foreach (var provider in providerNames)
             {
                 var descriptors = this.GetProviderDescriptors(provider);
                 if (descriptors == null || !descriptors.Any())
@@ -380,13 +482,19 @@ namespace SmartHopper.Infrastructure.Settings
 
                 // Check for unknown settings
                 var knownSettingNames = descriptors.Select(d => d.Name).ToList();
-                var unknownSettings = this.ProviderSettings[provider].Keys
+                List<string> storedKeys;
+                lock (this._providerSettingsLock)
+                {
+                    storedKeys = this.ProviderSettings[provider].Keys.ToList();
+                }
+
+                var unknownSettings = storedKeys
                     .Where(key => !knownSettingNames.Contains(key))
                     .ToList();
 
                 foreach (var unknown in unknownSettings)
                 {
-                    Debug.WriteLine($"Unknown setting found for provider {provider}: {unknown}");
+                    Logger.For<SmartHopperSettings>().Trace($"Unknown setting found for provider {provider}: {unknown}");
                     invalidSettings.Add((provider, unknown));
                     isValid = false;
                 }
@@ -395,10 +503,10 @@ namespace SmartHopper.Infrastructure.Settings
             // Log all invalid settings
             if (invalidSettings.Count > 0)
             {
-                Debug.WriteLine($"Found {invalidSettings.Count} invalid settings:");
+                Logger.For<SmartHopperSettings>().Warning($"Found {invalidSettings.Count} invalid settings:");
                 foreach (var (provider, setting) in invalidSettings)
                 {
-                    Debug.WriteLine($"  - {provider}.{setting}");
+                    Logger.For<SmartHopperSettings>().Trace($"  - {provider}.{setting}");
                 }
             }
 
@@ -412,12 +520,12 @@ namespace SmartHopper.Infrastructure.Settings
         {
             try
             {
-                Debug.WriteLine("Refreshing providers with settings from local storage");
+                Logger.For<SmartHopperSettings>().Trace("Refreshing providers with settings from local storage");
 
                 // Check that the ProviderManager instance exists first
                 if (ProviderManager.Instance == null)
                 {
-                    Debug.WriteLine("Cannot refresh providers: ProviderManager.Instance is null");
+                    Logger.For<SmartHopperSettings>().Warning("Cannot refresh providers: ProviderManager.Instance is null");
                     return;
                 }
 
@@ -425,7 +533,7 @@ namespace SmartHopper.Infrastructure.Settings
                 var providers = ProviderManager.Instance.GetProviders(includeUntrusted: true);
                 if (providers == null)
                 {
-                    Debug.WriteLine("No providers available to refresh");
+                    Logger.For<SmartHopperSettings>().Trace("No providers available to refresh");
                     return;
                 }
 
@@ -437,7 +545,7 @@ namespace SmartHopper.Infrastructure.Settings
                     .ToList();
                 if (notReady.Count > 0)
                 {
-                    Debug.WriteLine($"[Settings] Skipping provider refresh: settings UI not registered for: {string.Join(", ", notReady)}");
+                    Logger.For<SmartHopperSettings>().Warning($"[Settings] Skipping provider refresh: settings UI not registered for: {string.Join(", ", notReady)}");
                     return;
                 }
 
@@ -458,34 +566,37 @@ namespace SmartHopper.Infrastructure.Settings
                             if (value != null)
                             {
                                 providerSettings[descriptor.Name] = value;
-                                bool hasStorage = this.ProviderSettings
-                                    .TryGetValue(provider.Name, out var storedSettings)
-                                    && storedSettings != null
-                                    && storedSettings.ContainsKey(descriptor.Name);
+                                bool hasStorage;
+                                lock (this._providerSettingsLock)
+                                {
+                                    hasStorage = this.ProviderSettings
+                                        .TryGetValue(provider.Name, out var storedSettings)
+                                        && storedSettings != null
+                                        && storedSettings.ContainsKey(descriptor.Name);
+                                }
 
                                 string sourceInfo = hasStorage
                                     ? "(from storage)"
                                     : "(from default)";
 
-                                Debug.WriteLine(
-                                    $"Setting {provider.Name}.{descriptor.Name} = " +
+                                Logger.For<SmartHopperSettings>().Trace($"Setting {provider.Name}.{descriptor.Name} = " +
                                     $"{(descriptor.IsSecret ? "<secret>" : value)} {sourceInfo}");
                             }
                         }
 
                         // Initialize the provider with the settings
-                        Debug.WriteLine($"Initializing provider {provider.Name} with {providerSettings.Count} settings");
+                        Logger.For<SmartHopperSettings>().Trace($"Initializing provider {provider.Name} with {providerSettings.Count} settings");
                         provider.RefreshCachedSettings(providerSettings);
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"Error refreshing provider {provider.Name}: {ex.Message}");
+                        Logger.For<SmartHopperSettings>().Exception(ex, $"Error refreshing provider {provider.Name}: {ex.Message}");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error refreshing provider settings: {ex.Message}");
+                Logger.For<SmartHopperSettings>().Exception(ex, $"Error refreshing provider settings: {ex.Message}");
             }
         }
 
@@ -553,21 +664,29 @@ namespace SmartHopper.Infrastructure.Settings
                     }
                     else
                     {
-                        Debug.WriteLine("[Decryption] Encryption key not found for decryption");
+                        Logger.For<SmartHopperSettings>().Warning("[Decryption] Encryption key not found for decryption");
                         return null;
                     }
                 }
 
                 // Unrecognized or unsupported format.
-                Debug.WriteLine("[Decryption] Unrecognized or legacy setting encountered and ignored.");
+                Logger.For<SmartHopperSettings>().Trace("[Decryption] Unrecognized or legacy setting encountered and ignored.");
                 return null;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[Decryption] Error decrypting: {ex.Message}");
+                Logger.For<SmartHopperSettings>().Exception(ex, $"[Decryption] Error decrypting: {ex.Message}");
                 return null;
             }
         }
+
+        // The OS secure store round-trip (DPAPI registry read on Windows, Keychain on
+        // macOS) happens on every secret GetSetting; the key is process-lifetime stable,
+        // so it is fetched once and cached. Only successful retrievals are cached, and the
+        // whole lookup is serialized so two threads can never generate different keys and
+        // lose whichever one encrypted data first.
+        private static readonly object EncryptionKeyLock = new object();
+        private static byte[]? _cachedEncryptionKey;
 
         /// <summary>
         /// Gets or creates the encryption key from OS secure store (DPAPI/Keychain).
@@ -577,40 +696,50 @@ namespace SmartHopper.Infrastructure.Settings
         {
             const string keyName = "SmartHopper.EncryptionKey";
 
-            try
+            lock (EncryptionKeyLock)
             {
-                // Try to retrieve existing key first
-                // 256-bit key expected
-                var existingKey = GetSecureData(keyName);
-                if (existingKey != null && existingKey.Length == 32)
+                if (_cachedEncryptionKey != null)
                 {
-                    Debug.WriteLine("[SecureStore] Retrieved existing encryption key from OS secure store");
-                    return existingKey;
+                    return _cachedEncryptionKey;
                 }
 
-                // Generate new 256-bit encryption key
-                using (var rng = RandomNumberGenerator.Create())
+                try
                 {
-                    var newKey = new byte[32]; // 256 bits
-                    rng.GetBytes(newKey);
-
-                    // Store the key securely
-                    if (StoreSecureData(keyName, newKey))
+                    // Try to retrieve existing key first
+                    // 256-bit key expected
+                    var existingKey = GetSecureData(keyName);
+                    if (existingKey != null && existingKey.Length == 32)
                     {
-                        Debug.WriteLine("[SecureStore] Generated and stored new encryption key in OS secure store");
-                        return newKey;
+                        Logger.For<SmartHopperSettings>().Trace("[SecureStore] Retrieved existing encryption key from OS secure store");
+                        _cachedEncryptionKey = existingKey;
+                        return existingKey;
                     }
-                    else
+
+                    // Generate new 256-bit encryption key
+                    using (var rng = RandomNumberGenerator.Create())
                     {
-                        Debug.WriteLine("[SecureStore] Failed to store encryption key in OS secure store");
-                        return null;
+                        var newKey = new byte[32]; // 256 bits
+                        rng.GetBytes(newKey);
+
+                        // Store the key securely
+                        if (StoreSecureData(keyName, newKey))
+                        {
+                            Logger.For<SmartHopperSettings>().Trace("[SecureStore] Generated and stored new encryption key in OS secure store");
+                            _cachedEncryptionKey = newKey;
+                            return newKey;
+                        }
+                        else
+                        {
+                            Logger.For<SmartHopperSettings>().Error("[SecureStore] Failed to store encryption key in OS secure store");
+                            return null;
+                        }
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[SecureStore] Error getting/creating encryption key: {ex.Message}");
-                return null;
+                catch (Exception ex)
+                {
+                    Logger.For<SmartHopperSettings>().Exception(ex, $"[SecureStore] Error getting/creating encryption key: {ex.Message}");
+                    return null;
+                }
             }
         }
 
@@ -759,7 +888,7 @@ namespace SmartHopper.Infrastructure.Settings
                 var protectedData = ProtectedData.Protect(data, null, DataProtectionScope.CurrentUser);
                 var registryPath = $@"HKEY_CURRENT_USER\SOFTWARE\SmartHopper\SecureKeys";
                 Microsoft.Win32.Registry.SetValue(registryPath, keyName, Convert.ToBase64String(protectedData));
-                Debug.WriteLine($"[SecureStore] Stored data '{keyName}' using DPAPI in Windows Registry");
+                Logger.For<SmartHopperSettings>().Trace($"[SecureStore] Stored data '{keyName}' using DPAPI in Windows Registry");
                 return true;
 #else
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
@@ -772,7 +901,7 @@ namespace SmartHopper.Infrastructure.Settings
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[SecureStore] Error storing secure data '{keyName}': {ex.Message}");
+                Logger.For<SmartHopperSettings>().Exception(ex, $"[SecureStore] Error storing secure data '{keyName}': {ex.Message}");
                 return false;
             }
         }
@@ -798,7 +927,7 @@ namespace SmartHopper.Infrastructure.Settings
 
                 var protectedData = Convert.FromBase64String(protectedDataBase64);
                 var data = ProtectedData.Unprotect(protectedData, null, DataProtectionScope.CurrentUser);
-                Debug.WriteLine($"[SecureStore] Retrieved data '{keyName}' using DPAPI from Windows Registry");
+                Logger.For<SmartHopperSettings>().Trace($"[SecureStore] Retrieved data '{keyName}' using DPAPI from Windows Registry");
                 return data;
 #else
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
@@ -811,7 +940,7 @@ namespace SmartHopper.Infrastructure.Settings
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[SecureStore] Error retrieving secure data '{keyName}': {ex.Message}");
+                Logger.For<SmartHopperSettings>().Exception(ex, $"[SecureStore] Error retrieving secure data '{keyName}': {ex.Message}");
                 return null;
             }
         }
@@ -833,13 +962,18 @@ namespace SmartHopper.Infrastructure.Settings
             var key = GetOrCreateEncryptionKey();
             if (key == null)
             {
-                Debug.WriteLine("[Migration] Cannot migrate legacy secrets to SH04: secure store key unavailable.");
+                Logger.For<SmartHopperSettings>().Warning("[Migration] Cannot migrate legacy secrets to SH04: secure store key unavailable.");
                 return;
             }
 
             bool migratedAny = false;
+            List<KeyValuePair<string, Dictionary<string, object>>> providerSnapshot;
+            lock (this._providerSettingsLock)
+            {
+                providerSnapshot = this.ProviderSettings.ToList();
+            }
 
-            foreach (var providerKvp in this.ProviderSettings.ToList())
+            foreach (var providerKvp in providerSnapshot)
             {
                 var providerName = providerKvp.Key;
                 var settings = providerKvp.Value;
@@ -849,8 +983,13 @@ namespace SmartHopper.Infrastructure.Settings
                 }
 
                 var descriptors = this.GetProviderDescriptors(providerName);
+                List<KeyValuePair<string, object>> settingSnapshot;
+                lock (this._providerSettingsLock)
+                {
+                    settingSnapshot = settings.ToList();
+                }
 
-                foreach (var settingKvp in settings.ToList())
+                foreach (var settingKvp in settingSnapshot)
                 {
                     var settingName = settingKvp.Key;
                     var encryptedValue = settingKvp.Value?.ToString();
@@ -876,22 +1015,25 @@ namespace SmartHopper.Infrastructure.Settings
                             continue;
                         }
 
-                        settings[settingName] = EncryptWithSecureKey(plainText, key);
+                        lock (this._providerSettingsLock)
+                        {
+                            settings[settingName] = EncryptWithSecureKey(plainText, key);
+                        }
+
                         migratedAny = true;
-                        Debug.WriteLine($"[Migration] Migrated {providerName}.{settingName} to SH04: AES-GCM.");
+                        Logger.For<SmartHopperSettings>().Trace($"[Migration] Migrated {providerName}.{settingName} to SH04: AES-GCM.");
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[Migration] Failed to migrate {providerName}.{settingName}: {ex.Message}");
+                        Logger.For<SmartHopperSettings>().Exception(ex, $"[Migration] Failed to migrate {providerName}.{settingName}: {ex.Message}");
                     }
                 }
             }
 
             if (migratedAny)
             {
-                this.EncryptionVersion = CurrentEncryptionVersion;
                 this.Save();
-                Debug.WriteLine("[Migration] Legacy secrets to SH04: migration completed and saved.");
+                Logger.For<SmartHopperSettings>().Trace("[Migration] Legacy secrets to SH04: migration completed and saved.");
             }
         }
 
@@ -906,14 +1048,26 @@ namespace SmartHopper.Infrastructure.Settings
                 return false;
             }
 
-            foreach (var settings in this.ProviderSettings.Values)
+            List<Dictionary<string, object>> providerValues;
+            lock (this._providerSettingsLock)
+            {
+                providerValues = this.ProviderSettings.Values.ToList();
+            }
+
+            foreach (var settings in providerValues)
             {
                 if (settings == null)
                 {
                     continue;
                 }
 
-                foreach (var value in settings.Values)
+                List<object> settingValues;
+                lock (this._providerSettingsLock)
+                {
+                    settingValues = settings.Values.ToList();
+                }
+
+                foreach (var value in settingValues)
                 {
                     if (value?.ToString()?.StartsWith(LegacySecurePrefix, StringComparison.Ordinal) == true)
                     {
@@ -937,28 +1091,61 @@ namespace SmartHopper.Infrastructure.Settings
                 return;
             }
 
-            foreach (var settings in this.ProviderSettings.Values.ToList())
+            List<Dictionary<string, object>> providerValues;
+            lock (this._providerSettingsLock)
+            {
+                providerValues = this.ProviderSettings.Values.ToList();
+            }
+
+            foreach (var settings in providerValues)
             {
                 if (settings == null)
                 {
                     continue;
                 }
 
-                foreach (var key in settings.Keys.ToList())
+                List<string> settingKeys;
+                lock (this._providerSettingsLock)
                 {
-                    if (settings[key]?.ToString()?.StartsWith(LegacySecurePrefix, StringComparison.Ordinal) == true)
+                    settingKeys = settings.Keys.ToList();
+                }
+
+                foreach (var key in settingKeys)
+                {
+                    lock (this._providerSettingsLock)
                     {
-                        settings.Remove(key);
+                        if (settings.TryGetValue(key, out var value)
+                            && value?.ToString()?.StartsWith(LegacySecurePrefix, StringComparison.Ordinal) == true)
+                        {
+                            settings.Remove(key);
+                        }
                     }
                 }
             }
-
-            this.EncryptionVersion = CurrentEncryptionVersion;
         }
 
         private IEnumerable<SettingDescriptor> GetProviderDescriptors(string providerName)
         {
-            return this.DescriptorSource(providerName) ?? Enumerable.Empty<SettingDescriptor>();
+            if (_currentlyBuildingDescriptors == null)
+            {
+                _currentlyBuildingDescriptors = new HashSet<string>();
+            }
+
+            if (!_currentlyBuildingDescriptors.Add(providerName))
+            {
+                return Enumerable.Empty<SettingDescriptor>();
+            }
+
+            try
+            {
+                // Materialize while the guard is held so lazily-evaluated factories are
+                // covered too, and callers share one snapshot per enumeration.
+                return (this.DescriptorSource(providerName) ?? Enumerable.Empty<SettingDescriptor>()).ToList();
+            }
+            finally
+            {
+                _currentlyBuildingDescriptors.Remove(providerName);
+            }
         }
 
         /// <summary>
@@ -972,7 +1159,7 @@ namespace SmartHopper.Infrastructure.Settings
                 if (File.Exists(SettingsPath))
                 {
                     // EXISTING INSTALLATION - Load settings
-                    Debug.WriteLine($"[Load] Loading existing settings from: {SettingsPath}");
+                    Logger.For<SmartHopperSettings>().Trace($"[Load] Loading existing settings from: {SettingsPath}");
                     var json = File.ReadAllText(SettingsPath);
                     var settings = JsonConvert.DeserializeObject<SmartHopperSettings>(json);
 
@@ -992,36 +1179,36 @@ namespace SmartHopper.Infrastructure.Settings
                 else
                 {
                     // NEW INSTALLATION - Initialize with OS secure store encryption
-                    Debug.WriteLine($"[Load] First run detected - initializing new settings");
+                    Logger.For<SmartHopperSettings>().Trace($"[Load] First run detected - initializing new settings");
 
                     // Create encryption key and store it securely
                     var key = GetOrCreateEncryptionKey();
                     if (key != null)
                     {
-                        Debug.WriteLine($"[Load] Encryption key created and stored securely");
+                        Logger.For<SmartHopperSettings>().Trace($"[Load] Encryption key created and stored securely");
 
                         var settings = new SmartHopperSettings();
 
                         // Save immediately to persist the configuration
                         settings.Save();
-                        Debug.WriteLine($"[Load] New settings file created at: {SettingsPath}");
+                        Logger.For<SmartHopperSettings>().Trace($"[Load] New settings file created at: {SettingsPath}");
 
                         return settings;
                     }
                     else
                     {
-                        Debug.WriteLine($"[Load] Warning: Could not create encryption key. Secrets will not be stored until the OS secure store is available.");
+                        Logger.For<SmartHopperSettings>().Warning($"[Load] Warning: Could not create encryption key. Secrets will not be stored until the OS secure store is available.");
                         return new SmartHopperSettings();
                     }
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[Load] Error loading settings: {ex.Message}");
+                Logger.For<SmartHopperSettings>().Exception(ex, $"[Load] Error loading settings: {ex.Message}");
             }
 
             // Fallback: Return default settings
-            Debug.WriteLine($"[Load] Returning default settings due to error");
+            Logger.For<SmartHopperSettings>().Warning($"[Load] Returning default settings due to error");
             return new SmartHopperSettings();
         }
 
@@ -1040,46 +1227,59 @@ namespace SmartHopper.Infrastructure.Settings
                 }
 
                 // Log what we're about to save
-                Debug.WriteLine($"[Settings] Saving settings to {SettingsPath}");
-                Debug.WriteLine($"[Settings] DefaultAIProvider: {this.DefaultAIProvider}");
-                Debug.WriteLine($"[Settings] DebounceTime: {this.DebounceTime}");
+                Logger.For<SmartHopperSettings>().Trace($"[Settings] Saving settings to {SettingsPath}");
+                Logger.For<SmartHopperSettings>().Trace($"[Settings] DefaultAIProvider: {this.DefaultAIProvider}");
+                Logger.For<SmartHopperSettings>().Trace($"[Settings] DebounceTime: {this.DebounceTime}");
 
                 // Log TrustedProviders content
                 if (this.TrustedProviders != null)
                 {
-                    Debug.WriteLine($"[Settings] TrustedProviders count: {this.TrustedProviders.Count}");
+                    Logger.For<SmartHopperSettings>().Trace($"[Settings] TrustedProviders count: {this.TrustedProviders.Count}");
                     foreach (var kvp in this.TrustedProviders)
                     {
-                        Debug.WriteLine($"[Settings]   - {kvp.Key} = {kvp.Value}");
+                        Logger.For<SmartHopperSettings>().Trace($"[Settings]   - {kvp.Key} = {kvp.Value}");
                     }
                 }
                 else
                 {
-                    Debug.WriteLine($"[Settings] TrustedProviders is null");
+                    Logger.For<SmartHopperSettings>().Trace($"[Settings] TrustedProviders is null");
                 }
 
                 if (this.ProviderSettings != null)
                 {
-                    foreach (var providerKvp in this.ProviderSettings)
+                    List<KeyValuePair<string, Dictionary<string, object>>> providerSnapshot;
+                    lock (this._providerSettingsLock)
                     {
-                        Debug.WriteLine($"[Settings] Provider '{providerKvp.Key}' has {providerKvp.Value?.Count ?? 0} settings");
-                        if (providerKvp.Value != null)
-                        {
-                            foreach (var settingKvp in providerKvp.Value)
-                            {
-                                // Don't log the actual values of secrets
-                                var isSecret = this.GetProviderDescriptors(providerKvp.Key)
-                                    .FirstOrDefault(d => d.Name == settingKvp.Key)?.IsSecret ?? false;
+                        providerSnapshot = this.ProviderSettings.ToList();
+                    }
 
-                                Debug.WriteLine($"[Settings]   - {settingKvp.Key} = {(isSecret ? "<secret>" : settingKvp.Value)}");
-                            }
+                    foreach (var providerKvp in providerSnapshot)
+                    {
+                        Logger.For<SmartHopperSettings>().Trace($"[Settings] Provider '{providerKvp.Key}' has {providerKvp.Value?.Count ?? 0} settings");
+                        List<KeyValuePair<string, object>> settingSnapshot;
+                        lock (this._providerSettingsLock)
+                        {
+                            settingSnapshot = providerKvp.Value?.ToList() ?? new List<KeyValuePair<string, object>>();
+                        }
+
+                        foreach (var settingKvp in settingSnapshot)
+                        {
+                            // Don't log the actual values of secrets
+                            var isSecret = this.GetProviderDescriptors(providerKvp.Key)
+                                .FirstOrDefault(d => d.Name == settingKvp.Key)?.IsSecret ?? false;
+
+                            Logger.For<SmartHopperSettings>().Trace($"[Settings]   - {settingKvp.Key} = {(isSecret ? "<secret>" : settingKvp.Value)}");
                         }
                     }
                 }
 
-                var json = JsonConvert.SerializeObject(this, Formatting.Indented);
+                string json;
+                lock (this._providerSettingsLock)
+                {
+                    json = JsonConvert.SerializeObject(this, Formatting.Indented);
+                }
                 File.WriteAllText(SettingsPath, json);
-                Debug.WriteLine($"[Settings] Settings saved successfully ({json.Length} bytes)");
+                Logger.For<SmartHopperSettings>().Trace($"[Settings] Settings saved successfully ({json.Length} bytes)");
 
                 // After saving, refresh all providers
                 this.RefreshProvidersLocalStorage();
@@ -1091,12 +1291,12 @@ namespace SmartHopper.Infrastructure.Settings
                 }
                 catch (Exception evEx)
                 {
-                    Debug.WriteLine($"[Settings] Error notifying SettingsSaved listeners: {evEx.Message}");
+                    Logger.For<SmartHopperSettings>().Error($"[Settings] Error notifying SettingsSaved listeners: {evEx.Message}");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error saving settings: {ex.Message}");
+                Logger.For<SmartHopperSettings>().Exception(ex, $"Error saving settings: {ex.Message}");
             }
         }
     }

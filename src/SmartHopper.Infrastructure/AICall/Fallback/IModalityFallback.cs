@@ -18,6 +18,7 @@
 
 using System.Threading;
 using System.Threading.Tasks;
+using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AIModels;
 namespace SmartHopper.Infrastructure.AICall.Fallback
@@ -50,6 +51,13 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
         /// Transforms the body, replacing unsupported interactions with supported ones.
         /// May perform extra AI calls (token cost).
         /// </summary>
-        Task<ModalityFallbackResult> ApplyAsync(AIBody body, string providerName, string modelName, CancellationToken ct);
+        /// <param name="body">The body whose modality items are converted.</param>
+        /// <param name="providerName">The provider resolved for this conversion step.</param>
+        /// <param name="modelName">The model resolved for this conversion step.</param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <param name="requestParameters">Optional request parameters propagated to each
+        /// conversion call (e.g. voice and speed extras for speech synthesis).</param>
+        /// <param name="context">Optional execution-scoped context (run memoization).</param>
+        Task<ModalityFallbackResult> ApplyAsync(AIBody body, string providerName, string modelName, CancellationToken ct, AIRequestParameters requestParameters = null, ModalityFallbackContext context = null);
     }
 }

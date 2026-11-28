@@ -23,6 +23,7 @@ using System.Linq;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Providers.MistralAI
@@ -79,11 +80,11 @@ namespace SmartHopper.Providers.MistralAI
                     Type = typeof(int),
                     DefaultValue = 2000,
                     DisplayName = "Max Tokens",
-                    Description = "Maximum number of tokens to generate",
+                    Description = "Maximum number of tokens to generate. Set to 0 for unlimited.",
                     ControlParams = new NumericSettingDescriptorControl
                     {
                         UseSlider = false,
-                        Min = 1,
+                        Min = 0,
                         Max = 100000,
                         Step = 1,
                     },
@@ -102,8 +103,8 @@ namespace SmartHopper.Providers.MistralAI
                     Type = typeof(string),
                     DefaultValue = "none",
                     DisplayName = "Reasoning Effort",
-                    Description = "Controls the depth of reasoning for supported models. Only 'none' and 'high' are supported by Mistral. Value can be overridden per-request via Extra Settings.",
-                    AllowedValues = new[] { "none", "high" },
+                    Description = "Controls the depth of reasoning for supported models. Mistral Large 4 accepts 'low', 'medium' and 'high' (omitting the parameter means 'high'); other reasoning-capable Mistral models accept 'none' and 'high'. Values are normalized per model so an invalid value is never sent. Value can be overridden per-request via Extra Settings.",
+                    AllowedValues = new[] { "none", "low", "medium", "high" },
                 },
             };
         }
@@ -111,7 +112,7 @@ namespace SmartHopper.Providers.MistralAI
         /// <inheritdoc/>
         public override bool ValidateSettings(Dictionary<string, object> settings)
         {
-            Debug.WriteLine($"[MistralAI] ValidateSettings called. Settings null? {settings == null}");
+            Logger.For<MistralAIProviderSettings>().Trace($"[MistralAI] ValidateSettings called. Settings null? {settings == null}");
 
             if (settings == null)
             {
@@ -129,7 +130,7 @@ namespace SmartHopper.Providers.MistralAI
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
             {
                 apiKey = apiKeyObj.ToString();
-                Debug.WriteLine($"[MistralAI] API key extracted (length: {apiKey.Length})");
+                Logger.For<MistralAIProviderSettings>().Trace($"[MistralAI] API key extracted (length: {apiKey.Length})");
 
                 // Skip API key validation since any value is valid
             }
@@ -138,12 +139,12 @@ namespace SmartHopper.Providers.MistralAI
             if (settings.TryGetValue("Model", out var modelObj) && modelObj != null)
             {
                 model = modelObj.ToString();
-                Debug.WriteLine($"[MistralAI] Model extracted: {model}");
+                Logger.For<MistralAIProviderSettings>().Trace($"[MistralAI] Model extracted: {model}");
 
                 // Skip model validation since any value is valid
             }
 
-            if (!this.ValidateMaxTokens(settings, showErrorDialogs, "Max tokens must be a positive number."))
+            if (!this.ValidateMaxTokens(settings, showErrorDialogs, "Max tokens must be 0 or greater."))
             {
                 return false;
             }
@@ -157,18 +158,18 @@ namespace SmartHopper.Providers.MistralAI
             {
                 var reasoningEffort = reasoningEffortObj.ToString();
 
-                if (string.IsNullOrWhiteSpace(reasoningEffort) || !new[] { "none", "high" }.Contains(reasoningEffort))
+                if (string.IsNullOrWhiteSpace(reasoningEffort) || !new[] { "none", "low", "medium", "high" }.Contains(reasoningEffort, StringComparer.OrdinalIgnoreCase))
                 {
                     if (showErrorDialogs)
                     {
-                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Reasoning effort for MistralAI must be 'none' or 'high'."));
+                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Reasoning effort for MistralAI must be 'none', 'low', 'medium' or 'high'."));
                     }
 
                     return false;
                 }
             }
 
-            Debug.WriteLine($"Validating MistralAI settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}");
+            Logger.For<MistralAIProviderSettings>().Trace($"Validating MistralAI settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}");
 
             return true;
         }

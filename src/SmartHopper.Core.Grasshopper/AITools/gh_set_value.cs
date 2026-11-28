@@ -52,7 +52,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AIMutatingTool(
                 name: this.toolName,
-                description: "Set the value of an existing canvas object in place: panel or scribble text, a boolean toggle, a number slider (clamped to its range), a value list selection (by index, name or item value), or a standalone persistent parameter (e.g. Number, Text, Integer, Boolean). When 'param' is supplied and the target is a component, the matching input parameter's persistent default is set instead (name, nickname, or zero-based index). The value is applied in place and the downstream solution is re-scheduled. Requires GUIDs from gh_get.",
+                description: "Set the value of an existing canvas object in place: panel or scribble text, a boolean toggle, a number slider (clamped to its range), a value list selection (by index, name or item value), or a standalone persistent parameter (e.g. Number, Text, Integer, Boolean). When 'param' is supplied and the target is a component, the matching input parameter's persistent default is set instead (name, nickname, or zero-based index). For panels, 'panelMode' controls how the text is emitted: 'item' = the whole text becomes one item, 'list' = each line becomes a separate item — supply it alone to switch mode without touching text, or together with 'value' to set both. The value is applied in place and the downstream solution is re-scheduled. Requires GUIDs from gh_get.",
                 category: "Canvas.Modifications",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -63,19 +63,26 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         },
                         ""value"": {
                             ""type"": [""string"", ""number"", ""integer"", ""boolean""],
-                            ""description"": ""Value to apply. Boolean for toggles, number for sliders and number params, text for panels/scribbles/text params, index or item name/expression for value lists.""
+                            ""description"": ""Value to apply. Boolean for toggles, number for sliders and number params, text for panels/scribbles/text params, index or item name/expression for value lists. Optional only when 'panelMode' is supplied on a panel.""
                         },
                         ""param"": {
                             ""type"": ""string"",
                             ""description"": ""Optional. When the target is a component, the input parameter (name, nickname, or zero-based index) whose persistent default should be set.""
+                        },
+                        ""panelMode"": {
+                            ""type"": ""string"",
+                            ""enum"": [""item"", ""list""],
+                            ""description"": ""Optional (panels only). How the panel emits its text: 'item' = the whole text becomes one item, 'list' = each line becomes a separate item. May be supplied alone to switch mode without changing text.""
                         }
                     },
-                    ""required"": [ ""instanceGuid"", ""value"" ]
+                    ""required"": [ ""instanceGuid"" ]
                 }",
                 execute: this.GhSetValueAsync,
                 tags: new[] { "canvas", "components", "mutating", "values" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "setting component values",
+                resultLabel: "set component values");
         }
 
         private async Task<AIReturn> GhSetValueAsync(AIToolCall toolCall)
@@ -97,6 +104,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var instanceGuidArg = args["instanceGuid"]?.ToString();
                 var value = args["value"];
                 var paramName = args["param"]?.ToString();
+                var panelMode = args["panelMode"]?.ToString();
 
                 if (!Guid.TryParse(instanceGuidArg, out var guid))
                 {
@@ -104,13 +112,28 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                if (value == null || value.Type == JTokenType.Null)
+                if (!string.IsNullOrEmpty(panelMode)
+                    && !string.Equals(panelMode, "item", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(panelMode, "list", StringComparison.OrdinalIgnoreCase))
                 {
-                    output.CreateError("Missing required 'value' argument.");
+                    output.CreateError($"Invalid 'panelMode': '{panelMode}'. Expected 'item' or 'list'.");
                     return output;
                 }
 
-                Debug.WriteLine($"[GhObjTools] GhSetValueAsync: guid={guid}, param={paramName ?? "<null>"}, value={value}");
+                var hasValue = value != null && value.Type != JTokenType.Null;
+                if (!string.IsNullOrWhiteSpace(paramName) && !hasValue)
+                {
+                    output.CreateError("Missing required 'value' argument (needed with 'param').");
+                    return output;
+                }
+
+                if (string.IsNullOrWhiteSpace(paramName) && !hasValue && string.IsNullOrEmpty(panelMode))
+                {
+                    output.CreateError("Nothing to apply: supply 'value' and/or 'panelMode'.");
+                    return output;
+                }
+
+                Debug.WriteLine($"[GhObjTools] GhSetValueAsync: guid={guid}, param={paramName ?? "<null>"}, value={value}, panelMode={panelMode ?? "<null>"}");
 
                 var (allowedGuids, protectedGuids) = CanvasProtection.FilterProtectedGuids(new List<Guid> { guid });
 
@@ -138,7 +161,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var failed = new JObject();
                 foreach (var acceptedGuid in allowedGuids.Where(accepted.Contains))
                 {
-                    var (result, detail) = ComponentManipulation.SetObjectValue(acceptedGuid, value, paramName);
+                    var (result, detail) = ComponentManipulation.SetObjectValue(acceptedGuid, value, paramName, panelMode);
                     if (result == ComponentManipulation.ObjectManipulationResult.Success)
                     {
                         updated.Add(acceptedGuid.ToString());

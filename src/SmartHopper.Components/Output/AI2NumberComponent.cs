@@ -42,14 +42,14 @@ namespace SmartHopper.Components.Output
         private double? _fallback;
 
         public AI2NumberComponent()
-            : base("AI to Number", "AI→Num", "Extract numerical values from AI input", GH_Exposure.primary)
+            : base("AI to Number", "AI2Num", "Call the AI provider on the connected input(s) and extract a numeric value.", GH_Exposure.primary)
         {
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddNumberParameter("Fallback", "F", "OPTIONAL fallback value to use when the AI response cannot be parsed as a number. If not provided, the output will be null for unparsable responses.", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Fallback", "F", "Optional fallback number returned when the AI response cannot be parsed as a number (leave disconnected to output null on parse failure).", GH_ParamAccess.item);
             pManager[pManager.ParamCount - 1].Optional = true;
         }
 
@@ -72,7 +72,7 @@ namespace SmartHopper.Components.Output
         /// <summary>
         /// Gets the component icon.
         /// </summary>
-        protected override Bitmap Icon => Resources.aitonumeric;
+        protected override Bitmap Icon => Resources.AI2Number;
 
         /// <summary>
         /// Gets the AI tools used by this component.
@@ -98,7 +98,7 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "Number",
                     NickName = "N",
-                    Description = "Extracted numerical value. Falls back to the Fallback input when the AI response cannot be parsed.",
+                    Description = "Extracted numeric value (or the Fallback value when unparsable).",
                     ParamType = typeof(Param_Number),
                     Access = GH_ParamAccess.tree,
                     Extractor = OutputMapping.Single(aiReturn =>
@@ -112,7 +112,7 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "Used Fallback",
                     NickName = "UF",
-                    Description = "True when the AI response could not be parsed and the Fallback value was used (or null was emitted because no fallback was provided).",
+                    Description = "True when the AI response could not be parsed as a number and the fallback behavior was used.",
                     ParamType = typeof(Param_Boolean),
                     Access = GH_ParamAccess.tree,
                     Extractor = OutputMapping.Single(aiReturn =>

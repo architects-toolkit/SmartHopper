@@ -45,6 +45,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.AITools;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Infrastructure.Utils;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Utils;
 
 namespace SmartHopper.Core.Grasshopper.Converters.Formats
@@ -76,7 +77,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
         private static HttpClient CreateDefaultHttpClient()
         {
-            var client = new HttpClient();
+            var client = SmartHopper.Infrastructure.Networking.ExternalDataHttpClient.Create();
             string version = VersionHelper.GetDisplayVersion();
             client.DefaultRequestHeaders.UserAgent.ParseAdd($"SmartHopper/{version} (+https://github.com/architects-toolkit/SmartHopper)");
             return client;
@@ -86,6 +87,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
         public async Task<FileConversionResult> ConvertAsync(string filePath, FileConversionOptions options)
         {
+            using var sourceAccessScope = SmartHopper.Infrastructure.Networking.ExternalSourceAccess.BeginScope();
             // For UrlConverter, filePath is actually a URL
             var url = filePath;
 
@@ -199,7 +201,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                         return FileConversionResult.Failure("url", $"Failed to read content from '{uri}'.", FileConversionFailureReason.NetworkError);
                     }
 
-                    Debug.WriteLine($"[UrlConverter] Fetched HTML from {url}. Length: {html.Length}");
+                    Logger.For<UrlConverter>().Trace($"[UrlConverter] Fetched HTML from {url}. Length: {html.Length}");
 
                     sawPasswordField = HasPasswordField(html);
 
@@ -274,17 +276,23 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             }
             catch (HttpRequestException ex)
             {
-                Debug.WriteLine($"[UrlConverter] Network error: {ex.Message}");
+                Logger.For<UrlConverter>().Exception(ex, $"[UrlConverter] Network error: {ex.Message}");
                 return FileConversionResult.Failure("url", $"Network error fetching URL: {ex.Message}", FileConversionFailureReason.NetworkError);
             }
             catch (TaskCanceledException ex)
             {
-                Debug.WriteLine($"[UrlConverter] Timeout: {ex.Message}");
+                Logger.For<UrlConverter>().Exception(ex, $"[UrlConverter] Timeout: {ex.Message}");
                 return FileConversionResult.Failure("url", $"Timed out fetching URL: {url}", FileConversionFailureReason.NetworkError);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Consent denials are a refusal, not a conversion failure — let them
+                // propagate so the calling tool reports an explicit runtime error.
+                throw;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[UrlConverter] Error: {ex.Message}");
+                Logger.For<UrlConverter>().Exception(ex, $"[UrlConverter] Error: {ex.Message}");
                 return FileConversionResult.Failure("url", $"Error fetching URL: {ex.Message}", FileConversionFailureReason.Other);
             }
         }

@@ -45,9 +45,9 @@ namespace SmartHopper.Components.Grasshopper
             : base(
                 "Merge GhJSON",
                 "GhMerge",
-                "Merge two GhJSON documents into one. Target takes priority on conflicts (duplicate components by GUID are skipped from source).",
+                "Merge two GhJSON documents into a single definition. When both documents contain a component with the same instance GUID, the Target document takes priority.",
                 "SmartHopper",
-                "Grasshopper")
+                "D. GhJSON")
         {
         }
 
@@ -55,17 +55,17 @@ namespace SmartHopper.Components.Grasshopper
         public override Guid ComponentGuid => new Guid("A3C8F291-7D4E-4B5A-9E2F-8C1D6B3A5E7F");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.ghmerge;
+        protected override Bitmap Icon => Resources.GhMerge;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary | GH_Exposure.obscure;
 
         /// <inheritdoc/>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Target", "T", "Target GhJSON document. Takes priority on conflicts.", GH_ParamAccess.item);
-            pManager.AddTextParameter("Source", "S", "Source GhJSON document to merge into the target.", GH_ParamAccess.item);
-            pManager.AddBooleanParameter("Run?", "R", "Run this component?", GH_ParamAccess.item, false);
+            pManager.AddTextParameter("Target", "T", "Primary GhJSON document (kept on GUID conflicts).", GH_ParamAccess.item);
+            pManager.AddTextParameter("Source", "S", "Secondary GhJSON document to merge into Target.", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Run?", "R", "Set to true (or connect a Button) to merge the documents.", GH_ParamAccess.item, false);
         }
 
         /// <summary>
@@ -74,10 +74,10 @@ namespace SmartHopper.Components.Grasshopper
         /// <param name="pManager">The parameter manager to register outputs with.</param>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Merged", "M", "Merged GhJSON document", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Components+", "C+", "Number of components added from source", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Connections+", "W+", "Number of connections added from source", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Groups+", "G+", "Number of groups added from source", GH_ParamAccess.item);
+            pManager.AddTextParameter("Merged", "M", "Combined GhJSON document.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Components+", "C+", "Number of components added from Source.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Connections+", "W+", "Number of connections added from Source.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Groups+", "G+", "Number of groups added from Source.", GH_ParamAccess.item);
         }
 
         /// <summary>
@@ -149,7 +149,7 @@ namespace SmartHopper.Components.Grasshopper
                 };
 
                 var toolCall = new AIToolCall();
-                toolCall.Endpoint = "gh_merge";
+                toolCall.Origin = "gh_merge";
                 toolCall.FromToolCallInteraction(toolCallInteraction);
                 toolCall.SkipMetricsValidation = true;
 

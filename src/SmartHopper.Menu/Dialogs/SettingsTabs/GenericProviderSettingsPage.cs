@@ -20,35 +20,48 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Eto.Drawing;
 using Eto.Forms;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Menu.Dialogs.SettingsTabs
 {
     /// <summary>
-    /// Generic settings page that dynamically creates UI controls for any AI provider's settings based on their setting descriptors
+    /// Generic settings page that renders a provider's ordered settings surface: persisted
+    /// settings (<see cref="BoundSettingElement"/>) bound to the settings store, interleaved
+    /// with live chrome (<see cref="ChromeElement"/>: status labels, action buttons, links)
+    /// fed by delegates that are re-evaluated on every periodic repaint and never touch the
+    /// settings store.
     /// </summary>
     public class GenericProviderSettingsPage : Panel
     {
         private readonly IAIProvider _provider;
+        private readonly Dictionary<string, BoundSettingElement> _boundElements;
         private readonly Dictionary<string, Control> _controls;
+        private readonly Dictionary<string, Button> _companionControls;
+        private readonly Dictionary<BoundSettingElement, (ActionChrome Action, Button Button)> _companionActions;
+        private readonly List<ChromeBinding> _chromeBindings;
         private readonly Dictionary<string, string> _originalValues;
         private readonly Dictionary<Type, Func<SettingDescriptor, Control>> _controlFactories;
         private UITimer? _refreshTimer;
 
         // Bound each control's preferred width: drop-downs size to their longest
-        // item, and inside the Scrollable every scaled row stretches to the
-        // widest row — pushing buttons and pickers past the dialog edge and
-        // forcing a horizontal scrollbar. The column keeps a fixed width,
-        // matching the fixed 150px label and 500px descriptions.
-        private const int ControlWidth = 370;
+        // item (e.g. team display labels), and inside the Scrollable every scaled
+        // row stretches to the widest row — pushing buttons and pickers past the
+        // dialog edge and forcing a horizontal scrollbar. The budget is ~500px
+        // for the widest row (150px label + spacing + control + companion
+        // button + layout padding), so the page fits the default 600px dialog
+        // even when the vertical scrollbar is showing.
+        private const int ControlWidth = 330;
+        private const int CompanionControlWidth = 220;
 
         /// <summary>
         /// Initializes a new instance of the GenericProviderSettingsPage class
@@ -57,7 +70,11 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         public GenericProviderSettingsPage(IAIProvider provider)
         {
             this._provider = provider;
+            this._boundElements = new Dictionary<string, BoundSettingElement>();
             this._controls = new Dictionary<string, Control>();
+            this._companionControls = new Dictionary<string, Button>();
+            this._companionActions = new Dictionary<BoundSettingElement, (ActionChrome, Button)>();
+            this._chromeBindings = new List<ChromeBinding>();
             this._originalValues = new Dictionary<string, string>();
 
             // Initialize control factories
@@ -70,30 +87,15 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             };
 
             this.CreateLayout();
-
-            // Periodically re-read persisted provider settings so controls that change
-            // asynchronously (one-shot action buttons, status labels) stay live while
-            // the settings page is open.
             this._refreshTimer = new UITimer { Interval = 2 };
             this._refreshTimer.Elapsed += (sender, e) => this.SafeReloadProviderSettings();
-            this._refreshTimer.Start();
-        }
 
-        /// <inheritdoc/>
-        protected override void OnLoad(EventArgs e)
-        {
-            base.OnLoad(e);
-            this._refreshTimer?.Start();
-        }
-
-        /// <inheritdoc/>
-        protected override void OnUnLoad(EventArgs e)
-        {
-            // Stop the periodic refresh once the page leaves the visual tree so the
-            // timer does not keep firing (and keep the page alive) after the dialog
-            // closes; OnLoad restarts it if the page is re-attached.
-            this._refreshTimer?.Stop();
-            base.OnUnLoad(e);
+            // Pages for every provider are constructed eagerly by SettingsDialog, but only
+            // navigated-to pages are ever loaded. Starting the timer in the constructor leaks
+            // a 2-second full-settings sweep for the lifetime of the process for every page
+            // that is never shown — gate it on Load/UnLoad instead.
+            this.Load += (sender, e) => this._refreshTimer?.Start();
+            this.UnLoad += (sender, e) => this._refreshTimer?.Stop();
         }
 
         /// <summary>
@@ -103,7 +105,9 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         {
             // Use DynamicLayout for better control over sizing
             var layout = new DynamicLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
-            var descriptors = ProviderSettingDescriptors.Visible(this._provider.GetSettingDescriptors());
+            var surface = (this._provider.GetSurface() ?? Enumerable.Empty<ProviderSurfaceElement>())
+                .Where(element => element != null)
+                .ToList();
 
             // Add provider title with logo
             var titleLayout = new StackLayout
@@ -119,16 +123,10 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             {
                 try
                 {
-                    using (var ms = new MemoryStream())
+                    var icon = ProviderTileIcon.Load(this._provider, 24);
+                    if (icon != null)
                     {
-                        this._provider.Icon.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-                        ms.Position = 0;
-                        var iconView = new ImageView
-                        {
-                            Image = new Bitmap(ms),
-                            Size = new Size(24, 24),
-                        };
-                        titleLayout.Items.Add(iconView);
+                        titleLayout.Items.Add(new ImageView { Image = icon });
                     }
                 }
                 catch
@@ -146,7 +144,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             layout.Add(titleLayout);
 
-            if (!descriptors.Any())
+            if (!surface.Any())
             {
                 // No settings available
                 layout.Add(new Label
@@ -161,66 +159,212 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 // Load current provider settings
                 var providerSettings = SmartHopper.Infrastructure.Settings.SmartHopperSettings.Instance.GetProviderSettings(this._provider.Name);
 
-                // Create controls for each setting
-                foreach (var descriptor in descriptors)
+                // Render the ordered surface
+                foreach (var element in surface)
                 {
-                    var control = this.CreateControlForDescriptor(descriptor);
-                    if (control != null)
+                    switch (element)
                     {
-                        // Honor descriptor-level enable/disable flag
-                        control.Enabled = descriptor.Enabled;
-
-                        // Bound the preferred width: drop-downs size to their longest
-                        // item and inside the Scrollable every scaled row stretches
-                        // to the widest row, pushing controls past the dialog edge.
-                        control.Width = ControlWidth;
-
-                        this._controls[descriptor.Name] = control;
-
-                        // Load current value
-                        this.LoadSettingValue(descriptor, control, providerSettings);
-
-                        // Create a horizontal layout for label and control
-                        var labelText = !string.IsNullOrEmpty(descriptor.DisplayName) ? descriptor.DisplayName : descriptor.Name;
-                        var label = new Label
-                        {
-                            Text = labelText + ":",
-                            VerticalAlignment = VerticalAlignment.Center,
-                            Width = 150,  // Fixed width to prevent overflow
-                        };
-
-                        var rowLayout = new TableLayout
-                        {
-                            Spacing = new Size(10, 0),
-                        };
-
-                        // Create row with fixed label width and expandable control
-                        rowLayout.Rows.Add(new TableRow(
-                            new TableCell(label, false),  // Fixed size
-                            new TableCell(control, true)));   // Expandable
-
-                        layout.Add(rowLayout);
-
-                        // Add description if available - spans full width below the label+control
-                        if (!string.IsNullOrEmpty(descriptor.Description))
-                        {
-                            layout.Add(new Label
-                            {
-                                Text = descriptor.Description,
-                                TextColor = Colors.Gray,
-                                Font = new Font(SystemFont.Default, 10),
-                                Wrap = WrapMode.Word,
-                                Width = 500,  // Max width for better text wrapping
-                            });
-                        }
-
-                        // Add spacing between settings
-                        layout.Add(new Panel { Height = 10 });
+                        case BoundSettingElement bound:
+                            this.AddBoundSettingRow(layout, bound, providerSettings);
+                            break;
+                        case StatusChrome status:
+                            // Status rows carry no description: the live label is the
+                            // whole message, and a static copy of it would go stale.
+                            this.AddChromeRow(layout, status, this.CreateStatusChromeControl(status), string.Empty);
+                            break;
+                        case ActionChrome action:
+                            this.AddChromeRow(layout, action, this.CreateActionChromeControl(action), SafeEvaluate(action.Description) ?? string.Empty);
+                            break;
+                        case LinkChrome link:
+                            this.AddChromeRow(layout, link, this.CreateLinkChromeControl(link), link.Description ?? string.Empty);
+                            break;
                     }
                 }
             }
 
             this.Content = new Scrollable { Content = layout };
+        }
+
+        /// <summary>
+        /// Adds a persisted-setting row: label, editor (with optional companion action)
+        /// and description, bound to the settings store.
+        /// </summary>
+        private void AddBoundSettingRow(DynamicLayout layout, BoundSettingElement element, Dictionary<string, object> providerSettings)
+        {
+            var descriptor = element.Descriptor;
+            if (descriptor == null || descriptor.IsHidden)
+            {
+                return;
+            }
+
+            // Register before control creation so live option/default hooks resolve.
+            this._boundElements[descriptor.Name] = element;
+
+            var control = this.CreateControlForDescriptor(descriptor);
+            if (control == null)
+            {
+                this._boundElements.Remove(descriptor.Name);
+                return;
+            }
+
+            // Honor the live enable-state hook, falling back to the static flag
+            control.Enabled = SafeEvaluateValue(element.Enabled) ?? descriptor.Enabled;
+
+            // Companion-button rows share the cell, so the control gets a narrower bound
+            var hasCompanion = element.Companion != null || descriptor.CompanionDescriptor != null;
+            control.Width = hasCompanion ? CompanionControlWidth : ControlWidth;
+
+            this._controls[descriptor.Name] = control;
+
+            // Load current value
+            this.LoadSettingValue(element, control, providerSettings);
+
+            // Create a horizontal layout for label and control
+            var labelText = !string.IsNullOrEmpty(descriptor.DisplayName) ? descriptor.DisplayName : descriptor.Name;
+            var label = new Label
+            {
+                Text = labelText + ":",
+                VerticalAlignment = VerticalAlignment.Center,
+                Width = 150,  // Fixed width to prevent overflow
+            };
+
+            var rowLayout = new TableLayout
+            {
+                Spacing = new Size(10, 0),
+            };
+
+            Control controlCell = control;
+            if (element.Companion != null)
+            {
+                var companionButton = this.CreateActionChromeControl(element.Companion);
+                this._companionActions[element] = (element.Companion, companionButton);
+                var stack = new StackLayout
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    VerticalContentAlignment = VerticalAlignment.Center,
+                };
+                stack.Items.Add(control);
+                stack.Items.Add(companionButton);
+                controlCell = stack;
+            }
+            else if (descriptor.CompanionDescriptor != null)
+            {
+                var companion = descriptor.CompanionDescriptor;
+                var companionButton = (Button)this.CreateButtonControl(companion);
+                companionButton.Enabled = companion.Enabled;
+                this._companionControls[companion.Name] = companionButton;
+                var stack = new StackLayout
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    VerticalContentAlignment = VerticalAlignment.Center,
+                };
+                stack.Items.Add(control);
+                stack.Items.Add(companionButton);
+                controlCell = stack;
+            }
+
+            // Create row with fixed label width and expandable control
+            rowLayout.Rows.Add(new TableRow(
+                new TableCell(label, false),  // Fixed size
+                new TableCell(controlCell, true)));   // Expandable
+
+            layout.Add(rowLayout);
+
+            // Add description if available - spans full width below the label+control
+            if (!string.IsNullOrEmpty(descriptor.Description))
+            {
+                layout.Add(SettingsText.DescriptionLabel(descriptor.Description));
+            }
+
+            // Add spacing between settings
+            layout.Add(new Panel { Height = 10 });
+        }
+
+        /// <summary>
+        /// Adds a chrome row (status, action, link): label, control and description, and
+        /// registers it for live delegate repaints. Chrome never produces store keys.
+        /// </summary>
+        private void AddChromeRow(DynamicLayout layout, ChromeElement element, Control control, string description)
+        {
+            var label = new Label
+            {
+                Text = (string.IsNullOrEmpty(element.Title) ? element.GetType().Name : element.Title) + ":",
+                VerticalAlignment = VerticalAlignment.Center,
+                Width = 150,
+            };
+
+            // Chrome rows have no explicitly scaled column, so Eto auto-scales the
+            // last column and would stretch a bare control (e.g. the Connect button)
+            // to the full row width. A non-scaling stack keeps the control at its
+            // natural size inside the stretched cell.
+            var cell = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                Items = { control },
+            };
+
+            var rowLayout = new TableLayout { Spacing = new Size(10, 0) };
+            rowLayout.Rows.Add(new TableRow(
+                new TableCell(label, false),
+                new TableCell(cell, false)));
+
+            layout.Add(rowLayout);
+
+            var descriptionLabel = SettingsText.DescriptionLabel(description);
+            descriptionLabel.Visible = !string.IsNullOrEmpty(description);
+            layout.Add(descriptionLabel);
+            layout.Add(new Panel { Height = 10 });
+
+            this._chromeBindings.Add(new ChromeBinding(element, control, descriptionLabel));
+        }
+
+        /// <summary>
+        /// Evaluates a live surface delegate, falling back on failure so a misbehaving
+        /// provider hook cannot break the settings page.
+        /// </summary>
+        private static T? SafeEvaluate<T>(Func<T>? provider)
+            where T : class
+        {
+            if (provider == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                return provider();
+            }
+            catch (Exception ex)
+            {
+                Logger.For<GenericProviderSettingsPage>().Exception(ex, "[SettingsPage] Live surface delegate failed");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Evaluates a live value-type surface delegate (e.g. enabled flags), falling back
+        /// on failure so a misbehaving provider hook cannot break the settings page.
+        /// </summary>
+        private static T? SafeEvaluateValue<T>(Func<T>? provider)
+            where T : struct
+        {
+            if (provider == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                return provider();
+            }
+            catch (Exception ex)
+            {
+                Logger.For<GenericProviderSettingsPage>().Exception(ex, "[SettingsPage] Live surface delegate failed");
+                return null;
+            }
         }
 
         /// <summary>
@@ -280,14 +424,18 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 level = levelValue?.ToString() ?? string.Empty;
             }
 
-            statusLabel.TextColor = level switch
+            statusLabel.TextColor = LevelColor(level);
+        }
+
+        /// <summary>Maps a semantic status level to the status-label colour.</summary>
+        private static Color LevelColor(string? level)
+            => level switch
             {
                 "ok" => Colors.Green,
                 "busy" => Colors.Orange,
                 "error" => Colors.Red,
                 _ => Colors.Gray,
             };
-        }
 
         /// <summary>
         /// Creates a hyperlink that opens the configured URL in the browser.
@@ -295,9 +443,17 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         private Control CreateLinkControl(SettingDescriptor descriptor)
         {
             var linkParams = (LinkSettingDescriptorControl)descriptor.ControlParams!;
+            return CreateLinkButton(linkParams.Url, linkParams.Text);
+        }
+
+        /// <summary>
+        /// Creates a hyperlink that opens the configured URL in the browser.
+        /// </summary>
+        private static LinkButton CreateLinkButton(string url, string? text)
+        {
             var link = new LinkButton
             {
-                Text = !string.IsNullOrWhiteSpace(linkParams.Text) ? linkParams.Text : linkParams.Url,
+                Text = !string.IsNullOrWhiteSpace(text) ? text : url,
             };
             link.Click += (sender, e) =>
             {
@@ -305,7 +461,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 {
                     Process.Start(new ProcessStartInfo
                     {
-                        FileName = linkParams.Url,
+                        FileName = url,
                         UseShellExecute = true,
                     });
                 }
@@ -318,6 +474,81 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         }
 
         /// <summary>
+        /// Creates a read-only status label bound to a <see cref="StatusChrome"/> live
+        /// text and level delegates.
+        /// </summary>
+        private Control CreateStatusChromeControl(StatusChrome status)
+        {
+            return new Label
+            {
+                Text = SafeEvaluate(status.Text) ?? string.Empty,
+                TextColor = LevelColor(SafeEvaluate(status.Level)),
+                Wrap = WrapMode.Word,
+                Width = ControlWidth,   // Bound preferred width: a wrapping label reports its full unwrapped text
+                Font = new Font(SystemFont.Bold),
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+        }
+
+        /// <summary>
+        /// Creates a button bound to an <see cref="ActionChrome"/> live text, description
+        /// and enabled delegates; clicking invokes the action with the current form state.
+        /// </summary>
+        private Button CreateActionChromeControl(ActionChrome action)
+        {
+            var button = new Button
+            {
+                Text = SafeEvaluate(action.Text) ?? action.Title,
+                Enabled = SafeEvaluateValue(action.Enabled) ?? true,
+            };
+            button.Click += (sender, e) => this.RunChromeActionAsync(action);
+            return button;
+        }
+
+        /// <summary>
+        /// Creates a hyperlink bound to a <see cref="LinkChrome"/>.
+        /// </summary>
+        private Control CreateLinkChromeControl(LinkChrome link)
+        {
+            return CreateLinkButton(link.Url, link.Text);
+        }
+
+        /// <summary>
+        /// Validates and persists the current form, then invokes a chrome action with the
+        /// validated settings. Validation failure blocks the action, matching the legacy
+        /// pseudo-setting flow.
+        /// </summary>
+        private async void RunChromeActionAsync(ActionChrome action)
+        {
+            try
+            {
+                var form = this.CollectSettings() ?? new Dictionary<string, object>();
+                if (form.Count > 0)
+                {
+                    var settingsUi = Infrastructure.AIProviders.ProviderManager.Instance.GetProviderSettings(this._provider.Name);
+                    if (settingsUi?.ValidateSettings(form) == false)
+                    {
+                        return;
+                    }
+
+                    Infrastructure.AIProviders.ProviderManager.Instance.UpdateProviderSettings(this._provider.Name, form);
+                }
+
+                if (action.InvokeAsync != null)
+                {
+                    await action.InvokeAsync(form, CancellationToken.None).ConfigureAwait(true);
+                }
+
+                this.SafeReloadProviderSettings();
+            }
+            catch (Exception ex)
+            {
+                Logger.For<GenericProviderSettingsPage>().Exception(ex, $"[SettingsPage] Surface action failed for {this._provider?.Name}");
+                StyledMessageDialog.ShowError($"Action failed: {ex.Message}", "Error");
+            }
+        }
+
+        /// <summary>
         /// Creates a string control (TextBox, PasswordBox, or DropDown)
         /// </summary>
         /// <param name="descriptor">Setting descriptor</param>
@@ -326,10 +557,10 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         {
             // If descriptor has allowed values, render a dropdown (possibly empty;
             // items are repopulated on refresh when the list changes).
-            if (descriptor.AllowedValues != null)
+            if (descriptor.AllowedValues != null || this.HasLiveAllowedValues(descriptor))
             {
                 var dropdown = new DropDown();
-                SyncDropDownItems(descriptor, dropdown);
+                SyncDropDownItems(this.AllowedValuesFor(descriptor), dropdown);
                 return dropdown;
             }
 
@@ -342,6 +573,22 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Default to text box
             return new TextBox();
         }
+
+        /// <summary>Whether the bound element for <paramref name="descriptor"/> supplies live options.</summary>
+        private bool HasLiveAllowedValues(SettingDescriptor descriptor)
+            => this._boundElements.TryGetValue(descriptor.Name, out var element) && element.AllowedValues != null;
+
+        /// <summary>Resolves dropdown options for a bound setting: live hook first, static list as fallback.</summary>
+        private IEnumerable<object>? AllowedValuesFor(SettingDescriptor descriptor)
+            => this._boundElements.TryGetValue(descriptor.Name, out var element)
+                ? (SafeEvaluate(element.AllowedValues) ?? descriptor.AllowedValues)
+                : descriptor.AllowedValues;
+
+        /// <summary>Resolves the default value for a bound setting: live hook first, static default as fallback.</summary>
+        private object? DefaultValueFor(SettingDescriptor descriptor)
+            => this._boundElements.TryGetValue(descriptor.Name, out var element)
+                ? (SafeEvaluate(element.DefaultValue) ?? descriptor.DefaultValue)
+                : descriptor.DefaultValue;
 
         /// <summary>
         /// Creates a numeric control (NumericStepper)
@@ -408,14 +655,15 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         /// <summary>
         /// Loads the current setting value into the control
         /// </summary>
-        /// <param name="descriptor">Setting descriptor</param>
+        /// <param name="element">Bound surface element (descriptor plus live hooks)</param>
         /// <param name="control">Control to load value into</param>
         /// <param name="providerSettings">Current provider settings</param>
-        private void LoadSettingValue(SettingDescriptor descriptor, Control control, Dictionary<string, object> providerSettings)
+        private void LoadSettingValue(BoundSettingElement element, Control control, Dictionary<string, object> providerSettings)
         {
+            var descriptor = element.Descriptor;
             var currentValue = providerSettings.ContainsKey(descriptor.Name)
                 ? providerSettings[descriptor.Name]
-                : descriptor.DefaultValue;
+                : this.DefaultValueFor(descriptor);
 
             var stringValue = currentValue?.ToString() ?? string.Empty;
             this._originalValues[descriptor.Name] = stringValue;
@@ -435,13 +683,17 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                     {
                         numericStepper.Value = numValue;
                     }
-                    else if (descriptor.DefaultValue != null)
+                    else
                     {
-                        // Try direct numeric conversion first, then fall back to string parsing
-                        if (descriptor.DefaultValue is double defNum ||
-                            double.TryParse(descriptor.DefaultValue.ToString(), NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out defNum))
+                        var defaultValue = this.DefaultValueFor(descriptor);
+                        if (defaultValue != null)
                         {
-                            numericStepper.Value = defNum;
+                            // Try direct numeric conversion first, then fall back to string parsing
+                            if (defaultValue is double defNum ||
+                                double.TryParse(defaultValue.ToString(), NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out defNum))
+                            {
+                                numericStepper.Value = defNum;
+                            }
                         }
                     }
 
@@ -452,24 +704,32 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                     {
                         checkBox.Checked = boolValue;
                     }
-                    else if (descriptor.DefaultValue != null)
+                    else
                     {
-                        // Try direct bool conversion first, then fall back to string parsing
-                        if (descriptor.DefaultValue is bool defBool ||
-                            bool.TryParse(descriptor.DefaultValue.ToString(), out defBool))
+                        var defaultValue = this.DefaultValueFor(descriptor);
+                        if (defaultValue != null)
                         {
-                            checkBox.Checked = defBool;
+                            // Try direct bool conversion first, then fall back to string parsing
+                            if (defaultValue is bool defBool ||
+                                bool.TryParse(defaultValue.ToString(), out defBool))
+                            {
+                                checkBox.Checked = defBool;
+                            }
                         }
                     }
 
                     break;
 
                 case DropDown dropDown:
-                    SyncDropDownItems(descriptor, dropDown);
+                    SyncDropDownItems(this.AllowedValuesFor(descriptor), dropDown);
                     dropDown.SelectedIndex = IndexOfDropDownKey(dropDown, stringValue);
-                    if (dropDown.SelectedIndex < 0 && descriptor.DefaultValue != null)
+                    if (dropDown.SelectedIndex < 0)
                     {
-                        dropDown.SelectedIndex = IndexOfDropDownKey(dropDown, descriptor.DefaultValue.ToString());
+                        var defaultValue = this.DefaultValueFor(descriptor);
+                        if (defaultValue != null)
+                        {
+                            dropDown.SelectedIndex = IndexOfDropDownKey(dropDown, defaultValue.ToString());
+                        }
                     }
 
                     break;
@@ -486,22 +746,63 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         }
 
         /// <summary>
+        /// Replaces a dropdown's items when the descriptor's allowed values changed,
+        /// preserving the current selection when its key still exists.
+        /// </summary>
+        private static void SyncDropDownItems(IEnumerable<object>? allowedValues, DropDown dropDown)
+        {
+            var options = (allowedValues ?? Enumerable.Empty<object>())
+                .Select(value => value is SettingOption option
+                    ? (Key: option.Value?.ToString() ?? string.Empty, Label: option.Label)
+                    : (Key: value?.ToString() ?? string.Empty, Label: value?.ToString() ?? string.Empty))
+                .ToList();
+
+            if (dropDown.Items.Select(item => item.Key).SequenceEqual(options.Select(option => option.Key)))
+            {
+                return;
+            }
+
+            var selectedKey = dropDown.SelectedIndex >= 0 ? dropDown.Items[dropDown.SelectedIndex].Key : null;
+            dropDown.Items.Clear();
+            foreach (var option in options)
+            {
+                dropDown.Items.Add(new ListItem { Text = option.Label, Key = option.Key });
+            }
+
+            dropDown.SelectedIndex = IndexOfDropDownKey(dropDown, selectedKey);
+        }
+
+        /// <summary>Finds a dropdown item index by key, or -1 when absent.</summary>
+        private static int IndexOfDropDownKey(DropDown dropDown, string? key)
+        {
+            for (var i = 0; i < dropDown.Items.Count; i++)
+            {
+                if (dropDown.Items[i].Key == key)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        /// <summary>
         /// Collects the current UI control values into a settings dictionary.
+        /// Chrome rows contribute nothing — they never reach the store.
         /// </summary>
         /// <returns>A dictionary of setting values from the UI controls.</returns>
         private Dictionary<string, object> CollectSettings()
         {
             var updatedSettings = new Dictionary<string, object>();
-            var descriptors = ProviderSettingDescriptors.Visible(this._provider.GetSettingDescriptors());
 
-            foreach (var descriptor in descriptors)
+            foreach (var (name, element) in this._boundElements)
             {
-                if (!this._controls.ContainsKey(descriptor.Name))
+                if (!this._controls.TryGetValue(name, out var control))
                 {
                     continue;
                 }
 
-                var control = this._controls[descriptor.Name];
+                var descriptor = element.Descriptor;
                 if (!control.Enabled)
                 {
                     // Disabled controls are read-only and do not submit values.
@@ -576,58 +877,29 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         {
             try
             {
-                this.RefreshDynamicControls();
+                this.ReloadProviderSettings();
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[SettingsPage] Periodic settings refresh failed for {this._provider?.Name}: {ex.Message}");
+                Logger.For<GenericProviderSettingsPage>().Exception(ex, $"[SettingsPage] Periodic settings reload failed for {this._provider?.Name}");
             }
         }
 
         /// <summary>
-        /// Periodic refresh limited to controls whose rendered state can change outside
-        /// this page (action-button captions, status labels, enabled flags). Value-entry
-        /// controls are deliberately left alone so in-progress edits are never reverted.
-        /// </summary>
-        private void RefreshDynamicControls()
-        {
-            var providerSettings = SmartHopper.Infrastructure.Settings.SmartHopperSettings.Instance.GetProviderSettings(this._provider.Name);
-            var descriptors = ProviderSettingDescriptors.Visible(this._provider.GetSettingDescriptors());
-
-            foreach (var descriptor in descriptors)
-            {
-                if (this._controls.TryGetValue(descriptor.Name, out var control))
-                {
-                    control.Enabled = descriptor.Enabled;
-
-                    switch (control)
-                    {
-                        case Button button:
-                            button.Text = ButtonText(descriptor);
-                            break;
-                        case Label statusLabel when descriptor.ControlParams is StatusSettingDescriptorControl:
-                            this.LoadSettingValue(descriptor, statusLabel, providerSettings);
-                            break;
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Reloads the UI control values from the currently persisted provider settings.
-        /// Also re-applies descriptor-level enabled flags, button texts and status
-        /// colours so dynamic descriptors stay live while the page is open.
+        /// Reloads the UI control values: persisted values are re-read for bound settings,
+        /// and every live surface delegate (options, enabled flags, companion and chrome
+        /// state) is re-evaluated so dynamic rows stay current without storage traffic.
         /// </summary>
         private void ReloadProviderSettings()
         {
             var providerSettings = SmartHopper.Infrastructure.Settings.SmartHopperSettings.Instance.GetProviderSettings(this._provider.Name);
-            var descriptors = ProviderSettingDescriptors.Visible(this._provider.GetSettingDescriptors());
 
-            foreach (var descriptor in descriptors)
+            foreach (var (name, element) in this._boundElements)
             {
-                if (this._controls.TryGetValue(descriptor.Name, out var control))
+                var descriptor = element.Descriptor;
+                if (this._controls.TryGetValue(name, out var control))
                 {
-                    control.Enabled = descriptor.Enabled;
+                    control.Enabled = SafeEvaluateValue(element.Enabled) ?? descriptor.Enabled;
 
                     switch (control)
                     {
@@ -635,64 +907,59 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                             button.Text = ButtonText(descriptor);
                             break;
                         case Label statusLabel:
-                            this.LoadSettingValue(descriptor, statusLabel, providerSettings);
+                            this.LoadSettingValue(element, statusLabel, providerSettings);
                             break;
                         case DropDown dropDown:
                             // Repopulate changed option lists without disturbing the user's selection.
-                            SyncDropDownItems(descriptor, dropDown);
-                            if (dropDown.SelectedIndex < 0 && descriptor.DefaultValue != null)
+                            SyncDropDownItems(this.AllowedValuesFor(descriptor), dropDown);
+                            if (dropDown.SelectedIndex < 0)
                             {
-                                dropDown.SelectedIndex = IndexOfDropDownKey(dropDown, descriptor.DefaultValue.ToString());
+                                var defaultValue = this.DefaultValueFor(descriptor);
+                                if (defaultValue != null)
+                                {
+                                    dropDown.SelectedIndex = IndexOfDropDownKey(dropDown, defaultValue.ToString());
+                                }
                             }
 
                             break;
-                        default:
-                            this.LoadSettingValue(descriptor, control, providerSettings);
-                            break;
                     }
                 }
-            }
-        }
 
-        /// <summary>
-        /// Replaces a dropdown's items when the descriptor's allowed values changed,
-        /// preserving the current selection when its key still exists.
-        /// </summary>
-        private static void SyncDropDownItems(SettingDescriptor descriptor, DropDown dropDown)
-        {
-            var options = (descriptor.AllowedValues ?? Enumerable.Empty<object>())
-                .Select(value => value is SettingOption option
-                    ? (Key: option.Value?.ToString() ?? string.Empty, Label: option.Label)
-                    : (Key: value?.ToString() ?? string.Empty, Label: value?.ToString() ?? string.Empty))
-                .ToList();
-
-            if (dropDown.Items.Select(item => item.Key).SequenceEqual(options.Select(option => option.Key)))
-            {
-                return;
-            }
-
-            var selectedKey = dropDown.SelectedIndex >= 0 ? dropDown.Items[dropDown.SelectedIndex].Key : null;
-            dropDown.Items.Clear();
-            foreach (var option in options)
-            {
-                dropDown.Items.Add(new ListItem { Text = option.Label, Key = option.Key });
-            }
-
-            dropDown.SelectedIndex = IndexOfDropDownKey(dropDown, selectedKey);
-        }
-
-        /// <summary>Finds a dropdown item index by key, or -1 when absent.</summary>
-        private static int IndexOfDropDownKey(DropDown dropDown, string? key)
-        {
-            for (var i = 0; i < dropDown.Items.Count; i++)
-            {
-                if (dropDown.Items[i].Key == key)
+                if (this._companionActions.TryGetValue(element, out var companionAction))
                 {
-                    return i;
+                    companionAction.Button.Enabled = SafeEvaluateValue(companionAction.Action.Enabled) ?? true;
+                    companionAction.Button.Text = SafeEvaluate(companionAction.Action.Text) ?? companionAction.Action.Title;
+                }
+
+                var companion = descriptor.CompanionDescriptor;
+                if (companion != null && this._companionControls.TryGetValue(companion.Name, out var legacyCompanionButton))
+                {
+                    legacyCompanionButton.Enabled = companion.Enabled;
+                    legacyCompanionButton.Text = ButtonText(companion);
                 }
             }
 
-            return -1;
+            foreach (var binding in this._chromeBindings)
+            {
+                switch (binding.Element)
+                {
+                    case StatusChrome status when binding.Control is Label statusLabel:
+                        statusLabel.Text = SafeEvaluate(status.Text) ?? string.Empty;
+                        statusLabel.TextColor = LevelColor(SafeEvaluate(status.Level));
+                        break;
+                    case ActionChrome action when binding.Control is Button actionButton:
+                        actionButton.Text = SafeEvaluate(action.Text) ?? action.Title;
+                        actionButton.Enabled = SafeEvaluateValue(action.Enabled) ?? true;
+                        if (binding.DescriptionLabel != null)
+                        {
+                            var description = SafeEvaluate(action.Description) ?? string.Empty;
+                            binding.DescriptionLabel.Text = description;
+                            binding.DescriptionLabel.Visible = !string.IsNullOrEmpty(description);
+                        }
+
+                        break;
+                }
+            }
         }
 
         private static string ButtonText(SettingDescriptor descriptor)
@@ -701,6 +968,23 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             return !string.IsNullOrWhiteSpace(buttonParams?.Text)
                 ? buttonParams.Text
                 : (!string.IsNullOrEmpty(descriptor.DisplayName) ? descriptor.DisplayName : descriptor.Name);
+        }
+
+        /// <summary>A chrome control plus its optional description label, tracked for live repaints.</summary>
+        private sealed class ChromeBinding
+        {
+            public ChromeBinding(ChromeElement element, Control control, Label? descriptionLabel)
+            {
+                this.Element = element;
+                this.Control = control;
+                this.DescriptionLabel = descriptionLabel;
+            }
+
+            public ChromeElement Element { get; }
+
+            public Control Control { get; }
+
+            public Label? DescriptionLabel { get; }
         }
     }
 }

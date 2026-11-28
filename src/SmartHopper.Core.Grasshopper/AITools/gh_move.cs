@@ -29,6 +29,7 @@ using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -79,7 +80,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.GhMoveObjAsync,
                 tags: new[] { "canvas", "components", "mutating", "layout" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "moving canvas components",
+                resultLabel: "moved canvas components");
         }
 
         private async Task<AIReturn> GhMoveObjAsync(AIToolCall toolCall)
@@ -112,7 +115,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         var yToken = prop.Value["y"];
                         if (xToken == null || yToken == null)
                         {
-                            Debug.WriteLine($"[GhObjTools] GhMoveObjAsync: Missing 'x' or 'y' for target {prop.Name}. Skipping.");
+                            Logger.For<gh_move>().Warning($"[GhObjTools] GhMoveObjAsync: Missing 'x' or 'y' for target {prop.Name}. Skipping.");
                             continue;
                         }
 

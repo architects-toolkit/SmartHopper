@@ -23,6 +23,7 @@ using System.Linq;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Providers.OpenRouter
@@ -79,11 +80,11 @@ namespace SmartHopper.Providers.OpenRouter
                     Type = typeof(int),
                     DefaultValue = 2000,
                     DisplayName = "Max Tokens",
-                    Description = "Maximum number of tokens to generate",
+                    Description = "Maximum number of tokens to generate. Set to 0 for unlimited.",
                     ControlParams = new NumericSettingDescriptorControl
                     {
                         UseSlider = false,
-                        Min = 1,
+                        Min = 0,
                         Max = 100000,
                         Step = 1,
                     },
@@ -124,13 +125,37 @@ namespace SmartHopper.Providers.OpenRouter
                     DisplayName = "Allow Fallbacks",
                     Description = "Allow OpenRouter to fall back to compatible models if the preferred model is unavailable.",
                 },
+                new SettingDescriptor
+                {
+                    Name = "ProviderOrder",
+                    Type = typeof(string),
+                    DefaultValue = string.Empty,
+                    DisplayName = "Provider Order",
+                    Description = "Preferred upstream providers, comma-separated slugs tried in order (e.g., 'groq,cerebras'). Per-request 'provider_order' overrides this.",
+                },
+                new SettingDescriptor
+                {
+                    Name = "ProviderOnly",
+                    Type = typeof(string),
+                    DefaultValue = string.Empty,
+                    DisplayName = "Providers Only",
+                    Description = "Restrict routing to these upstream providers, comma-separated slugs (e.g., 'google,anthropic'). Per-request 'provider_only' overrides this.",
+                },
+                new SettingDescriptor
+                {
+                    Name = "ProviderIgnore",
+                    Type = typeof(string),
+                    DefaultValue = string.Empty,
+                    DisplayName = "Providers Ignore",
+                    Description = "Never route to these upstream providers, comma-separated slugs (e.g., 'deepinfra'). Per-request 'provider_ignore' overrides this.",
+                },
             };
         }
 
         /// <inheritdoc/>
         public override bool ValidateSettings(Dictionary<string, object> settings)
         {
-            Debug.WriteLine($"[OpenRouter] ValidateSettings called. Settings null? {settings == null}");
+            Logger.For<OpenRouterProviderSettings>().Trace($"[OpenRouter] ValidateSettings called. Settings null? {settings == null}");
             if (settings == null)
             {
                 return false;
@@ -148,14 +173,14 @@ namespace SmartHopper.Providers.OpenRouter
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
             {
                 apiKey = apiKeyObj.ToString();
-                Debug.WriteLine($"[OpenRouter] API key extracted (length: {apiKey?.Length ?? 0})");
+                Logger.For<OpenRouterProviderSettings>().Trace($"[OpenRouter] API key extracted (length: {apiKey?.Length ?? 0})");
             }
 
             // Model (no strict validation here)
             if (settings.TryGetValue("Model", out var modelObj) && modelObj != null)
             {
                 model = modelObj.ToString();
-                Debug.WriteLine($"[OpenRouter] Model extracted: {model}");
+                Logger.For<OpenRouterProviderSettings>().Trace($"[OpenRouter] Model extracted: {model}");
             }
 
             if (!this.ValidateMaxTokens(settings, showErrorDialogs))
@@ -209,7 +234,7 @@ namespace SmartHopper.Providers.OpenRouter
                 }
             }
 
-            Debug.WriteLine($"Validating OpenRouter settings: API Key: {(string.IsNullOrEmpty(apiKey) ? "<empty>" : "<provided>")}, Model: {model}");
+            Logger.For<OpenRouterProviderSettings>().Trace($"Validating OpenRouter settings: API Key: {(string.IsNullOrEmpty(apiKey) ? "<empty>" : "<provided>")}, Model: {model}");
 
             return true;
         }

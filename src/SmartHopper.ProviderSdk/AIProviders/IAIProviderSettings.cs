@@ -17,6 +17,7 @@
  */
 
 using System.Collections.Generic;
+using System.Linq;
 using SmartHopper.ProviderSdk.Settings;
 namespace SmartHopper.ProviderSdk.AIProviders
 {
@@ -27,9 +28,27 @@ namespace SmartHopper.ProviderSdk.AIProviders
     {
         /// <summary>
         /// Gets the setting descriptors that will be used to create the Settings dialog.
+        /// This is the persisted schema: implementations must only construct descriptors,
+        /// never evaluate live provider state, because the settings store enumerates them
+        /// while resolving secret flags inside <c>GetSetting</c>/<c>SetSetting</c> calls.
         /// </summary>
         /// <returns>The setting descriptors.</returns>
         IEnumerable<SettingDescriptor> GetSettingDescriptors();
+
+        /// <summary>
+        /// Gets the ordered settings surface the settings dialog renders: bound persisted
+        /// settings (<see cref="BoundSettingElement"/>) interleaved with live chrome
+        /// (<see cref="ChromeElement"/> rows such as status labels, action buttons and links)
+        /// that is evaluated through delegates and never touches the settings store.
+        /// The default wraps every non-hidden descriptor; override to add chrome or live
+        /// view-state hooks. Like <see cref="GetSettingDescriptors"/>, implementations must
+        /// construct elements without invoking their delegates.
+        /// </summary>
+        /// <returns>The ordered surface elements.</returns>
+        IEnumerable<ProviderSurfaceElement> GetSurface()
+            => this.GetSettingDescriptors()
+                .Where(descriptor => descriptor != null && !descriptor.IsHidden)
+                .Select(descriptor => new BoundSettingElement(descriptor));
 
         /// <summary>
         /// Validates the settings.

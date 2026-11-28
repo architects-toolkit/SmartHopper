@@ -30,6 +30,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Hosting;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -78,6 +79,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""instructions"": {
                             ""type"": ""string"",
                             ""description"": ""Optional instructions for the AI (system prompt)""
+                        },
+                        ""contextFilter"": {
+                            ""type"": ""string"",
+                            ""description"": ""Optional context-provider filter controlling which context providers feed the request (e.g., 'time,file', '-time', '*', '-*').""
                         }
                     },
                     ""required"": [""prompt""]
@@ -89,7 +94,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "text", "data-processing", "read-only", "ai-generation" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""string"", ""description"": ""Generated text response."" } } }",
                 annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
-                surfaces: AIToolSurface.Direct | AIToolSurface.Batch);
+                surfaces: AIToolSurface.Direct | AIToolSurface.Batch,
+                activityLabel: "generating text",
+                resultLabel: "generated text");
         }
 
         /// <summary>
@@ -120,8 +127,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 provider: toolCall.Provider,
                 model: toolCall.Model,
                 body: requestBody,
-                endpoint: this.toolName,
+                origin: this.toolName,
                 capability: this.toolCapabilityRequirements);
+
+            // Forward per-request parameters (extras, sampling, timeout) to the provider call
+            if (toolCall.Parameters != null)
+            {
+                request.Parameters = toolCall.Parameters;
+            }
             return request;
         }
 
@@ -140,7 +153,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                Debug.WriteLine("[TextTools] Running GenerateText tool");
+                Logger.For<text2text>().Trace("[TextTools] Running GenerateText tool");
 
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
@@ -191,7 +204,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[TextTools] Error in GenerateText: {ex.Message}");
+                Logger.For<text2text>().Exception(ex, $"[TextTools] Error in GenerateText: {ex.Message}");
 
                 output.CreateError($"Error: {ex.Message}");
                 return output;

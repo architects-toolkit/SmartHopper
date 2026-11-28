@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -169,7 +170,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (pattern.IsMatch(scriptCode))
                 {
                     issues.Add($"Found '{libraryName}': {suggestedFix}");
-                    Debug.WriteLine($"[ScriptCodeValidator] Detected banned pattern: {libraryName}");
+                    Logger.For<ValidationResult>().Trace($"[ScriptCodeValidator] Detected banned pattern: {libraryName}");
                 }
             }
 

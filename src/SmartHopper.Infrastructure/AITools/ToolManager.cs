@@ -25,10 +25,14 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.FileSystem;
+using SmartHopper.Infrastructure.Networking;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
+using SmartHopper.ProviderSdk.Utils;
 namespace SmartHopper.Infrastructure.AITools
 {
     /// <summary>
@@ -81,6 +85,35 @@ namespace SmartHopper.Infrastructure.AITools
             }
         }
 
+        /// <summary>Applies the host-owned request scope and current enabled/surface policy at dispatch.</summary>
+        /// <param name="call">Host-created invocation, including its originating scope.</param>
+        /// <param name="tool">The currently registered tool.</param>
+        private static bool IsAuthorized(AIToolCall call, AITool tool)
+        {
+            if (call.InvocationContext == null || !tool.Enabled || (tool.Surfaces & call.ToolSurface) == 0)
+            {
+                return false;
+            }
+
+            // Null filters deliberately mean unscoped in existing direct-call APIs.
+            // A session supplies its immutable originating filter in the host context;
+            // a reconstructed tool body must never widen that scope. Its own
+            // ToolFilter defaults to "-*" to disable nested model tool calls;
+            // that field is not the authority for the current invocation.
+            var origin = Filtering.Parse(call.InvocationContext.ToolScopeFilter);
+            if (origin.ShouldIncludePath(tool.Category))
+            {
+                return true;
+            }
+
+            // Progressive loading advertises discovery outside the category filter.
+            // Its results remain constrained to the same authorized catalogue.
+            return string.Equals(tool.Name, ProgressiveToolLoading.SearchToolName, StringComparison.Ordinal)
+                && GetTools().Values.Count(candidate => candidate.Enabled
+                    && (candidate.Surfaces & call.ToolSurface) != 0
+                    && origin.ShouldIncludePath(candidate.Category)) > ProgressiveToolLoading.InlineThreshold;
+        }
+
         /// <summary>
         /// Get all registered tools
         /// </summary>
@@ -104,7 +137,7 @@ namespace SmartHopper.Infrastructure.AITools
         {
             var toolInfo = toolCall.GetToolCall();
 
-            Debug.WriteLine($"[AIToolManager] Executing tool: {toolInfo.Name}");
+            Logger.Trace(typeof(AIToolManager).FullName, $"[AIToolManager] Executing tool: {toolInfo.Name}");
 
             var output = new AIReturn()
             {
@@ -120,7 +153,7 @@ namespace SmartHopper.Infrastructure.AITools
                     .Select(m => m.Message)
                     .ToList();
                 var reasonText = reasonList.Count > 0 ? string.Join(" \n", reasonList) : "Tool call is invalid";
-                Debug.WriteLine($"[AIToolManager] Tool call is invalid: {reasonText}");
+                Logger.Warning(typeof(AIToolManager).FullName, $"[AIToolManager] Tool call is invalid: {reasonText}");
 
                 // Standardize as a tool error with structured messages for diagnostics/UI
                 output.CreateToolError(reasonText, toolCall);
@@ -132,6 +165,9 @@ namespace SmartHopper.Infrastructure.AITools
                 return output;
             }
 
+            using var sourceAccessScope = ExternalSourceAccess.BeginScope();
+            using var fileAccessScope = LocalFileAccess.BeginScope();
+
             // Ensure tools are discovered
             DiscoverTools();
             
@@ -142,13 +178,21 @@ namespace SmartHopper.Infrastructure.AITools
             {
                 if (!_tools.TryGetValue(toolInfo.Name, out tool))
                 {
-                    Debug.WriteLine($"[AIToolManager] Tool not found: {toolInfo.Name}");
+                    Logger.Trace(typeof(AIToolManager).FullName, $"[AIToolManager] Tool not found: {toolInfo.Name}");
                     output.CreateToolError($"Tool '{toolInfo.Name}' is not registered.", toolCall);
                     return output;
                 }
             }
 
             var surface = toolCall.ToolSurface;
+            if (!IsAuthorized(toolCall, tool))
+            {
+                output.CreateToolError((tool.Surfaces & surface) == 0
+                    ? $"Tool '{toolInfo.Name}' is not available on the {surface} surface."
+                    : $"Tool '{toolInfo.Name}' is disabled or outside the authorized request scope.", toolCall);
+                return output;
+            }
+
             toolCall.InvocationContext.Surface = surface;
             if ((tool.Surfaces & surface) == 0)
             {
@@ -198,7 +242,7 @@ namespace SmartHopper.Infrastructure.AITools
                 {
                     toolCall.Body = newBody;
                     toolInfo = normalized;
-                    Debug.WriteLine($"[AIToolManager] Normalized null arguments to empty JObject for tool '{toolInfo.Name}'");
+                    Logger.Trace(typeof(AIToolManager).FullName, $"[AIToolManager] Normalized null arguments to empty JObject for tool '{toolInfo.Name}'");
                 }
             }
 
@@ -213,14 +257,48 @@ namespace SmartHopper.Infrastructure.AITools
                 }
 
                 // Execute the tool
-                Debug.WriteLine($"[AIToolManager] Tool found, executing: {toolInfo.Name}");
+                Logger.Trace(typeof(AIToolManager).FullName, $"[AIToolManager] Tool found, executing: {toolInfo.Name}");
 
                 // Extract cancellation token if available on the toolCall
                 var cancellationToken = toolCall.CancellationToken;
                 cancellationToken.ThrowIfCancellationRequested();
 
+                // Undo setup may await the UI thread. Recheck the current registry
+                // and scope at the final boundary, not just when tools were listed.
+                lock (_toolsLock)
+                {
+                    if (!_tools.TryGetValue(toolInfo.Name, out var current) || !ReferenceEquals(current, tool)
+                        || !IsAuthorized(toolCall, tool))
+                    {
+                        output.CreateToolError($"Tool '{toolInfo.Name}' is no longer authorized.", toolCall);
+                        return output;
+                    }
+                }
+
                 var result = await tool.Execute(toolCall).ConfigureAwait(false);
-                Debug.WriteLine($"[AIToolManager] Tool execution complete: {toolInfo.Name}");
+                Logger.Trace(typeof(AIToolManager).FullName, $"[AIToolManager] Tool execution complete: {toolInfo.Name}");
+
+                // Surface silently-ignored unknown arguments: tool schemas do not declare
+                // additionalProperties:false, so unrecognized args pass validation and are
+                // dropped by the tool — warn instead of letting the caller believe they applied.
+                if (result != null && toolInfo.Arguments != null)
+                {
+                    var declared = tool.GetDeclaredParameters();
+                    if (declared.Count > 0)
+                    {
+                        var declaredSet = new HashSet<string>(declared, StringComparer.Ordinal);
+                        var unknown = toolInfo.Arguments.Properties()
+                            .Select(prop => prop.Name)
+                            .Where(name => !declaredSet.Contains(name))
+                            .ToList();
+                        if (unknown.Count > 0)
+                        {
+                            var warningText = $"Unrecognized argument(s) '{string.Join("', '", unknown)}' were ignored by tool '{toolInfo.Name}'. Declared parameters: '{string.Join("', '", declared)}'.";
+                            Logger.Warning(typeof(AIToolManager).FullName, $"[AIToolManager] {warningText}");
+                            result.AddRuntimeMessage(SHRuntimeMessageSeverity.Warning, SHRuntimeMessageOrigin.Tool, warningText);
+                        }
+                    }
+                }
 
                 // Ensure tool result interactions carry the original tool call id/name/TurnId for provider schemas (e.g., OpenAI tool_call_id)
                 try
@@ -265,7 +343,7 @@ namespace SmartHopper.Infrastructure.AITools
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIToolManager] Warning: failed to propagate tool call id/name/TurnId into result: {ex.Message}");
+                    Logger.Exception(typeof(AIToolManager).FullName, ex, $"[AIToolManager] Warning: failed to propagate tool call id/name/TurnId into result: {ex.Message}");
                 }
 
                 output.SetBody(result.Body);
@@ -285,7 +363,7 @@ namespace SmartHopper.Infrastructure.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[AIToolManager] Error executing tool {toolInfo.Name}: {ex.Message}");
+                Logger.Exception(typeof(AIToolManager).FullName, ex, $"[AIToolManager] Error executing tool {toolInfo.Name}: {ex.Message}");
 
                 // Standardize as a tool error and add a structured message tagged with Tool origin
                 output.CreateToolError($"Error executing tool '{toolInfo.Name}': {ex.Message}", toolCall);
@@ -309,86 +387,114 @@ namespace SmartHopper.Infrastructure.AITools
                 if (_toolsDiscovered)
                     return;
 
-                Debug.WriteLine("[AIToolManager] Starting tool discovery");
+                Logger.Trace(typeof(AIToolManager).FullName, "[AIToolManager] Starting tool discovery");
 
                 try
                 {
-                    // For security reasons, restrict tool discovery to only SmartHopper.Core.Grasshopper/Tools
-                    // First, ensure the Core.Grasshopper assembly is loaded
-                    Assembly coreGrasshopperAssembly = null;
-                    try
+                    // For security reasons, restrict tool discovery to first-party assemblies and
+                    // their dedicated AITools namespaces.
+                    var toolSources = new[]
                     {
-                        coreGrasshopperAssembly = AppDomain.CurrentDomain.GetAssemblies()
-                            .FirstOrDefault(a => a.GetName().Name == "SmartHopper.Core.Grasshopper");
+                        ("SmartHopper.Core.Grasshopper", "SmartHopper.Core.Grasshopper.AITools"),
+                    };
 
-                        if (coreGrasshopperAssembly == null)
-                        {
-                            Debug.WriteLine("[AIToolManager] Loading SmartHopper.Core.Grasshopper assembly");
-                            coreGrasshopperAssembly = Assembly.Load("SmartHopper.Core.Grasshopper");
-                        }
-                    }
-                    catch (Exception ex)
+                    int totalToolCount = 0;
+                    foreach (var (assemblyName, toolsNamespace) in toolSources)
                     {
-                        Debug.WriteLine($"[AIToolManager] Error loading Core.Grasshopper assembly: {ex.Message}");
-                        return;
+                        totalToolCount += DiscoverToolsFrom(assemblyName, toolsNamespace);
                     }
 
-                    if (coreGrasshopperAssembly == null)
-                    {
-                        Debug.WriteLine("[AIToolManager] Could not find or load SmartHopper.Core.Grasshopper assembly");
-                        return;
-                    }
-
-                    Debug.WriteLine($"[AIToolManager] Successfully loaded Core.Grasshopper assembly: {coreGrasshopperAssembly.GetName().Version}");
-
-                    // Find all types in the SmartHopper.Core.Grasshopper.AITools namespace
-                    var toolsNamespace = "SmartHopper.Core.Grasshopper.AITools";
-                    Debug.WriteLine($"[AIToolManager] Searching for tool providers in namespace: {toolsNamespace}");
-
-                    // Get all types in the Tools namespace
-                    var toolsTypes = coreGrasshopperAssembly.GetTypes()
-                        .Where(t => t.Namespace == toolsNamespace)
-                        .ToList();
-
-                    Debug.WriteLine($"[AIToolManager] Found {toolsTypes.Count} types in Tools namespace");
-
-                    // Filter to only those that implement IAIToolProvider
-                    var toolProviderTypes = toolsTypes
-                        .Where(t => typeof(IAIToolProvider).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
-                        .ToList();
-
-                    Debug.WriteLine($"[AIToolManager] Found {toolProviderTypes.Count} tool provider types");
-
-                    int toolCount = 0;
-                    foreach (var providerType in toolProviderTypes)
-                    {
-                        try
-                        {
-                            var provider = (IAIToolProvider)Activator.CreateInstance(providerType);
-                            var tools = provider.GetTools().ToList();
-
-                            Debug.WriteLine($"[AIToolManager] Provider {providerType.Name} returned {tools.Count} tools");
-
-                            foreach (var tool in tools)
-                            {
-                                RegisterToolCore(tool);
-                                toolCount++;
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"[AIToolManager] Error registering tools from {providerType.Name}: {ex.Message}");
-                        }
-                    }
-
-                    Debug.WriteLine($"[AIToolManager] Tool discovery complete. Registered {toolCount} tools from {toolProviderTypes.Count} tool sets");
+                    Logger.Trace(typeof(AIToolManager).FullName, $"[AIToolManager] Tool discovery complete. Registered {totalToolCount} tools");
                     _toolsDiscovered = true;
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIToolManager] Error during tool discovery: {ex.Message}");
+                    Logger.Exception(typeof(AIToolManager).FullName, ex, $"[AIToolManager] Error during tool discovery: {ex.Message}");
                 }
             }
+        }
+
+        /// <summary>
+        /// Loads one trusted assembly and registers every <see cref="IAIToolProvider"/>
+        /// found in its dedicated tools namespace. Returns the number of tools registered;
+        /// 0 when the assembly is absent or yields no providers.
+        /// </summary>
+        private static int DiscoverToolsFrom(string assemblyName, string toolsNamespace)
+        {
+            Assembly toolsAssembly = null;
+            try
+            {
+                toolsAssembly = AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == assemblyName);
+
+                if (toolsAssembly == null)
+                {
+                    Logger.Trace(typeof(AIToolManager).FullName, $"[AIToolManager] Loading {assemblyName} assembly");
+                    toolsAssembly = Assembly.Load(assemblyName);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Exception(typeof(AIToolManager).FullName, ex, $"[AIToolManager] Error loading {assemblyName} assembly: {ex.Message}");
+            }
+
+            if (toolsAssembly == null)
+            {
+                Logger.Trace(typeof(AIToolManager).FullName, $"[AIToolManager] {assemblyName} not available — skipping its tool source");
+                return 0;
+            }
+
+            Logger.Trace(typeof(AIToolManager).FullName, $"[AIToolManager] Successfully loaded {assemblyName} assembly: {toolsAssembly.GetName().Version}");
+            Logger.Trace(typeof(AIToolManager).FullName, $"[AIToolManager] Searching for tool providers in namespace: {toolsNamespace}");
+
+            // Get all types in the Tools namespace — a type-load failure in an
+            // optional pack must not abort discovery of the remaining sources.
+            List<Type> toolsTypes;
+            try
+            {
+                toolsTypes = toolsAssembly.GetTypes()
+                    .Where(t => t.Namespace == toolsNamespace)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                Logger.Exception(typeof(AIToolManager).FullName, ex, $"[AIToolManager] Error reflecting {assemblyName} types: {ex.Message}");
+                return 0;
+            }
+
+            Logger.Trace(typeof(AIToolManager).FullName, $"[AIToolManager] Found {toolsTypes.Count} types in Tools namespace");
+
+            // Filter to only those that implement IAIToolProvider
+            var toolProviderTypes = toolsTypes
+                .Where(t => typeof(IAIToolProvider).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
+                .ToList();
+
+            Logger.Trace(typeof(AIToolManager).FullName, $"[AIToolManager] Found {toolProviderTypes.Count} tool provider types");
+
+            int toolCount = 0;
+            foreach (var providerType in toolProviderTypes)
+            {
+                try
+                {
+                    var provider = (IAIToolProvider)Activator.CreateInstance(providerType);
+                    var tools = provider.GetTools().ToList();
+
+                    Logger.Trace(typeof(AIToolManager).FullName, $"[AIToolManager] Provider {providerType.Name} returned {tools.Count} tools");
+
+                    foreach (var tool in tools)
+                    {
+                        RegisterToolCore(tool);
+                        toolCount++;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Exception(typeof(AIToolManager).FullName, ex, $"[AIToolManager] Error registering tools from {providerType.Name}: {ex.Message}");
+                }
+            }
+
+            Logger.Trace(typeof(AIToolManager).FullName, $"[AIToolManager] Registered {toolCount} tools from {toolProviderTypes.Count} tool sets in {assemblyName}");
+            return toolCount;
         }
     }
 }

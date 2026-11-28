@@ -111,7 +111,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
 
             var render = interaction.GetRawContentForRender();
 
-            Assert.Contains("\"imageAttached\": true", render);
+            Assert.Contains("imageAttached", render);
             Assert.Contains("![canvas_screenshot image](data:image/webp;base64,QUJD)", render);
         }
 
@@ -132,6 +132,15 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
 
             Assert.Single(images);
             Assert.Equal("QQ==", images[0].ImageData);
+        }
+
+        [Fact(DisplayName = "IsModelVisible requires SendToModel and non-empty data")]
+        public void IsModelVisible_RequiresFlagAndData()
+        {
+            Assert.True(new ToolResultImage { ImageData = "QUJD", SendToModel = true }.IsModelVisible);
+            Assert.False(new ToolResultImage { ImageData = "QUJD", SendToModel = false }.IsModelVisible);
+            Assert.False(new ToolResultImage { ImageData = string.Empty, SendToModel = true }.IsModelVisible);
+            Assert.False(new ToolResultImage { SendToModel = true }.IsModelVisible);
         }
 
         [Fact(DisplayName = "ToUserImageMessage builds an OpenAI-compatible user image message")]

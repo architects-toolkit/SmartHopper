@@ -22,7 +22,9 @@ using System.Diagnostics;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
 {
     /// <summary>
@@ -61,6 +63,49 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         public static IAIInteraction GetLastInteraction(this AIBody body, string agent)
         {
             return body?.Interactions?.LastOrDefault(i => i.Agent.ToString() == agent);
+        }
+
+        /// <summary>
+        /// Whether the body carries at least one interaction that produces provider-visible
+        /// conversation content: a user, assistant, tool-call or tool-result turn, or a
+        /// projected interaction with non-empty model content. System, context, summary and
+        /// diagnostic interactions encode as instructions/metadata only — a body made solely
+        /// of them gives the model nothing to respond to.
+        /// </summary>
+        /// <param name="body">The AI body to query.</param>
+        /// <returns><c>true</c> when at least one conversation-producing interaction exists.</returns>
+        public static bool HasConversationContent(this AIBody body)
+        {
+            var interactions = body?.Interactions;
+            if (interactions == null || interactions.Count == 0)
+            {
+                return false;
+            }
+
+            foreach (var interaction in interactions)
+            {
+                if (interaction == null)
+                {
+                    continue;
+                }
+
+                switch (interaction.Agent)
+                {
+                    case AIAgent.User:
+                    case AIAgent.Assistant:
+                    case AIAgent.ToolCall:
+                    case AIAgent.ToolResult:
+                        return true;
+                }
+
+                if (interaction is IAIModelProjectedInteraction projected &&
+                    !string.IsNullOrWhiteSpace(projected.GetModelContent()))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -111,13 +156,27 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         }
 
         /// <summary>
-        /// Gets the last assistant image interaction in the body.
+        /// Gets the last assistant image interaction in the body that carries consumable
+        /// image content (<see cref="AIInteractionImage.HasContent"/>), skipping request or
+        /// placeholder image interactions that carry neither a URL nor inline data.
         /// </summary>
         /// <param name="body">The AI body to query.</param>
-        /// <returns>The last assistant AIInteractionImage, or null if no assistant image exists.</returns>
+        /// <returns>The last assistant AIInteractionImage with content, or null if none exists.</returns>
         public static AIInteractionImage GetLastAssistantImage(this AIBody body)
         {
-            return body?.Interactions?.LastOrDefault(i => i is AIInteractionImage && i.Agent == AIAgent.Assistant) as AIInteractionImage;
+            return body?.Interactions?.LastOrDefault(i => i is AIInteractionImage img && i.Agent == AIAgent.Assistant && img.HasContent) as AIInteractionImage;
+        }
+
+        /// <summary>
+        /// Gets the last assistant audio interaction in the body that carries consumable
+        /// audio content (<see cref="AIInteractionAudio.HasContent"/>), skipping request or
+        /// placeholder audio interactions that carry neither inline data nor a file path.
+        /// </summary>
+        /// <param name="body">The AI body to query.</param>
+        /// <returns>The last assistant AIInteractionAudio with content, or null if none exists.</returns>
+        public static AIInteractionAudio GetLastAssistantAudio(this AIBody body)
+        {
+            return body?.Interactions?.LastOrDefault(i => i is AIInteractionAudio aud && i.Agent == AIAgent.Assistant && aud.HasContent) as AIInteractionAudio;
         }
 
         /// <summary>
@@ -380,17 +439,17 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                 // Only populate estimated fields when actual tokens are missing
                 if (!hasActualInputTokens)
                 {
-                    metrics = metrics with { EstimatedInputTokens = estimatedInput };
+                    metrics = metrics.WithQuantity(AIQuantityKey.EstimatedTextInput, AIPriceUnit.Token, estimatedInput);
                 }
 
                 if (!hasActualOutputTokens)
                 {
-                    metrics = metrics with { EstimatedOutputTokens = estimatedOutput };
+                    metrics = metrics.WithQuantity(AIQuantityKey.EstimatedTextOutput, AIPriceUnit.Token, estimatedOutput);
                 }
             }
 
             var effectiveTokens = metrics.EffectiveTotalTokens;
-            Debug.WriteLine($"[AIBody.GetEffectiveTokenCount] Actual tokens: {metrics.TotalTokens}, Estimated tokens: {metrics.TotalEstimatedTokens}, Effective tokens: {effectiveTokens}");
+            Logger.Trace(typeof(AIBodyExtensions).FullName, $"[AIBody.GetEffectiveTokenCount] Actual tokens: {metrics.TotalTokens}, Estimated tokens: {metrics.TotalEstimatedTokens}, Effective tokens: {effectiveTokens}");
             return effectiveTokens;
         }
 
@@ -405,7 +464,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         {
             if (interactions == null || interactions.Count == 0)
             {
-                Debug.WriteLine("[EstimateTokensFromInteractions] No interactions to estimate");
+                Logger.Trace(typeof(AIBodyExtensions).FullName, "[EstimateTokensFromInteractions] No interactions to estimate");
                 return (0, 0);
             }
 
@@ -423,7 +482,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                 int toolResultCount = 0;
                 int textCount = 0;
 
-                Debug.WriteLine($"[EstimateTokensFromInteractions] Processing {interactions.Count} interactions");
+                Logger.Trace(typeof(AIBodyExtensions).FullName, $"[EstimateTokensFromInteractions] Processing {interactions.Count} interactions");
 
                 foreach (var it in interactions)
                 {
@@ -443,12 +502,12 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                             if (isInput)
                             {
                                 inputChars += textChars;
-                                Debug.WriteLine($"[EstimateTokensFromInteractions] Text input: {t.Agent}, chars: {textChars}");
+                                Logger.Trace(typeof(AIBodyExtensions).FullName, $"[EstimateTokensFromInteractions] Text input: {t.Agent}, chars: {textChars}");
                             }
                             else
                             {
                                 outputChars += textChars;
-                                Debug.WriteLine($"[EstimateTokensFromInteractions] Text output: {t.Agent}, chars: {textChars}");
+                                Logger.Trace(typeof(AIBodyExtensions).FullName, $"[EstimateTokensFromInteractions] Text output: {t.Agent}, chars: {textChars}");
                             }
 
                             break;
@@ -459,7 +518,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                             // Tool results are output (AI's tool execution results)
                             var resultChars = (tr.Name?.Length ?? 0) + (tr.Result?.ToString()?.Length ?? 0) + (tr.Id?.Length ?? 0);
                             outputChars += resultChars;
-                            Debug.WriteLine($"[EstimateTokensFromInteractions] Tool result '{tr.Name}': {resultChars} chars");
+                            Logger.Trace(typeof(AIBodyExtensions).FullName, $"[EstimateTokensFromInteractions] Tool result '{tr.Name}': {resultChars} chars");
                             break;
 
                         case AIInteractionToolCall tc:
@@ -468,12 +527,12 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                             // Tool calls are output (AI requesting tool execution)
                             var callChars = (tc.Name?.Length ?? 0) + (tc.Arguments?.ToString()?.Length ?? 0) + (tc.Id?.Length ?? 0) + (tc.Reasoning?.Length ?? 0);
                             outputChars += callChars;
-                            Debug.WriteLine($"[EstimateTokensFromInteractions] Tool call '{tc.Name}': {callChars} chars");
+                            Logger.Trace(typeof(AIBodyExtensions).FullName, $"[EstimateTokensFromInteractions] Tool call '{tc.Name}': {callChars} chars");
                             break;
 
                         case AIInteractionRuntimeMessage diag:
                             // Diagnostics are UI-only and not sent to the provider; skip token accounting.
-                            Debug.WriteLine($"[EstimateTokensFromInteractions] Diagnostic ({diag.Severity}): {diag.Content?.Length ?? 0} chars (not counted)");
+                            Logger.Trace(typeof(AIBodyExtensions).FullName, $"[EstimateTokensFromInteractions] Diagnostic ({diag.Severity}): {diag.Content?.Length ?? 0} chars (not counted)");
                             break;
 
                         default:
@@ -481,12 +540,12 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                             if (isInput)
                             {
                                 inputChars += defaultChars;
-                                Debug.WriteLine($"[EstimateTokensFromInteractions] Default input: {it.Agent}, chars: {defaultChars}");
+                                Logger.Trace(typeof(AIBodyExtensions).FullName, $"[EstimateTokensFromInteractions] Default input: {it.Agent}, chars: {defaultChars}");
                             }
                             else
                             {
                                 outputChars += defaultChars;
-                                Debug.WriteLine($"[EstimateTokensFromInteractions] Default output: {it.Agent}, chars: {defaultChars}");
+                                Logger.Trace(typeof(AIBodyExtensions).FullName, $"[EstimateTokensFromInteractions] Default output: {it.Agent}, chars: {defaultChars}");
                             }
 
                             break;
@@ -496,15 +555,15 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                 var inputTokens = inputChars > 0 ? (int)Math.Ceiling(inputChars / charsPerToken) : 0;
                 var outputTokens = outputChars > 0 ? (int)Math.Ceiling(outputChars / charsPerToken) : 0;
 
-                Debug.WriteLine($"[EstimateTokensFromInteractions] Summary: {textCount} text, {toolCallCount} tool calls, {toolResultCount} tool results");
-                Debug.WriteLine($"[EstimateTokensFromInteractions] Char counts - Input: {inputChars}, Output: {outputChars}");
-                Debug.WriteLine($"[EstimateTokensFromInteractions] Token estimates - Input: {inputTokens}, Output: {outputTokens}");
+                Logger.Trace(typeof(AIBodyExtensions).FullName, $"[EstimateTokensFromInteractions] Summary: {textCount} text, {toolCallCount} tool calls, {toolResultCount} tool results");
+                Logger.Trace(typeof(AIBodyExtensions).FullName, $"[EstimateTokensFromInteractions] Char counts - Input: {inputChars}, Output: {outputChars}");
+                Logger.Trace(typeof(AIBodyExtensions).FullName, $"[EstimateTokensFromInteractions] Token estimates - Input: {inputTokens}, Output: {outputTokens}");
 
                 return (Math.Max(0, inputTokens), Math.Max(0, outputTokens));
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[EstimateTokensFromInteractions] Error: {ex.Message}");
+                Logger.Exception(typeof(AIBodyExtensions).FullName, ex, $"[EstimateTokensFromInteractions] Error: {ex.Message}");
 
                 // Best-effort only.
                 return (0, 0);

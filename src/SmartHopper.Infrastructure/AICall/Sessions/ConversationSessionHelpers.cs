@@ -37,6 +37,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using SmartHopper.ProviderSdk.AICall.Metrics;
     using SmartHopper.ProviderSdk.AICall.Utilities;
     using SmartHopper.ProviderSdk.Diagnostics;
+    using SmartHopper.ProviderSdk.Logging;
     /// <summary>
     /// Helper methods supporting <see cref="ConversationSession"/> orchestration logic.
     /// </summary>
@@ -91,15 +92,15 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         {
             if (this._summarizationAttempted)
             {
-                Debug.WriteLine($"[ConversationSession] Reactive summarization skipped (already attempted this turn). Reason: {reason}");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession] Reactive summarization skipped (already attempted this turn). Reason: {reason}");
                 return false;
             }
 
-            Debug.WriteLine($"[ConversationSession] Reactive summarization triggered. Reason: {reason}");
+            Logger.For<ConversationSession>().Trace($"[ConversationSession] Reactive summarization triggered. Reason: {reason}");
             var summarized = await this.TrySummarizeContextAsync(ct).ConfigureAwait(false);
             if (!summarized)
             {
-                Debug.WriteLine("[ConversationSession] Reactive summarization failed (TrySummarizeContextAsync returned false). Not retrying.");
+                Logger.For<ConversationSession>().Warning("[ConversationSession] Reactive summarization failed (TrySummarizeContextAsync returned false). Not retrying.");
                 return false;
             }
 
@@ -186,7 +187,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 this.PersistToolResult(result, turnId);
             }
 
-            Debug.WriteLine($"[ConversationSession.ReconcilePendingToolCalls] Reconciled {pending.Count} pending tool call(s): {reason}");
+            Logger.For<ConversationSession>().Trace($"[ConversationSession.ReconcilePendingToolCalls] Reconciled {pending.Count} pending tool call(s): {reason}");
             return pending.Count;
         }
 
@@ -195,9 +196,12 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// </summary>
         private void SetToolFilter(string toolFilter)
         {
-            if (this.Request.Body != null)
+            lock (this._historyAppendGate)
             {
-                this.Request.Body = this.Request.Body with { ToolFilter = toolFilter };
+                if (this.Request.Body != null)
+                {
+                    this.Request.Body = this.Request.Body with { ToolFilter = toolFilter };
+                }
             }
         }
 
@@ -244,8 +248,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     };
 
                     // Append only if this tool_call was not already persisted (avoid introducing duplicates ourselves).
+                    // Tool results derive from the call type and must not satisfy this check.
                     var exists = this.Request?.Body?.Interactions?.OfType<AIInteractionToolCall>()?
-                        .Any(x => !string.IsNullOrWhiteSpace(x?.Id) && string.Equals(x.Id, tc.Id, StringComparison.Ordinal)) ?? false;
+                        .Any(x => x is not AIInteractionToolResult && !string.IsNullOrWhiteSpace(x?.Id) && string.Equals(x.Id, tc.Id, StringComparison.Ordinal)) ?? false;
 
                     if (!exists)
                     {
@@ -259,7 +264,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ConversationSession] Warning: failed to persist tool_call before execution: {ex.Message}");
+                Logger.For<ConversationSession>().Exception(ex, $"[ConversationSession] Warning: failed to persist tool_call before execution: {ex.Message}");
             }
 
             var toolRq = new AIToolCall
@@ -280,6 +285,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     TaskPlanPresenter = this.TaskPlanPresenter,
                     CanvasPointerPresenter = this.CanvasPointerPresenter,
                     UserQuestionPresenter = this.UserQuestionPresenter,
+                    GhJsonArtifactPresenter = this.GhJsonArtifactPresenter,
+                    SubagentHost = this.SubagentHost,
+                    ToolScopeFilter = this.Request.Body?.ToolFilter,
                 },
             };
             toolRq.FromToolCallInteraction(tc, this.Request.Provider, this.Request.Model);
@@ -374,7 +382,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ConversationSession] Error emitting tool result delta: {ex.Message}");
+                Logger.For<ConversationSession>().Exception(ex, $"[ConversationSession] Error emitting tool result delta: {ex.Message}");
             }
         }
 
@@ -423,7 +431,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                 // Persist the final aggregated text to session history
                 this.AppendToSessionHistory(accumulatedText);
-                Debug.WriteLine($"[ConversationSession.Stream] Persisted final aggregated text: turnId={turnId}, length={accumulatedText.Content?.Length ?? 0}");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession.Stream] Persisted final aggregated text: turnId={turnId}, length={accumulatedText.Content?.Length ?? 0}");
             }
 
             // Update last return snapshot to use session body with correct TurnIds (not provider's raw delta)
@@ -433,7 +441,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var pendingAfterStream = this.Request.Body.PendingToolCallsCount();
             if (pendingAfterStream > 0)
             {
-                Debug.WriteLine($"[ConversationSession.Stream] INFO: {pendingAfterStream} tool call(s) remain unresolved after streaming. They will be processed in subsequent passes.");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession.Stream] INFO: {pendingAfterStream} tool call(s) remain unresolved after streaming. They will be processed in subsequent passes.");
             }
         }
 
@@ -505,7 +513,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 var contextUsageStr = contextUsage.HasValue
                     ? $", Context={contextUsage.Value:P1}"
                     : string.Empty;
-                Debug.WriteLine($"[ConversationSession.UpdateLastReturn] Final aggregated metrics from body: Tokens In={aggregatedMetrics.InputTokensPrompt}, Out={aggregatedMetrics.OutputTokensGeneration}, Time={aggregatedMetrics.CompletionTime:F2}s, FinishReason={aggregatedMetrics.FinishReason}{contextUsageStr}");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession.UpdateLastReturn] Final aggregated metrics from body: Tokens In={aggregatedMetrics.InputTokensPrompt}, Out={aggregatedMetrics.OutputTokensGeneration}, Time={aggregatedMetrics.CompletionTime:F2}s, FinishReason={aggregatedMetrics.FinishReason}{contextUsageStr}");
             }
 
 #endif
@@ -560,16 +568,15 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                 ? $"tool_result:{tr.Name}"
                                 : string.Empty;
 
-                    Debug.WriteLine(
-                        $"[ConversationSession.MergeNewToSessionBody] appending: type={interaction.GetType().Name}, agent={interaction.Agent.ToString()}, content={contentPreview}");
+                    Logger.For<ConversationSession>().Trace($"[ConversationSession.MergeNewToSessionBody] appending: type={interaction.GetType().Name}, agent={interaction.Agent.ToString()}, content={contentPreview}");
 
-                    if (interaction is AIInteractionToolCall tc2)
+                    if (interaction is AIInteractionToolCall tc2 && tc2 is not AIInteractionToolResult)
                     {
-                        var existingToolCalls = this.Request.Body?.Interactions?.OfType<AIInteractionToolCall>()?.ToList() ?? new List<AIInteractionToolCall>();
+                        var existingToolCalls = this.Request.Body?.Interactions?.OfType<AIInteractionToolCall>()?.Where(x => x is not AIInteractionToolResult)?.ToList() ?? new List<AIInteractionToolCall>();
                         var dupCount = existingToolCalls.Count(x => string.Equals(x?.Id, tc2.Id, StringComparison.Ordinal));
                         if (dupCount > 0)
                         {
-                            Debug.WriteLine($"[ConversationSession.MergeNewToSessionBody] WARNING: inserting tool_call with duplicate id='{tc2?.Id}', existingCount={dupCount}, name='{tc2?.Name}'");
+                            Logger.For<ConversationSession>().Trace($"[ConversationSession.MergeNewToSessionBody] WARNING: inserting tool_call with duplicate id='{tc2?.Id}', existingCount={dupCount}, name='{tc2?.Name}'");
                         }
                     }
                 }
@@ -595,7 +602,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var newInteractions = ret.Body.GetNewInteractions();
             try
             {
-                Debug.WriteLine($"[ConversationSession] NotifyDelta: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession] NotifyDelta: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}");
 #if DEBUG
                 try
                 {
@@ -629,7 +636,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var newInteractions = ret.Body.GetNewInteractions();
             try
             {
-                Debug.WriteLine($"[ConversationSession] NotifyInteractionCompleted: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession] NotifyInteractionCompleted: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}");
 #if DEBUG
                 try
                 {
@@ -657,7 +664,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         {
             try
             {
-                Debug.WriteLine($"[ConversationSession] NotifyFinal: total={ret?.Body?.Interactions?.Count ?? 0}");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession] NotifyFinal: total={ret?.Body?.Interactions?.Count ?? 0}");
 #if DEBUG
                 try
                 {
@@ -713,7 +720,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             try
             {
                 this.DebugResetEventLog();
-                this.DebugAppendEvent($"Start: provider={request?.Provider}, model={request?.Model}, endpoint={request?.Endpoint}");
+                this.DebugAppendEvent($"Start: provider={request?.Provider}, model={request?.Model}, origin={request?.Origin}");
             }
             catch
             {
@@ -732,6 +739,14 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 #endif
             this.Observer?.OnError(error);
         }
+
+        /// <summary>
+        /// Serializes history appends: the turn loop, observer-driven writes and
+        /// externally injected interactions (e.g. a subagent steer delivered
+        /// mid-run) all read-modify-write <see cref="AIRequestCall.Body"/>, and an
+        /// unguarded pair would silently drop one side's interaction.
+        /// </summary>
+        private readonly object _historyAppendGate = new object();
 
         /// <summary>
         /// Appends a single interaction to the session history without marking it as new.
@@ -753,16 +768,41 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     AIInteractionToolCall tc => $"ToolCall(name={tc.Name}, id={tc.Id}, turnId={tc.TurnId}, argsLen={tc.Arguments?.ToString()?.Length ?? 0})",
                     _ => $"{interaction.GetType().Name}(agent={interaction.Agent}, turnId={interaction.TurnId})"
                 };
-                Debug.WriteLine($"[ConversationSession.AppendToSessionHistory] {preview}");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession.AppendToSessionHistory] {preview}");
             }
             catch { }
 #endif
 
-            var builder = AIBodyBuilder.FromImmutable(this.Request.Body)
-                .ClearNewMarkers()
-                .AsHistory();
-            builder.Add(interaction, markAsNew: false);
-            this.Request.Body = builder.Build();
+            lock (this._historyAppendGate)
+            {
+                // Tool calls and results are keyed by Id across the whole pipeline: the same
+                // Id must never occupy two slots or every subsequent provider request sends
+                // the call (and its arguments) twice. A repeated call merges into the
+                // existing slot so streamed argument growth still lands.
+                // AIInteractionToolResult derives from AIInteractionToolCall, so results must
+                // be handled in a separate branch and never reach call matching.
+                var existing = this.Request?.Body?.Interactions;
+                if (interaction is AIInteractionToolResult toolResult)
+                {
+                    if (!string.IsNullOrWhiteSpace(toolResult.Id) &&
+                        existing?.OfType<AIInteractionToolResult>().Any(x => string.Equals(x.Id, toolResult.Id, StringComparison.Ordinal)) == true)
+                    {
+                        return;
+                    }
+                }
+                else if (interaction is AIInteractionToolCall toolCall && !string.IsNullOrWhiteSpace(toolCall.Id) &&
+                    existing?.OfType<AIInteractionToolCall>().Any(x => x is not AIInteractionToolResult && string.Equals(x.Id, toolCall.Id, StringComparison.Ordinal)) == true)
+                {
+                    this.UpdateToolCallInHistory(toolCall);
+                    return;
+                }
+
+                var builder = AIBodyBuilder.FromImmutable(this.Request.Body)
+                    .ClearNewMarkers()
+                    .AsHistory();
+                builder.Add(interaction, markAsNew: false);
+                this.Request.Body = builder.Build();
+            }
 
 #if DEBUG
             try
@@ -790,62 +830,69 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 return false;
             }
 
-            var interactions = this.Request?.Body?.Interactions;
-            if (interactions == null || interactions.Count == 0)
+            // Same read-modify-write as AppendToSessionHistory — serialize with it
+            // so an injected interaction appended mid-update is not dropped.
+            lock (this._historyAppendGate)
             {
-                return false;
-            }
-
-            // Find the existing tool call by ID
-            var existingIndex = -1;
-            for (int i = 0; i < interactions.Count; i++)
-            {
-                if (interactions[i] is AIInteractionToolCall tc &&
-                    string.Equals(tc.Id, updatedToolCall.Id, StringComparison.Ordinal))
+                var interactions = this.Request?.Body?.Interactions;
+                if (interactions == null || interactions.Count == 0)
                 {
-                    existingIndex = i;
-                    break;
+                    return false;
                 }
-            }
 
-            if (existingIndex < 0)
-            {
-                return false;
-            }
+                // Find the existing tool call by ID (tool results derive from the call
+                // type and must not be confused for one)
+                var existingIndex = -1;
+                for (int i = 0; i < interactions.Count; i++)
+                {
+                    if (interactions[i] is AIInteractionToolCall tc &&
+                        tc is not AIInteractionToolResult &&
+                        string.Equals(tc.Id, updatedToolCall.Id, StringComparison.Ordinal))
+                    {
+                        existingIndex = i;
+                        break;
+                    }
+                }
 
-            // Only update if the new arguments are more complete
-            var existingTc = (AIInteractionToolCall)interactions[existingIndex];
-            var existingArgsLen = existingTc.Arguments?.ToString()?.Length ?? 0;
-            var newArgsLen = updatedToolCall.Arguments?.ToString()?.Length ?? 0;
+                if (existingIndex < 0)
+                {
+                    return false;
+                }
 
-            if (newArgsLen <= existingArgsLen)
-            {
-                // New arguments are not more complete, skip update
-                return false;
-            }
+                // Only update if the new arguments are more complete
+                var existingTc = (AIInteractionToolCall)interactions[existingIndex];
+                var existingArgsLen = existingTc.Arguments?.ToString()?.Length ?? 0;
+                var newArgsLen = updatedToolCall.Arguments?.ToString()?.Length ?? 0;
+
+                if (newArgsLen <= existingArgsLen)
+                {
+                    // New arguments are not more complete, skip update
+                    return false;
+                }
 
 #if DEBUG
-            Debug.WriteLine($"[ConversationSession.UpdateToolCallInHistory] Updating tool call {updatedToolCall.Id}: argsLen {existingArgsLen} -> {newArgsLen}");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession.UpdateToolCallInHistory] Updating tool call {updatedToolCall.Id}: argsLen {existingArgsLen} -> {newArgsLen}");
 #endif
 
-            // Replace the interaction at the existing index
-            var newInteractions = new List<IAIInteraction>(interactions);
-            newInteractions[existingIndex] = updatedToolCall;
+                // Replace the interaction at the existing index
+                var newInteractions = new List<IAIInteraction>(interactions);
+                newInteractions[existingIndex] = updatedToolCall;
 
-            // Rebuild from scratch with updated list
-            var newBuilder = AIBodyBuilder.Create()
-                .WithToolFilter(this.Request.Body?.ToolFilter)
-                .WithContextFilter(this.Request.Body?.ContextFilter)
-                .WithJsonOutputSchema(this.Request.Body?.JsonOutputSchema)
-                .AsHistory();
+                // Rebuild from scratch with updated list
+                var newBuilder = AIBodyBuilder.Create()
+                    .WithToolFilter(this.Request.Body?.ToolFilter)
+                    .WithContextFilter(this.Request.Body?.ContextFilter)
+                    .WithJsonOutputSchema(this.Request.Body?.JsonOutputSchema)
+                    .AsHistory();
 
-            foreach (var interaction in newInteractions)
-            {
-                newBuilder.Add(interaction, markAsNew: false);
+                foreach (var interaction in newInteractions)
+                {
+                    newBuilder.Add(interaction, markAsNew: false);
+                }
+
+                this.Request.Body = newBuilder.Build();
+                return true;
             }
-
-            this.Request.Body = newBuilder.Build();
-            return true;
         }
 
 #if DEBUG
@@ -920,7 +967,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         {
             try
             {
-                var toolCalls = this.Request?.Body?.Interactions?.OfType<AIInteractionToolCall>()?.ToList() ?? new List<AIInteractionToolCall>();
+                // AIInteractionToolResult derives from AIInteractionToolCall and must be
+                // excluded, otherwise every call+result pair reports as a false duplicate.
+                var toolCalls = this.Request?.Body?.Interactions?.OfType<AIInteractionToolCall>()?.Where(tc => tc is not AIInteractionToolResult)?.ToList() ?? new List<AIInteractionToolCall>();
                 var total = toolCalls.Count;
                 var dupGroups = toolCalls
                     .GroupBy(tc => tc?.Id ?? string.Empty)
@@ -928,7 +977,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     .Select(g => $"{g.Key} x{g.Count()} [{string.Join(",", g.Select(t => t?.Name ?? string.Empty))}]");
 
                 var dupSummary = dupGroups.Any() ? string.Join("; ", dupGroups) : "none";
-                Debug.WriteLine($"[ConversationSession.Debug] {phase}: tool_calls total={total}, duplicates={dupSummary}");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession.Debug] {phase}: tool_calls total={total}, duplicates={dupSummary}");
             }
             catch
             {
@@ -968,7 +1017,14 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 : $"Tool execution was aborted by an error: {ex.Message}");
 
             var error = new AIReturn();
-            error.CreateProviderError(errorMessage, this.Request);
+            if (cancelled)
+            {
+                error.CreateProviderError(errorMessage, this.Request);
+            }
+            else
+            {
+                error.CreateProviderError(ex, this.Request);
+            }
 
             // Surface error interactions from the body before calling OnError
             var errorInteractions = error.Body?.Interactions;
@@ -1023,7 +1079,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 sb.AppendLine($"Last updated: {DateTime.Now:yyyy-MM-dd HH:mm:ss zzz}");
                 sb.AppendLine($"Provider: {this.Request?.Provider ?? string.Empty}");
                 sb.AppendLine($"Model: {this.Request?.Model ?? string.Empty}");
-                sb.AppendLine($"Endpoint: {this.Request?.Endpoint ?? string.Empty}");
+                sb.AppendLine($"origin: {this.Request?.Origin ?? string.Empty}");
                 sb.AppendLine();
 
                 // Aggregate metrics block (session-level)
@@ -1107,7 +1163,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ConversationSession.Debug] Error writing conversation markdown: {ex.Message}");
+                Logger.For<ConversationSession>().Exception(ex, $"[ConversationSession.Debug] Error writing conversation markdown: {ex.Message}");
             }
         }
 
@@ -1142,16 +1198,29 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             sb.AppendLine("- **model**: " + (m.Model ?? string.Empty));
             sb.AppendLine("- **finish_reason**: " + (m.FinishReason ?? string.Empty));
             sb.AppendLine("- **completion_time**: " + m.CompletionTime);
-            sb.AppendLine("- **estimated_input_tokens**: " + m.EstimatedInputTokens);
-            sb.AppendLine("- **estimated_output_tokens**: " + m.EstimatedOutputTokens);
+            if (m.Quantities != null && m.Quantities.Count > 0)
+            {
+                sb.AppendLine("- **quantities**:");
+                foreach (var kv in m.Quantities)
+                {
+                    sb.AppendLine("  - `" + kv.Key + "`: " + kv.Value);
+                }
+            }
+
+            sb.AppendLine("- **input_tokens**: " + m.InputTokens);
+            sb.AppendLine("- **output_tokens**: " + m.OutputTokens);
             sb.AppendLine("- **total_estimated_tokens**: " + m.TotalEstimatedTokens);
-            sb.AppendLine("- **input_tokens_prompt**: " + m.InputTokensPrompt);
-            sb.AppendLine("- **input_tokens_cached**: " + m.InputTokensCached + " (total: " + m.InputTokens + ")");
-            sb.AppendLine("- **output_tokens_reasoning**: " + m.OutputTokensReasoning);
-            sb.AppendLine("- **output_tokens_generation**: " + m.OutputTokensGeneration + " (total: " + m.OutputTokens + ")");
-            sb.AppendLine("- **total_tokens**: " + m.TotalTokens);
             sb.AppendLine("- **effective_total_tokens**: " + m.EffectiveTotalTokens);
             sb.AppendLine("- **context_usage_percent**: " + (m.ContextUsagePercent?.ToString() ?? string.Empty));
+            if (m.EstimatedCosts != null && m.EstimatedCosts.Count > 0)
+            {
+                sb.AppendLine("- **estimated_costs**: " + string.Join(", ", m.EstimatedCosts.Select(kv => kv.Value.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture) + " " + kv.Key)));
+            }
+
+            if (m.ReportedCosts != null && m.ReportedCosts.Count > 0)
+            {
+                sb.AppendLine("- **reported_costs**: " + string.Join(", ", m.ReportedCosts.Select(kv => kv.Value.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture) + " " + kv.Key)));
+            }
         }
 
         /// <summary>
@@ -1170,7 +1239,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ConversationSession.Debug] Error resetting events log: {ex.Message}");
+                Logger.For<ConversationSession>().Exception(ex, $"[ConversationSession.Debug] Error resetting events log: {ex.Message}");
             }
         }
 
@@ -1190,7 +1259,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ConversationSession.Debug] Error appending event: {ex.Message}");
+                Logger.For<ConversationSession>().Exception(ex, $"[ConversationSession.Debug] Error appending event: {ex.Message}");
             }
         }
 

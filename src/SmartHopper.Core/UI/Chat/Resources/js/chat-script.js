@@ -198,6 +198,15 @@ function patchExistingMessage(existing, incoming) {
         // Swap the expensive part: the rendered Markdown body.
         oldContent.innerHTML = newContent.innerHTML;
 
+        // Keep the header in sync: tool cards carry their status in the
+        // .cui-tool-title span inside .message-sender (pending -> done/error),
+        // which lives outside .message-content and would otherwise stay stale.
+        const oldHeader = existing.querySelector('.message-header');
+        const newHeader = incoming.querySelector('.message-header');
+        if (oldHeader && newHeader) {
+            oldHeader.innerHTML = newHeader.innerHTML;
+        }
+
         // Keep the copy-to-clipboard source text in sync (cheap attribute copy).
         const copyContent = newContent.getAttribute('data-copy-content');
         if (copyContent !== null) {
@@ -998,10 +1007,14 @@ function showToast(message) {
 
 // Disable the browser context menu (e.g. WebView2's "Refresh"). Reloading the
 // page would wipe the chat UI, since messages are rendered into the DOM by the
-// host and are not part of the document itself.
-document.addEventListener('contextmenu', function (e) {
-    e.preventDefault();
-});
+// host and are not part of the document itself. In debug builds the host
+// defines window.__SH_DEBUG__ before this script so the WebView2 context menu
+// (Inspect / DevTools) stays reachable for troubleshooting.
+if (!window.__SH_DEBUG__) {
+    document.addEventListener('contextmenu', function (e) {
+        e.preventDefault();
+    });
+}
 
 // Full WebView UI wiring
 document.addEventListener('DOMContentLoaded', function () {
@@ -1154,7 +1167,26 @@ function setStatus(text) {
     }
 }
 
+let _attachmentPreparationActive = false;
+let _chatProcessingActive = false;
+
+function setAttachmentPreparation(active) {
+    _attachmentPreparationActive = !!active;
+    const input = document.getElementById('user-input');
+    const send = document.getElementById('send-button');
+    const cancel = document.getElementById('cancel-button');
+    const spinner = document.getElementById('spinner');
+    if (input) input.disabled = _attachmentPreparationActive;
+    if (send) send.disabled = _attachmentPreparationActive;
+    if (cancel) cancel.disabled = !(_chatProcessingActive || _attachmentPreparationActive);
+    if (spinner) spinner.classList.toggle('hidden', !(_chatProcessingActive || _attachmentPreparationActive));
+    [input, send, cancel].forEach(element => {
+        if (element) element.setAttribute('aria-disabled', element.disabled ? 'true' : 'false');
+    });
+}
+
 function setProcessing(on) {
+    _chatProcessingActive = !!on;
     console.log('[JS] setProcessing called with value:', on);
     const spinner = document.getElementById('spinner');
     const input = document.getElementById('user-input');
@@ -1200,11 +1232,13 @@ function setProcessing(on) {
     }
 
     // Toggle controls according to processing state
-    // When processing: disable input + send, enable cancel
-    // When idle: enable input + send, disable cancel
+    // A running turn never locks the composer — mid-turn sends enqueue host-side
+    // and the send button relabels "Queue"; only attachment staging disables
+    // input/send. When idle: send is "Send", cancel disabled.
     try {
-        if (input) input.disabled = !!on;
-        if (sendBtn) sendBtn.disabled = !!on;
+        if (input) input.disabled = _attachmentPreparationActive;
+        if (sendBtn) sendBtn.disabled = _attachmentPreparationActive;
+        if (sendBtn) sendBtn.textContent = on ? 'Queue' : 'Send';
         if (cancelBtn) cancelBtn.disabled = !on;
 
         // Optional: reflect disabled state via CSS class and ARIA for better a11y
@@ -1224,6 +1258,7 @@ function setProcessing(on) {
     } catch (err) {
         console.warn('[JS] setProcessing: control toggle failed', err);
     }
+    setAttachmentPreparation(_attachmentPreparationActive);
 }
 
 // Attachment helpers — called by the host via ExecuteScript.

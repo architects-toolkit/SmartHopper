@@ -20,8 +20,10 @@ using System;
 using System.Diagnostics;
 using Grasshopper.Kernel;
 using SmartHopper.Core.Grasshopper.Contracts;
+using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.Mcp;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Mcp
 {
     /// <summary>
@@ -45,7 +47,6 @@ namespace SmartHopper.Components.Mcp
         private bool lastAutoApprove;
         private bool lastAllowViewControl;
         private bool lastAllowExternalTools;
-        private bool lastAllowExternal;
         private string? lastStatus;
 
         /// <summary>
@@ -63,17 +64,20 @@ namespace SmartHopper.Components.Mcp
             : base(
                 "SmartHopper MCP Server",
                 "MCP",
-                "Exposes SmartHopper's AI tools to external Model Context Protocol clients (Claude Desktop, Cursor, VS Code, Claude Code) over a loopback HTTP server. Editing and view-control tools are disabled by default; enable them explicitly via the inputs.",
+                "Start a local Model Context Protocol (MCP) HTTP server so external AI clients (Claude Desktop, Cursor, VS Code, Claude Code) can use SmartHopper's Grasshopper tools. Canvas editing, view control, and external tools are disabled by default.",
                 "SmartHopper",
-                "MCP")
+                "A. AI")
         {
         }
 
         /// <inheritdoc/>
-        public override Guid ComponentGuid => new Guid("a3c4f1d0-7e2b-4c5a-9d1b-7f5e8c0a2b4d");
+        public override Guid ComponentGuid => WellKnownComponentGuids.McpServerComponent;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary | GH_Exposure.obscure;
+
+        /// <inheritdoc/>
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.SmartHopperMcpServer;
 
         /// <inheritdoc/>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
@@ -81,65 +85,58 @@ namespace SmartHopper.Components.Mcp
             pManager.AddBooleanParameter(
                 "Enable",
                 "E",
-                "When true, starts a loopback MCP HTTP server. Set back to false to stop.",
+                "Set to true to start the MCP server, or false to stop it.",
                 GH_ParamAccess.item,
                 false);
             pManager.AddIntegerParameter(
                 "Port",
                 "P",
-                "Loopback TCP port. Defaults to 26929.",
+                "TCP port to listen on (defaults to 26929).",
                 GH_ParamAccess.item,
                 McpServerOptions.DefaultPort);
             pManager[1].Optional = true;
             pManager.AddTextParameter(
                 "Bearer Token",
                 "T",
-                "Optional bearer token. When set, requests without an 'Authorization: Bearer <token>' header are rejected with HTTP 401.",
+                "Optional secret token. When set, clients must send 'Authorization: Bearer <token>' with every request. The server is always loopback-only.",
                 GH_ParamAccess.item,
                 string.Empty);
             pManager[2].Optional = true;
             pManager.AddBooleanParameter(
                 "Allow Editing",
                 "AE",
-                "When true, tools that edit the canvas/scripts (gh_put, gh_move, gh_group, script_edit, ...) are exposed. Defaults to false.",
+                "When true, exposes tools that create, wire, move, group, or edit components and scripts on the canvas. Defaults to false (read-only).",
                 GH_ParamAccess.item,
                 false);
             pManager[3].Optional = true;
             pManager.AddBooleanParameter(
-                "Bypass Edition Validation",
-                "BV",
-                "When true, canvas edits requested through this MCP server are applied without showing the review dialog. Undo is still recorded. Defaults to false.",
+                "Auto-approve changes",
+                "AA",
+                "When true, auto-approves MCP-requested canvas edits without showing the review dialog (Ctrl+Z undo is still recorded). Defaults to false.",
                 GH_ParamAccess.item,
                 false);
             pManager[4].Optional = true;
             pManager.AddBooleanParameter(
                 "Allow View Control",
                 "AV",
-                "When true, tools in the 'Canvas.ViewControl' category (canvas_view) are exposed so clients can move the canvas viewport. Defaults to false.",
+                "When true, exposes viewport navigation tools (pan, zoom, and frame components on the canvas). Defaults to false.",
                 GH_ParamAccess.item,
                 false);
             pManager[5].Optional = true;
             pManager.AddBooleanParameter(
                 "Allow External Tools",
                 "ET",
-                "When true, tools that reach outside the Grasshopper document (openWorldHint) are exposed: local file reads/writes (file2md, rhino_*_3dm, gh_document_open/save), screen captures, URL fetches (web2md, Discourse) and AI provider calls (text2*, script_*, gh_generate, img2text, speech_generate, providers_models). Defaults to false so unauthenticated clients cannot read local files, fetch arbitrary URLs or spend provider credits.",
+                "When true, exposes tools that access local files, capture screenshots, fetch web/forum URLs, or make AI provider calls (spending provider credits). Defaults to false.",
                 GH_ParamAccess.item,
                 false);
             pManager[6].Optional = true;
-            pManager.AddBooleanParameter(
-                "Allow External Connections",
-                "AX",
-                "When true, the server listens on all network interfaces so other machines can reach it over the LAN. Requires a Bearer Token — the component reports an error without one. Your OS may show a firewall prompt on first use.",
-                GH_ParamAccess.item,
-                false);
-            pManager[7].Optional = true;
         }
 
         /// <inheritdoc/>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Url", "U", "MCP endpoint URL once the server is running.", GH_ParamAccess.item);
-            pManager.AddTextParameter("Status", "S", "Server status (Stopped | Running on ... | Error: ...).", GH_ParamAccess.item);
+            pManager.AddTextParameter("Url", "U", "HTTP endpoint URL (/mcp) to configure in your MCP client once the server is running.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Status", "S", "Current server status (Stopped, Running, or error message).", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>
@@ -152,7 +149,6 @@ namespace SmartHopper.Components.Mcp
             bool autoApprove = false;
             bool allowViewControl = false;
             bool allowExternalTools = false;
-            bool allowExternal = false;
 
             DA.GetData(0, ref enable);
             this.lastEnable = enable;
@@ -162,24 +158,34 @@ namespace SmartHopper.Components.Mcp
             DA.GetData(4, ref autoApprove);
             DA.GetData(5, ref allowViewControl);
             DA.GetData(6, ref allowExternalTools);
-            DA.GetData(7, ref allowExternal);
 
             try
             {
-                this.ApplyToggle(enable, port, token, exposeMutating, autoApprove, allowViewControl, allowExternalTools, allowExternal);
+                this.ApplyToggle(enable, port, token, exposeMutating, autoApprove, allowViewControl, allowExternalTools);
             }
             catch (Exception ex)
             {
                 this.lastStatus = $"Error: {ex.Message}";
                 this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, this.lastStatus);
-                Debug.WriteLine($"[Mcp] Component error: {ex.Message}");
+                Logger.For<SmartHopperMcpServerComponent>().Exception(ex, $"[Mcp] Component error: {ex.Message}");
             }
 
             var server = this.acquired ? McpServerLifecycle.Find(this.currentPort) : null;
             var running = server != null && server.IsRunning;
             var url = running ? server!.ExternalUrl ?? server.Url : string.Empty;
             DA.SetData(0, url);
-            DA.SetData(1, this.lastStatus ?? (running ? $"Running on {url}" : "Stopped"));
+
+            var status = this.lastStatus;
+            if (running)
+            {
+                status = RunningStatus(url, this.lastToken);
+            }
+            else if (status == null || status.StartsWith("Running", StringComparison.Ordinal))
+            {
+                status = "Stopped";
+            }
+
+            DA.SetData(1, status);
         }
 
         /// <inheritdoc/>
@@ -200,7 +206,7 @@ namespace SmartHopper.Components.Mcp
             base.DocumentContextChanged(document, context);
         }
 
-        private void ApplyToggle(bool enable, int port, string token, bool exposeMutating, bool autoApprove, bool allowViewControl, bool allowExternalTools, bool allowExternal)
+        private void ApplyToggle(bool enable, int port, string token, bool exposeMutating, bool autoApprove, bool allowViewControl, bool allowExternalTools)
         {
             string? normalizedToken = string.IsNullOrWhiteSpace(token) ? null : token;
 
@@ -217,8 +223,7 @@ namespace SmartHopper.Components.Mcp
                 this.lastExposeMutating == exposeMutating &&
                 this.lastAutoApprove == autoApprove &&
                 this.lastAllowViewControl == allowViewControl &&
-                this.lastAllowExternalTools == allowExternalTools &&
-                this.lastAllowExternal == allowExternal)
+                this.lastAllowExternalTools == allowExternalTools)
             {
                 var found = McpServerLifecycle.Find(port);
                 this.lastStatus = RunningStatus(found?.ExternalUrl ?? found?.Url, normalizedToken);
@@ -237,7 +242,7 @@ namespace SmartHopper.Components.Mcp
                 BypassMutationsApproval = autoApprove,
                 AllowViewControl = allowViewControl,
                 AllowExternalTools = allowExternalTools,
-                AllowExternalConnections = allowExternal,
+                DocumentBindingResolver = GhDocumentAccess.ResolveMcpBinding,
             };
             var server = McpServerLifecycle.Acquire(this, options);
             this.acquired = true;
@@ -247,7 +252,6 @@ namespace SmartHopper.Components.Mcp
             this.lastAutoApprove = autoApprove;
             this.lastAllowViewControl = allowViewControl;
             this.lastAllowExternalTools = allowExternalTools;
-            this.lastAllowExternal = allowExternal;
             this.lastStatus = RunningStatus(server.ExternalUrl ?? server.Url, normalizedToken);
         }
 

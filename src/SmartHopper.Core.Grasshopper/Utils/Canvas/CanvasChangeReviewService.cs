@@ -30,6 +30,7 @@ using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Consent;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 {
     /// <summary>
@@ -94,7 +95,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         {
             var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var registration = cancellationToken.Register(() => completion.TrySetCanceled(cancellationToken));
-            global::Rhino.RhinoApp.InvokeOnUiThread(() =>
+            void ShowDialog()
             {
                 try
                 {
@@ -125,7 +126,28 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 {
                     completion.TrySetException(ex);
                 }
-            });
+            }
+
+            // Eto widgets must be created on the thread that owns the Eto dispatcher;
+            // marshalling through Rhino's helper can run the action on a thread that
+            // never pumps the window, leaving a blank stale dialog that blocks approval.
+            var etoApp = Eto.Forms.Application.Instance;
+            if (etoApp != null)
+            {
+                try
+                {
+                    etoApp.AsyncInvoke(ShowDialog);
+                }
+                catch (Exception ex)
+                {
+                    completion.TrySetException(ex);
+                }
+            }
+            else
+            {
+                global::Rhino.RhinoApp.InvokeOnUiThread(ShowDialog);
+            }
+
             return await completion.Task.ConfigureAwait(false);
         }
 
@@ -461,13 +483,14 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     return;
                 }
 
+                var boundsDocument = new GhJsonDocument(
+                    session.ProposedDocument.Schema,
+                    session.ProposedDocument.Metadata,
+                    measurable,
+                    connections: null,
+                    groups: null);
                 var result = GhJsonGrasshopper.Deserialize(
-                    new GhJsonDocument(
-                        session.ProposedDocument.Schema,
-                        session.ProposedDocument.Metadata,
-                        measurable,
-                        connections: null,
-                        groups: null),
+                    boundsDocument,
                     new DeserializationOptions
                     {
                         // Regenerate GUIDs so the throwaway objects never collide with live ones.
@@ -476,6 +499,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     });
                 foreach (var pair in result.IdToObjectMapping)
                 {
+                    session.SetResolvedComponentName(pair.Key, pair.Value?.Name);
+
                     var bounds = pair.Value?.Attributes?.Bounds;
                     if (bounds.HasValue && bounds.Value.Width > 0f && bounds.Value.Height > 0f)
                     {
@@ -485,7 +510,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[CanvasChangeReviewService] Proposed bounds measurement skipped: {ex.Message}");
+                Logger.Exception(typeof(CanvasChangeReviewService).FullName, ex, $"[CanvasChangeReviewService] Proposed bounds measurement skipped: {ex.Message}");
             }
         }
 

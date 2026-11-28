@@ -31,6 +31,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AICall.Metrics;
+using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Streaming;
 
@@ -105,7 +106,7 @@ namespace SmartHopper.Providers.LocalAI
                 catch (Exception ex)
                 {
                     authError = new AIReturn();
-                    authError.CreateProviderError(ex.Message, request);
+                    authError.CreateProviderError(ex, request);
                 }
 
                 if (authError != null)
@@ -125,7 +126,7 @@ namespace SmartHopper.Providers.LocalAI
                 catch (Exception ex)
                 {
                     sendError = new AIReturn();
-                    sendError.CreateNetworkError(ex.InnerException?.Message ?? ex.Message, request);
+                    sendError.CreateNetworkError(ex, request);
                     response = null!;
                 }
 
@@ -375,8 +376,9 @@ namespace SmartHopper.Providers.LocalAI
                     Provider = this.Provider.Name,
                     Model = request.Model,
                     FinishReason = string.IsNullOrEmpty(finalFinishReason) ? "stop" : finalFinishReason,
-                    InputTokensPrompt = promptTokens,
-                    OutputTokensGeneration = completionTokens,
+                    Quantities = AIMetrics.QuantitiesOf(
+                        (AIQuantityKey.TextInput, AIPriceUnit.Token, promptTokens),
+                        (AIQuantityKey.TextOutput, AIPriceUnit.Token, completionTokens)),
                 });
                 yield return final;
             }

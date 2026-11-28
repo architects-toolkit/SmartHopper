@@ -33,6 +33,7 @@ using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -76,7 +77,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.GhGroupAsync,
                 tags: new[] { "canvas", "components", "mutating", "organization" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""group"": { ""type"": ""string"", ""description"": ""Instance GUID of the created group."" }, ""grouped"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of the components that were added to the group."" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "grouping canvas components",
+                resultLabel: "grouped canvas components");
 
             // Specialized wrapper: gh_group_selected
             yield return new AIMutatingTool(
@@ -99,7 +102,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.GhGroupSelectedAsync,
                 tags: new[] { "canvas", "components", "mutating", "organization" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""group"": { ""type"": ""string"", ""description"": ""Instance GUID of the created group."" }, ""grouped"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of the components that were added to the group."" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "grouping selected components",
+                resultLabel: "grouped selected components");
         }
 
         private async Task<AIReturn> GhGroupAsync(AIToolCall toolCall)
@@ -185,13 +190,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 GH_Group group = null;
 
-                // Combine UI operations and result resolution in a single UI thread callback.
-                // RhinoApp.InvokeOnUiThread posts to the UI thread; await the TCS so the
-                // AIReturn body is populated before we return.
-                var tcs = new TaskCompletionSource<AIReturn>();
-                Rhino.RhinoApp.InvokeOnUiThread(() =>
-                {
-                    try
+                // Combine UI operations and result resolution in a single bounded UI
+                // post so a queued callback can never run after the caller's wait ends.
+                return await UiThreadMarshal.RunOnUiThreadAsync(
+                    () =>
                     {
                         toolCall.CancellationToken.ThrowIfCancellationRequested();
 
@@ -202,7 +204,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             try
                             {
                                 groupColor = StringConverter.StringToColor(colorStr);
-                                Debug.WriteLine($"[gh_group] Group color set to {groupColor}");
+                                Logger.For<gh_group>().Trace($"[gh_group] Group color set to {groupColor}");
                             }
                             catch
                             {
@@ -212,7 +214,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         else
                         {
                             groupColor = System.Drawing.Color.FromArgb(255, 0, 200, 0);
-                            Debug.WriteLine("[gh_group] No color provided, using default color");
+                            Logger.For<gh_group>().Trace("[gh_group] No color provided, using default color");
                         }
 
                         // Create group
@@ -257,16 +259,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             output.CreateError("Failed to create group.");
                         }
 
-                        tcs.SetResult(output);
-                    }
-                    catch (Exception ex)
-                    {
-                        tcs.SetException(ex);
-                    }
-                });
-
-                return await tcs.Task
-                    .WaitAsync(toolCall.CancellationToken).ConfigureAwait(false);
+                        return output;
+                    },
+                    toolCall.CancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

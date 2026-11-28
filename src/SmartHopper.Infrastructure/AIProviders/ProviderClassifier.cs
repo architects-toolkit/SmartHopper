@@ -25,8 +25,10 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
+using SmartHopper.Infrastructure.Security;
 using SmartHopper.Infrastructure.Utils;
 using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Utils;
 namespace SmartHopper.Infrastructure.AIProviders
 {
@@ -139,7 +141,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ProviderClassifier] Failed to hash {assemblyPath}: {ex.Message}");
+                Logger.Exception(typeof(ProviderClassifier).FullName, ex, $"[ProviderClassifier] Failed to hash {assemblyPath}: {ex.Message}");
             }
 
             string? token = null;
@@ -169,7 +171,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ProviderClassifier] Failed to read strong name for {assemblyPath}: {ex.Message}");
+                Logger.Exception(typeof(ProviderClassifier).FullName, ex, $"[ProviderClassifier] Failed to read strong name for {assemblyPath}: {ex.Message}");
             }
 
             string? authSubject = null;
@@ -180,21 +182,27 @@ namespace SmartHopper.Infrastructure.AIProviders
             {
                 try
                 {
-                    var cert = new X509Certificate2(X509Certificate.CreateFromSignedFile(assemblyPath));
-                    authSubject = cert.Subject;
-                    authThumb = cert.Thumbprint;
-                    authSignaturePresent = true;
+                    // Real WinVerifyTrust: the signature must cover the file bytes —
+                    // merely carrying the cert blob no longer counts as "present".
+                    var signatureStatus = AuthenticodeSignatureVerifier.Verify(assemblyPath, out var rawStatus);
+                    if (signatureStatus is AuthenticodeSignatureStatus.Valid or AuthenticodeSignatureStatus.ValidUntrusted)
+                    {
+                        var cert = new X509Certificate2(X509Certificate.CreateFromSignedFile(assemblyPath));
+                        authSubject = cert.Subject;
+                        authThumb = cert.Thumbprint;
+                        authSignaturePresent = true;
 
-                    try
-                    {
-                        var hostCert = new X509Certificate2(X509Certificate.CreateFromSignedFile(
-                            Assembly.GetExecutingAssembly().Location));
-                        authMatchesHost = string.Equals(cert.Thumbprint, hostCert.Thumbprint, StringComparison.OrdinalIgnoreCase);
-                    }
-                    catch (Exception)
-                    {
-                        // Host not signed (e.g. local dev build); cannot compare.
-                        authMatchesHost = false;
+                        try
+                        {
+                            var hostCert = new X509Certificate2(X509Certificate.CreateFromSignedFile(
+                                Assembly.GetExecutingAssembly().Location));
+                            authMatchesHost = string.Equals(cert.Thumbprint, hostCert.Thumbprint, StringComparison.OrdinalIgnoreCase);
+                        }
+                        catch (Exception)
+                        {
+                            // Host not signed (e.g. local dev build); cannot compare.
+                            authMatchesHost = false;
+                        }
                     }
                 }
                 catch (CryptographicException)
@@ -203,7 +211,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[ProviderClassifier] Authenticode read error for {assemblyPath}: {ex.Message}");
+                    Logger.Exception(typeof(ProviderClassifier).FullName, ex, $"[ProviderClassifier] Authenticode read error for {assemblyPath}: {ex.Message}");
                 }
             }
 
@@ -218,7 +226,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ProviderClassifier] Hash manifest lookup failed for {assemblyPath}: {ex.Message}");
+                Logger.Exception(typeof(ProviderClassifier).FullName, ex, $"[ProviderClassifier] Hash manifest lookup failed for {assemblyPath}: {ex.Message}");
             }
 
             // Tampered: any positive signal of "official" combined with a negative crypto signal.

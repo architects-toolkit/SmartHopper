@@ -24,12 +24,14 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.FileSystem;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -91,7 +93,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "image", "vision", "text", "read-only", "external" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""string"", ""description"": ""Text description or analysis of the image."" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
+                activityLabel: "describing image",
+                resultLabel: "described image");
         }
 
         /// <summary>
@@ -116,7 +120,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 builder.AddImageInputFromBase64(imageBase64, mimeType);
             }
-            else if (TryReadLocalImage(imageUrl, out string localBase64, out string localMimeType))
+            else if (TryReadLocalImage(imageUrl, this.toolName, out string localBase64, out string localMimeType))
             {
                 builder.AddImageInputFromBase64(localBase64, localMimeType);
             }
@@ -133,10 +137,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// as base64 so vision models that cannot fetch <c>file://</c> URIs still receive the image.
         /// </summary>
         /// <param name="imageUrl">The raw imageUrl argument.</param>
+        /// <param name="toolName">The calling tool, surfaced in the consent prompt.</param>
         /// <param name="base64Data">The base64-encoded file content when resolved.</param>
         /// <param name="mimeType">The MIME type inferred from the file extension when resolved.</param>
         /// <returns>True when the argument was a readable local file path.</returns>
-        private static bool TryReadLocalImage(string imageUrl, out string base64Data, out string mimeType)
+        private static bool TryReadLocalImage(string imageUrl, string toolName, out string base64Data, out string mimeType)
         {
             base64Data = null;
             mimeType = null;
@@ -156,12 +161,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
             // Normalize file:// URIs back to local paths.
             var path = uri != null && uri.IsFile ? uri.LocalPath : imageUrl;
 
-            if (!File.Exists(path))
+            if (!File.Exists(path) || !LocalPath.TryCanonicalize(path, out var canonical, out _))
             {
                 return false;
             }
 
-            base64Data = Convert.ToBase64String(File.ReadAllBytes(path));
+            // Blocking wait is safe here except on the Rhino UI thread, where an
+            // unanswered prompt would deadlock — RequireBlocking refuses instead.
+            LocalFileAccess.RequireBlocking(canonical, LocalFileCapability.Read, toolName);
+
+            base64Data = Convert.ToBase64String(File.ReadAllBytes(canonical));
             mimeType = GetImageMimeType(path);
             return true;
         }
@@ -221,8 +230,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 provider: toolCall.Provider,
                 model: toolCall.Model,
                 body: this.BuildRequestBody(args),
-                endpoint: this.toolName,
+                origin: this.toolName,
                 capability: this.toolCapabilityRequirements);
+
+            // Forward per-request parameters (extras, sampling, timeout) to the provider call
+            if (toolCall.Parameters != null)
+            {
+                request.Parameters = toolCall.Parameters;
+            }
             return request;
         }
 
@@ -242,7 +257,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                Debug.WriteLine($"[{this.toolName}] Running DescribeImageAsync tool");
+                Logger.For<img2text>().Trace($"[{this.toolName}] Running DescribeImageAsync tool");
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.GetArgumentsOrEmpty();
@@ -261,8 +276,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     provider: toolCall.Provider,
                     model: toolCall.Model,
                     body: this.BuildRequestBody(args),
-                    endpoint: this.toolName,
+                    origin: this.toolName,
                     capability: this.toolCapabilityRequirements);
+
+                // Forward per-request parameters (extras, sampling, timeout) to the provider call
+                if (toolCall.Parameters != null)
+                {
+                    request.Parameters = toolCall.Parameters;
+                }
 
                 var result = await request.Exec().ConfigureAwait(false);
 
@@ -295,7 +316,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.toolName}] Error in DescribeImageAsync: {ex.Message}");
+                Logger.For<img2text>().Exception(ex, $"[{this.toolName}] Error in DescribeImageAsync: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }

@@ -1,0 +1,41 @@
+<Project>
+  <!--
+    Stages the isolated PDF renderer into '$(TargetDir)DocumentRendering\':
+    managed boundary + PDFium/SkiaSharp natives per RID. Import this file in any
+    project whose OUTPUT is a deployable consumer of SmartHopper.DocumentProcessing
+    (plugin, test host). The managed bits are RID-neutral; natives land under
+    runtimes\{rid}\native and the flat packaged root (win-x64).
+  -->
+  <!-- Inner-TFM builds only: in the cross-targeting outer build $(TargetDir)
+       is empty and _PackDir would collapse to a stray 'DocumentRendering\'
+       folder at the project root. -->
+  <Target Name="PackageDocumentRendering" AfterTargets="Build" Condition="'$(TargetFramework)' != ''">
+    <PropertyGroup>
+      <_RendererProj>$(MSBuildThisFileDirectory)SmartHopper.DocumentRendering.csproj</_RendererProj>
+      <_PackDir>$(TargetDir)DocumentRendering\</_PackDir>
+      <!-- Absolute staging path: PublishDir is resolved against the published project,
+           so a relative path would land inside the renderer's obj tree. -->
+      <!-- Per-configuration staging: Debug and Release never share publish outputs. -->
+      <_PubTmp>$(MSBuildThisFileDirectory)obj\renderer-pub\$(Configuration)\</_PubTmp>
+    </PropertyGroup>
+    <!-- Publishes re-run into per-configuration staging; dotnet publish is itself
+         incremental, so skipping on output existence only froze stale bits. -->
+    <MSBuild Projects="$(_RendererProj)" Targets="Publish" RemoveProperties="TargetDir;OutDir;OutputPath;BaseOutputPath"
+             Properties="Configuration=$(Configuration);TargetFramework=net7.0;RuntimeIdentifier=win-x64;PublishDir=$(_PubTmp)win-x64\;SelfContained=false" />
+    <MSBuild Projects="$(_RendererProj)" Targets="Publish" RemoveProperties="TargetDir;OutDir;OutputPath;BaseOutputPath"
+             Properties="Configuration=$(Configuration);TargetFramework=net7.0;RuntimeIdentifier=osx-x64;PublishDir=$(_PubTmp)osx-x64\;SelfContained=false" />
+    <MSBuild Projects="$(_RendererProj)" Targets="Publish" RemoveProperties="TargetDir;OutDir;OutputPath;BaseOutputPath"
+             Properties="Configuration=$(Configuration);TargetFramework=net7.0;RuntimeIdentifier=osx-arm64;PublishDir=$(_PubTmp)osx-arm64\;SelfContained=false" />
+    <ItemGroup>
+      <_WinOutput Include="$(_PubTmp)win-x64\*.*" Exclude="$(_PubTmp)win-x64\*.pdb;$(_PubTmp)win-x64\*.exe" />
+      <_WinNative Include="$(_PubTmp)win-x64\libSkiaSharp.dll;$(_PubTmp)win-x64\pdfium.dll" />
+      <_OsxX64Native Include="$(_PubTmp)osx-x64\*.dylib" Exclude="$(_PubTmp)osx-x64\*.dwarf" />
+      <_OsxArmNative Include="$(_PubTmp)osx-arm64\*.dylib" Exclude="$(_PubTmp)osx-arm64\*.dwarf" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_WinOutput)" DestinationFolder="$(_PackDir)" />
+    <Copy SourceFiles="@(_WinNative)" DestinationFolder="$(_PackDir)runtimes\win-x64\native" />
+    <Copy SourceFiles="@(_OsxX64Native)" DestinationFolder="$(_PackDir)runtimes\osx-x64\native" />
+    <Copy SourceFiles="@(_OsxArmNative)" DestinationFolder="$(_PackDir)runtimes\osx-arm64\native" />
+    <Copy SourceFiles="@(_OsxX64Native)" DestinationFolder="$(_PackDir)runtimes\osx\native" />
+  </Target>
+</Project>

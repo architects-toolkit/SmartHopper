@@ -8,9 +8,9 @@ This document specifies the conventions used by the Chat UI WebView to communica
 
 | Property | Value |
 | --- | --- |
-| **Source Code** | `src/SmartHopper.Core.Grasshopper/UI/Chat/WebViewBridge.cs` |
+| **Source Code** | `src/SmartHopper.Core/UI/Chat/WebChatDialog.cs`, `src/SmartHopper.Core/UI/Chat/Resources/js/chat-bridge.js` |
 | **Since Version** | ? |
-| **Last Updated** | 2026-06-14 |
+| **Last Updated** | 2026-11-01 |
 | **Documentation Maintainer** | Devin AI |
 
 _Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
@@ -35,18 +35,28 @@ The WebView ↔ Host Bridge is the communication backbone of SmartHopper's Chat 
 
 The WebView sends actions to the host by navigating to custom URL schemes (navigation is intercepted and canceled by the host):
 
-- `sh://event?type=send&text=...`
+- `sh://event?type=send&text=...` (`&now=1` jumps the queue and sends immediately)
 - `sh://event?type=attach`
 - `sh://event?type=detach&id=...`
 - `sh://event?type=clear`
 - `sh://event?type=cancel`
+- `sh://event?type=queue&action=remove|edit|submit-now&id=...` (`edit` also carries `&text=...`; `action=send-next` carries no `id` — fired by Enter on an empty composer)
 - `sh://event?type=consent&id=...&decision=approve|reject`
 - `sh://event?type=canvas_pointer&id=...`
+- `sh://event?type=ghjson_place&id=...`
 - `sh://event?type=question&id=...&choice=N` or `...&text=...`
 - `sh://event?type=extend_autonomy`
+- `sh://event?type=model&model=...` (emitted by the composer model picker once `setModels` feeds it; opt-in — the host currently logs it as an unknown event type)
 - `clipboard://copy?text=...`
 
 The C# host handles them in `WebChatDialog.WebView_DocumentLoading(...)`.
+
+### Trusted-document isolation
+
+- **Per-document token.** The host mints `_documentSession` (GUID-N) on every `LoadInitialHtmlIntoWebView` and embeds it as `<meta name="sh-doc-token">`. `emitShEvent()` appends `&doc=<token>` to every `sh://` / `clipboard://` URL; the host rejects any bridge event whose `doc` does not match the current document. A foreign or stale document therefore cannot send messages, approve consents, copy to the clipboard, or trigger canvas actions.
+- **No foreign navigation.** `WebView_DocumentLoading` cancels every non-bridge URI except the pending embedded document load (a trusted URI while `_webViewInitialized` is false). `http(s)` links (`target="_blank"` from `processLinks()`) and `window.open`/`OpenNewWindow` requests are routed to the system browser instead of loading inside the privileged WebView.
+- **Bridge activation is origin-gated.** `WebView_DocumentLoaded` only sets `_webViewInitialized` when `WebChatNavigationPolicy.IsTrustedDocumentUri` accepts the loaded URI (loopback `http://localhost|127.0.0.1|[::1]:<port>` served by Eto's Windows `HttpListener` shim for `LoadHtml(html, baseUri)`; `https://smarthopper.local`; `about:blank`, `file:`, `data:` or a missing URI from `LoadHtml` elsewhere). On an untrusted load the queued DOM work is purged and the readiness TCS never completes, so no host script can reach a foreign document.
+- The pure decision logic lives in `WebChatNavigationPolicy` (unit-tested; no Rhino/Eto dependencies).
 
 ### Query-string rules
 
@@ -57,9 +67,17 @@ The C# host handles them in `WebChatDialog.WebView_DocumentLoading(...)`.
 ### Event types and lifecycle
 
 - **send**
-  - JS → host: `sh://event?type=send&text=...`
+  - JS → host: `sh://event?type=send&text=...` — plus `&now=1` when the composer shortcut (Ctrl/Cmd+Enter) requests a jump-the-queue send.
   - Host appends user bubble immediately, then schedules `ProcessAIInteraction()` on a background task.
   - Observer updates status/spinner and replaces the temporary loading bubble with streamed or final content.
+  - While a turn owns the session (or another send is already staged), `SendMessage` enqueues the message into the per-chat FIFO (`_messageQueue`) instead — nothing is dropped. Queued entries keep any staged image attachments. When the turn settles, `ProcessAIInteraction`'s `finally` promotes the head via `TryPromoteQueuedMessage()`, which stages it through the exact same `_pendingUserMessage`/`_attachmentsForNextSend` one-shot path — an idle send is byte-identical to the pre-queue behavior.
+  - `now=1` sends insert at the queue head instead of the tail and then route through `PromoteQueueHeadNow()`: if a turn is in flight it is cancelled (`CancelChat`, same token as the Stop button) so its `finally` promotes the new head on settle; if idle, the head promotes immediately.
+  - The queue panel mirrors host state via `setQueue(items)`; it renders queued user sends plus agent-injected entries (per-worker `send_to_subagent` pending instructions) merged by enqueue time. `meta.agent`/`meta.author` become a muted byline on the row.
+- **queue**
+  - JS → host: `sh://event?type=queue&action=remove|edit|submit-now&id=...` (`edit` carries `&text=...` too), emitted by the toolkit queue-panel row actions (`transport.removeQueued`/`editQueued`/`sendQueuedNow`). Enter on an empty composer emits `action=send-next` (no `id`) — the bridge tracks the user-owned queue count in `_queuedUserCount` from each `setQueue` push.
+  - Host `HandleQueueAction` applies the action: `remove` drops the entry, `edit` replaces its text, `submit-now` moves it to the head and calls `PromoteQueueHeadNow()` so it sends now (interrupting a live turn), and `send-next` calls `PromoteQueueHeadNow()` for the current head when user-typed sends are queued. Ids that do not match a queued user send are routed to `ISubagentHost.TryApplyPendingAction`, which mutates the matching worker's pending-instruction list (`Remove`/`Edit`/`Promote`); `send-next` never promotes worker pending items.
+  - The panel re-renders on every mutation (`PushQueueToView`) — host owns the queue; JS never mutates it locally.
+  - Turn-settled UI pushes (`OnFinal`/`OnError`, the turn `finally`, restored state) go through `PushTurnSettledUiState(status)`, which decides engaged-vs-idle at DOM-queue drain time — so a queued send promoted between the event and the drain keeps the `Queue`/`Stop` composer state instead of racing a stale `setProcessing(false)`.
 - **clear**
   - JS → host: `sh://event?type=clear`
   - Host cancels any run and clears transcript in place (`clearMessages()`), emits reset snapshot.
@@ -79,10 +97,13 @@ The C# host handles them in `WebChatDialog.WebView_DocumentLoading(...)`.
   - Host sets system clipboard and calls `showToast('Copied to clipboard')`.
 - **consent**
   - JS → host: `sh://event?type=consent&id=...&decision=approve|reject`
-  - Host resolves the pending plan-consent card (`ResolvePlanConsent`); plan approval never pre-approves later canvas mutations.
+  - Host routes by id prefix: `autonomy-N` resolves the autonomy-continue card (`ResolveAutonomyConsent`); any other id resolves the pending plan-consent card (`ResolvePlanConsent`). Plan approval never pre-approves later canvas mutations. On an approved autonomy-continue, the host appends a persisted user-role authorization ("The agent reached its autonomous run limits and stopped. The user approved continuing — resume the task.") and re-runs the conversation as a normal turn; each run starts with the full configured budgets, so every approval grants one more window. A pending autonomy card resolves as dismissed when a real user turn starts (subagent wake turns leave it actionable).
 - **canvas_pointer**
   - JS → host: `sh://event?type=canvas_pointer&id=...`
   - Host resolves the pointer id through `CanvasPointerBridge.ReplayHandler` (assigned by `CanvasPointerService` in `SmartHopper.Core.Grasshopper`) and replays the pan/zoom/highlight on the canvas. Missing/expired targets produce a toast instead of an error.
+- **ghjson_place**
+  - JS → host: `sh://event?type=ghjson_place&id=...` (from the place button on a valid `show_ghjson` artifact card).
+  - Host `PlaceGhJsonArtifact` resolves the id against the artifacts retained by `WebChatGhJsonArtifactPresenter` and places the document on the active canvas through `CanvasGhJsonPlacer` → `GhJsonGrasshopper.Put` (undo recorded). Only valid artifacts get the button; missing/expired ids produce a status note instead of an error.
 - **question**
   - JS → host: `sh://event?type=question&id=...&choice=N` for a predefined option, or `...&text=...` for the free-text answer.
   - Host completes the pending `ask_user` `TaskCompletionSource` (`ResolveUserQuestion`), which unblocks the waiting tool call. The card has no dismiss action; it resolves only on an answer or when the run is cancelled.
@@ -93,9 +114,13 @@ The C# host handles them in `WebChatDialog.WebView_DocumentLoading(...)`.
 ### Testing checklist
 
 - Enter-to-send works; Shift+Enter inserts newline.
+- With a queued message and an empty composer, Enter sends the queue head now (`send-next`).
+- Ctrl/Cmd+Enter with text jumps the queue and sends now (`now=1`), even while other sends are queued.
+- The queue row's "Send now" button interrupts the live turn and sends that message next.
 - `send`, `clear`, `cancel` all execute when buttons are clicked or shortcuts are used.
 - Clipboard copy creates a toast and the data is in the OS clipboard.
-- While a run is in progress, spinner is visible and input is disabled.
+- While a run is in progress, spinner is visible and the composer stays editable (queue type-ahead): the send button relabels to "Queue" and sends enqueue into the panel instead of being rejected.
+- Queueing a send or extending autonomy limits while a run is in progress keeps the `Queue`/`Stop` composer state — the button does not flip back to Send mid-turn.
 - Streaming updates incrementally replace the loading bubble; fallback to non-streaming displays final answer.
 
 ---
@@ -187,7 +212,7 @@ public void RunWhenWebViewReady(Action action)
 
 ### JS ↔ Host API
 
-JavaScript functions (in `chat-script.js`):
+JavaScript functions (in `js/chat-bridge.js`, the compatibility layer that mounts the vendored `vendor/chat-ui.iife.js` toolkit — the surface below is unchanged for C# callers):
 
 - `addMessage(html)` — Append a pre-rendered HTML message bubble.
 - `upsertMessage(key, html)` — Replace existing or append new bubble identified by `data-key`.
@@ -196,12 +221,17 @@ JavaScript functions (in `chat-script.js`):
 - `addLoadingMessage(role, text)` / `removeThinkingMessage()` — Show/remove a persistent thinking bubble.
 - `clearMessages()` — Clear transcript area.
 - `setStatus(text)` — Update status bar text.
-- `setProcessing(isProcessing)` — Show/hide spinner and disable input.
+- `setProcessing(isProcessing)` — Show/hide spinner. With `features.queue` on, the toolkit's internal processing flag stays unset so the composer never locks: the bridge drives `[data-processing]` for the send/cancel swap, re-shows the send button relabeled "Queue" (chat-styles.css), and keeps `setComposerEnabled(true)`.
+- `setQueue(items)` — Re-render the outgoing queue panel with the host-owned queue (queued user sends + per-worker pending instructions, sorted by `createdAt`). Each item is a `QueuedMessage` `{id, text, createdAt?, meta?}`; `meta.agent` (agent-injected rows) or `meta.author` renders as a muted byline. Row actions report back through `type=queue` events.
 - `updateAutonomyUsage(usage)` — Update the floating `#autonomy-overlay` card with a serialized `AutonomyUsage` snapshot (`ElapsedSeconds`, `MaxSeconds`, `Tokens`, `MaxTokens`, `IsRunning`, `IsExhausted`). A client-side 1s ticker advances the elapsed display between pushes; a `Max*` of `0` renders as unlimited, and when both limits are `0` the overlay shows an "unbounded run" warning. The overlay appears only while a run is in progress (first paint is delayed until ~15 s elapsed or 10 produced interactions so trivial calls never flash it) and auto-hides shortly after the run ends — 6 s linger when a budget was exhausted. `setProcessing(true)` is the authoritative run-start signal: it resets the overlay and arms `_autonomyAwaitingRun`, so a not-running snapshot pushed before `BeginAutonomyRun` resets the session (a stale previous-run snapshot) is dropped instead of painting last run's values; `freezeAutonomyOverlay()` is invoked by `setProcessing(false)` (the authoritative run-end signal, since the last push can still carry `IsRunning=true`); `hideAutonomyOverlay()` resets it (called by `resetMessages` and `setProcessing(true)`).
-- `updateTaskPlan(plan)` — Render the current `plan_tasks` plan into `#task-plan-panel`, docked under `#autonomy-overlay` inside the shared `#hud` fixed column. The panel shows the plan goal, completed/total count, a progress bar, and each task's pending/in-progress/completed state; a new plan id replaces the card and the final state stays visible until `resetMessages()` calls `hideTaskPlanPanel()`.
-- `showCanvasPointer({id, message})` — Append a pointer card carrying the `canvas_point` message and a "Show on canvas" button that navigates to `sh://event?type=canvas_pointer&id=...`.
-- `showUserQuestion({id, question, options})` / `resolveUserQuestion(id)` — Append a blocking question card (2–4 option buttons plus a free-text field) and freeze it once the host resolves it. Option clicks navigate to `type=question&choice=N`; the free-text field submits `type=question&text=...`.
-- `showSuggestedPrompts(suggestions)` / `clearSuggestedPrompts()` — Render up to 3 follow-up chips in `#suggestions-strip` above the input bar. Clicking a chip fills `#user-input` and focuses it — it never sends automatically. Chips are cleared on send and on `resetMessages()`.
+- `showPlanConsent(plan)` / `resolvePlanConsent(id)` — Append a `card:approval` interaction (`consent-<id>`) rendering the plan goal, summary, numbered steps, assumptions, success criteria and the scope note inside the card description. Approve/Reject reports `{decision}` through `transport.messageAction`, which the bridge maps back to `type=consent&id=<plan id>&decision=approve|reject`. `resolvePlanConsent(id)` freezes the card in place (controls disabled, `data-resolved` dimmed).
+- `showAutonomyContinue(payload)` / `resolveAutonomyContinue(id)` — Same `card:approval` shape (`consent-<autonomy-N>`), pushed by the host after a run stops on the autonomy budgets; the description names the reached limit(s) (time and/or tokens) and the buttons are labelled `Continue working`/`Stop`. Decisions ride the shared `type=consent` route with the `autonomy-` id prefix.
+- `updateTaskPlan(plan)` — Render the current `plan_tasks` plan as a `card:task_plan` interaction (`sh-task-plan`) in the message list — one plan at a time via same-key upsert. The card shows the goal with a `completed/total` suffix and each task's pending/active/done state (`in_progress`→`active`, `completed`→`done`); the final state stays visible until `resetMessages()` (or `hideTaskPlanPanel()`).
+- `showCanvasPointer({id, message})` — Append an `evidence` line (`pointer-<id>`) carrying the `canvas_point` message plus a `meta.actions` "Show on canvas" button that reports `canvas_pointer` through `messageAction` → `sh://event?type=canvas_pointer&id=...`.
+- `showGhJsonArtifact(artifact)` / `resolveGhJsonArtifact(id, ok, message)` — Append a `ghjson` part interaction (`ghjson-<id>`) rendered by `renderGhJsonPart`: a card with the artifact title, a ✓/✗ validity badge, collapsed source, copy button and — for valid documents — a "Place on canvas" action that emits `type=ghjson_place&id=...`. Invalid artifacts render compact red cards listing the `GhJsonValidator` errors and expose no placement. `resolveGhJsonArtifact` freezes the place button and stamps the host-side outcome on the card's status line.
+- `showUserQuestion({id, question, options})` / `resolveUserQuestion(id)` — Append a `card:question` interaction (`question-<id>`): option chips plus an always-present free-text field. Chip clicks navigate to `type=question&choice=N` (the bridge registry maps the reported answer label back to its index); the free-text field submits `type=question&text=...`. `resolveUserQuestion(id)` freezes the card in place.
+- `showSuggestedPrompts(suggestions)` / `clearSuggestedPrompts()` — Render up to 3 follow-up chips as a `suggestions` part interaction (`sh-suggestions`) at the end of the transcript. A chip reports `suggestion` through `messageAction`, which fills the composer input (`#user-input`, through the toolkit `setComposerText` handle) and focuses it — it never sends automatically. Chips are cleared on send and on `resetMessages()`.
+- `setModels(models, selected)` — Feed the composer model picker (`features.modelPicker`); entries are `{id, label?, hint?}` objects or bare strings. Selection changes emit `sh://event?type=model&model=<id>` via `transport.selectModel`. No C# call site yet — forward-compat global.
 - `showToast(message)` — Temporary notification.
 
 Host functions (in `WebChatDialog.cs` / `WebChatObserver.cs`):
@@ -218,6 +248,18 @@ Host functions (in `WebChatDialog.cs` / `WebChatObserver.cs`):
 - Interactions implement `IAIKeyedInteraction` with:
   - `GetStreamKey()` → grouping key to coalesce streaming deltas into one bubble.
   - `GetDedupKey()` → stable identity for persisted entries and hydration.
+
+### Native part mapping (structured HTML → chat-ui parts)
+
+The bridge decomposes every incoming `.message` html payload in `partsForHtml()` before it reaches the toolkit:
+
+- **Notice roles → `evidence`.** `.message.system|summary|info|warning|error|debug` bubbles whose `.message-content` is short (≤ 600 chars) and block-free render as `{type:'evidence', level, text}` (`error`→`error`, `warning`→`warning`, others→`info`). Longer or block-structured bodies keep the collapsible `.message` html part — subagent reports and document dumps stay collapsible.
+- **Metrics footer → `usage`.** A `.message-footer .metrics-icon` without the `hidden` class maps to `{type:'usage', usage:{label, tokensIn, tokensOut}}` (`data-in`/`data-out` → tokens; `data-provider`/`data-model`/`data-reason`/`data-context-usage` compose the label). The footer chrome is stripped from the html body either way, so a `.hidden` icon yields no usage part and no leftover chrome.
+- **Everything else → `html`.** `.message.user|assistant|tool|loading` bubbles and any non-`.message` markup stay single `html` parts rendered verbatim by the custom `partRenderers.html` (sanitized, `data-key` stamped from the interaction `domKey`).
+
+Stamping contract: every toolkit `.cui-msg` gets `data-iid` (the interaction id — how `byKey` addresses it) and `data-key` when the interaction carries a `domKey`. `getAllMessageKeys()`/`findExistingMessageByKey` scan `[data-key]`, so keyed evidence/native messages remain addressable even though they contain no `.message` element; plugin cards (`consent-*`, `question-*`, `pointer-*`, `sh-task-plan`, `sh-suggestions`) only carry `data-iid` and stay out of `getAllMessageKeys`. In-place patching (`patchExistingMessage`/`applyPatchToExisting`) only runs when the payload maps to a single html part; native-part payloads re-render through `updateInteraction` while preserving slot/order.
+
+`_pluginCards` (interactionId → `{kind, refId, options}`) lets `routeMessageAction` translate the toolkit `message.id` back to the host entity id so emitted `sh://event` urls are identical to the legacy DOM cards', and lets `resolvePlanConsent`/`resolveUserQuestion`/`hideTaskPlanPanel` find and freeze/remove the rendered card.
 
 ### Payload conventions
 

@@ -47,9 +47,9 @@ namespace SmartHopper.Components.Grasshopper
             : base(
                 "Tidy Up",
                 "GhTidyUp",
-                "Organize selected components into a tidy grid layout",
+                "Arrange selected Grasshopper components into a clean left-to-right grid layout following their wire connections.",
                 "SmartHopper",
-                "Grasshopper")
+                "D. GhJSON")
         {
         }
 
@@ -57,10 +57,10 @@ namespace SmartHopper.Components.Grasshopper
         public override Guid ComponentGuid => new Guid("8B6F904F-8B96-45F5-B4DE-80B53C4FBA10");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Properties.Resources.tidyup;
+        protected override Bitmap Icon => Properties.Resources.GhTidyUp;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         /// <summary>
         /// Enables the selection mode for this component.
@@ -88,7 +88,7 @@ namespace SmartHopper.Components.Grasshopper
         /// <param name="pManager">The parameter manager to register inputs with.</param>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBooleanParameter("Run?", "R", "Run this component?", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Run?", "R", "Set to true (or connect a Button) to tidy the selected components.", GH_ParamAccess.item);
         }
 
         /// <summary>
@@ -97,7 +97,7 @@ namespace SmartHopper.Components.Grasshopper
         /// <param name="pManager">The parameter manager to register outputs with.</param>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Errors", "E", "List of errors during tidy up", GH_ParamAccess.list);
+            pManager.AddTextParameter("Errors", "E", "Any errors reported while arranging the components.", GH_ParamAccess.list);
         }
 
         /// <summary>
@@ -153,7 +153,7 @@ namespace SmartHopper.Components.Grasshopper
                 };
 
                 var toolCall = new AIToolCall();
-                toolCall.Endpoint = "gh_tidy_up";
+                toolCall.Origin = "gh_tidy_up";
                 toolCall.FromToolCallInteraction(toolCallInteraction);
                 toolCall.SkipMetricsValidation = true;
 

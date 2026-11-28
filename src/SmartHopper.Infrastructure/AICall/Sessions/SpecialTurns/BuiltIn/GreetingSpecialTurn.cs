@@ -19,6 +19,7 @@
 namespace SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns.BuiltIn
 {
     using System.Collections.Generic;
+    using SmartHopper.Infrastructure.AIProviders;
     using SmartHopper.ProviderSdk.AICall.Core.Base;
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     using SmartHopper.ProviderSdk.AIModels;
@@ -36,7 +37,16 @@ namespace SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns.BuiltIn
         public static SpecialTurnConfig Create(string providerName, string? systemPrompt = null)
         {
             var greetingInteractions = BuildGreetingInteractions(systemPrompt);
-            var defaultModel = AIModelCapabilityRegistry.Instance.GetDefaultModel(providerName, AICapability.Text2Text);
+
+            // Resolve via the provider's settings-aware default (honours the configured
+            // "Model" setting first) before falling back to the raw catalogue default:
+            // the catalogue default may be withdrawn server-side (e.g. retired models),
+            // which previously sent greetings to unavailable models and stalled the chat.
+            var defaultModel = ProviderManager.Instance.GetProvider(providerName)?.GetDefaultModel(AICapability.Text2Text);
+            if (string.IsNullOrWhiteSpace(defaultModel))
+            {
+                defaultModel = AIModelCapabilityRegistry.Instance.GetDefaultModel(providerName, AICapability.Text2Text);
+            }
 
             return new SpecialTurnConfig
             {

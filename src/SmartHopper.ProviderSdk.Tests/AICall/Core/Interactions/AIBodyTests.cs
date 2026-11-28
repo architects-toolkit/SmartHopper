@@ -82,7 +82,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
             {
                 Provider = "openai",
                 Model = "gpt-test",
-                Pricing = new AIModelPricing { Prompt = 0.000001m, Completion = 0.000004m },
+                Pricing = new AIModelPricing { TextInput = 0.000001m, TextOutput = 0.000004m },
             });
 
             var first = new AIMetrics
@@ -107,7 +107,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
                 .Build();
 
             var expected = (150m * 0.000001m) + (75m * 0.000004m);
-            Assert.Equal(expected, body.Metrics.EstimatedCost);
+            Assert.Equal(expected, body.Metrics.EstimatedCosts["USD"]);
         }
 
 #if NET7_WINDOWS
@@ -191,6 +191,78 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
             Assert.Same(body, newBody);
             Assert.Single(newBody.Interactions);
             Assert.Equal("original", (newBody.Interactions[0] as AIInteractionText)?.Content);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "GetLastAssistantImage_SkipsContentlessAndNonAssistant [Windows]")]
+#else
+        [Fact(DisplayName = "GetLastAssistantImage_SkipsContentlessAndNonAssistant [Core]")]
+#endif
+        public void GetLastAssistantImage_SkipsContentlessAndNonAssistant()
+        {
+            var body = AIBodyBuilder.Create()
+                .Add(new AIInteractionImage { Agent = AIAgent.User, ImageData = "VVNFUg==" })
+                .Add(new AIInteractionImage { Agent = AIAgent.Assistant, ImageData = "QUJD" })
+                .Add(new AIInteractionImage { Agent = AIAgent.Assistant })
+                .Add(new AIInteractionText { Agent = AIAgent.Assistant, Content = "trailing text" })
+                .Build();
+
+            var result = body.GetLastAssistantImage();
+
+            Assert.NotNull(result);
+            Assert.Equal("QUJD", result.ImageData);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "GetLastAssistantImage_ReturnsNullWithoutContentImage [Windows]")]
+#else
+        [Fact(DisplayName = "GetLastAssistantImage_ReturnsNullWithoutContentImage [Core]")]
+#endif
+        public void GetLastAssistantImage_ReturnsNullWithoutContentImage()
+        {
+            var body = AIBodyBuilder.Create()
+                .Add(new AIInteractionImage { Agent = AIAgent.Assistant })
+                .Add(new AIInteractionText { Agent = AIAgent.Assistant, Content = "t" })
+                .Build();
+
+            Assert.Null(body.GetLastAssistantImage());
+            Assert.Null(((AIBody)null).GetLastAssistantImage());
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "GetLastAssistantAudio_SkipsContentlessAndNonAssistant [Windows]")]
+#else
+        [Fact(DisplayName = "GetLastAssistantAudio_SkipsContentlessAndNonAssistant [Core]")]
+#endif
+        public void GetLastAssistantAudio_SkipsContentlessAndNonAssistant()
+        {
+            var body = AIBodyBuilder.Create()
+                .Add(new AIInteractionAudio { Agent = AIAgent.User, Data = new byte[] { 1 } })
+                .Add(new AIInteractionAudio { Agent = AIAgent.Assistant, Data = new byte[] { 9 } })
+                .Add(new AIInteractionAudio { Agent = AIAgent.Assistant })
+                .Add(new AIInteractionText { Agent = AIAgent.Assistant, Content = "trailing text" })
+                .Build();
+
+            var result = body.GetLastAssistantAudio();
+
+            Assert.NotNull(result);
+            Assert.Equal(new byte[] { 9 }, result.Data);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "GetLastAssistantAudio_ReturnsNullWithoutContentAudio [Windows]")]
+#else
+        [Fact(DisplayName = "GetLastAssistantAudio_ReturnsNullWithoutContentAudio [Core]")]
+#endif
+        public void GetLastAssistantAudio_ReturnsNullWithoutContentAudio()
+        {
+            var body = AIBodyBuilder.Create()
+                .Add(new AIInteractionAudio { Agent = AIAgent.Assistant })
+                .Add(new AIInteractionText { Agent = AIAgent.Assistant, Content = "t" })
+                .Build();
+
+            Assert.Null(body.GetLastAssistantAudio());
+            Assert.Null(((AIBody)null).GetLastAssistantAudio());
         }
     }
 }

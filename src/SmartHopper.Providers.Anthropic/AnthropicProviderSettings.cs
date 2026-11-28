@@ -23,6 +23,7 @@ using System.Linq;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Providers.Anthropic
@@ -75,7 +76,7 @@ namespace SmartHopper.Providers.Anthropic
                     Type = typeof(int),
                     DefaultValue = 2000,
                     DisplayName = "Max Tokens",
-                    Description = "Maximum number of tokens to generate",
+                    Description = "Maximum number of tokens to generate. Required by the API — 0 is not allowed.",
                     ControlParams = new NumericSettingDescriptorControl
                     {
                         UseSlider = false,
@@ -137,7 +138,7 @@ namespace SmartHopper.Providers.Anthropic
                 model = modelObj.ToString();
             }
 
-            if (!this.ValidateMaxTokens(settings, showErrorDialogs))
+            if (!this.ValidateMaxTokens(settings, showErrorDialogs, allowZero: false))
             {
                 return false;
             }
@@ -162,7 +163,7 @@ namespace SmartHopper.Providers.Anthropic
                 }
             }
 
-            Debug.WriteLine($"Validating Anthropic settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}");
+            Logger.For<AnthropicProviderSettings>().Trace($"Validating Anthropic settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}");
             return true;
         }
     }

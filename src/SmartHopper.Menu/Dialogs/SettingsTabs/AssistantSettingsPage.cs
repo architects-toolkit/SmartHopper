@@ -108,14 +108,8 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 Font = new Font(SystemFont.Bold, 12),
             });
 
-            layout.Add(new Label
-            {
-                Text = "Configure settings for the SmartHopper Canvas Assistant. Talk to it by clicking on the top-right button in the canvas.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,  // Max width for better text wrapping
-            });
+            layout.Add(SettingsText.DescriptionLabel(
+                "Configure settings for the SmartHopper Canvas Assistant. Talk to it by clicking on the top-right button in the canvas."));
 
             // Add spacing
             layout.Add(new Panel { Height = 10 });
@@ -132,14 +126,8 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             layout.Add(providerRowLayout);
 
-            layout.Add(new Label
-            {
-                Text = "AI provider to use specifically for SmartHopper Assistant.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,  // Max width for better text wrapping
-            });
+            layout.Add(SettingsText.DescriptionLabel(
+                "AI provider to use specifically for SmartHopper Assistant."));
 
             // Add spacing
             layout.Add(new Panel { Height = 10 });
@@ -155,56 +143,32 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 new TableCell(this._assistantModelTextBox, true)));
             layout.Add(modelRowLayout);
 
-            layout.Add(new Label
-            {
-                Text = "Specific AI model to use for assistant features. Leave empty to use the provider's default model.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,  // Max width for better text wrapping
-            });
+            layout.Add(SettingsText.DescriptionLabel(
+                "Specific AI model to use for assistant features. Leave empty to use the provider's default model."));
 
             // Add end spacing
             layout.Add(new Panel { Height = 10 });
 
             // Canvas Button section
             layout.Add(this._enableCanvasButtonCheckBox);
-            layout.Add(new Label
-            {
-                Text = "When enabled, the canvas button will show at the top-right corner of the canvas.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,  // Max width for better text wrapping
-            });
+            layout.Add(SettingsText.DescriptionLabel(
+                "When enabled, the canvas button will show at the top-right corner of the canvas."));
 
             // Add end spacing
             layout.Add(new Panel { Height = 10 });
 
             // AI Greeting section
             layout.Add(this._enableAIGreetingCheckBox);
-            layout.Add(new Label
-            {
-                Text = "When enabled, the AI assistant will generate personalized greeting messages when starting a new chat conversation. Disable it to prevent extra tokens being used.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,  // Max width for better text wrapping
-            });
+            layout.Add(SettingsText.DescriptionLabel(
+                "When enabled, the AI assistant will generate personalized greeting messages when starting a new chat conversation. Disable it to prevent extra tokens being used."));
 
             // Add spacing
             layout.Add(new Panel { Height = 10 });
 
             // Suggested prompts section
             layout.Add(this._enableSuggestedPromptsCheckBox);
-            layout.Add(new Label
-            {
-                Text = "When enabled, the assistant suggests up to three follow-up prompts after each completed answer. Clicking a suggestion only fills the input field. Disable it to prevent extra tokens being used.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,  // Max width for better text wrapping
-            });
+            layout.Add(SettingsText.DescriptionLabel(
+                "When enabled, the assistant suggests up to three follow-up prompts after each completed answer. Clicking a suggestion only fills the input field. Disable it to prevent extra tokens being used."));
 
             // Add spacing
             layout.Add(new Panel { Height = 10 });
@@ -236,14 +200,8 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 new TableCell(this._maxAutonomousTokensStepper, true)));
             layout.Add(tokensRowLayout);
 
-            layout.Add(new Label
-            {
-                Text = "Bounds a single assistant run: the assistant stops when it has worked for the configured time or consumed the configured tokens, whichever comes first. Set to 0 to disable a limit.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,  // Max width for better text wrapping
-            });
+            layout.Add(SettingsText.DescriptionLabel(
+                "Bounds a single assistant run: the assistant stops when it has worked for the configured time or consumed the configured tokens, whichever comes first. Set to 0 to disable a limit."));
 
             // Add spacing
             layout.Add(new Panel { Height = 10 });

@@ -29,6 +29,7 @@ using Newtonsoft.Json;
 using Rhino;
 using SmartHopper.Infrastructure.AIContext;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.AIContext
 {
     /// <summary>
@@ -153,7 +154,7 @@ namespace SmartHopper.Core.AIContext
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ViewportContextProvider] Error: {ex.Message}");
+                Logger.For<ViewportContextProvider>().Exception(ex, $"[ViewportContextProvider] Error: {ex.Message}");
                 return new Dictionary<string, string>
                 {
                     { "viewport-bounds", "{}" },
