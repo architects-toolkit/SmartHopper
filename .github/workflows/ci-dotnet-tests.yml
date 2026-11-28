@@ -99,6 +99,7 @@ jobs:
           name: preprocessed-source
           path: |
             src/**/*.csproj
+            Directory.Build.props
             signing.snk
             Directory.Build.props
           retention-days: 1

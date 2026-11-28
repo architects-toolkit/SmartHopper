@@ -75,6 +75,20 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
         public string ContentType { get; set; } = "application/json";
 
         /// <summary>
+        /// Gets or sets the credential the provider resolved for this request during
+        /// <c>PreCallAsync</c>. When set, it overrides the provider's default credential
+        /// lookup for this request (for example a signed-in OAuth token instead of the
+        /// configured API key).
+        /// </summary>
+        public string? ResolvedCredential { get; set; }
+
+        /// <summary>
+        /// Gets or sets an opaque tag identifying which credential slot
+        /// <see cref="ResolvedCredential"/> was selected from. Providers can use it to
+        /// pick a different credential when retrying after an authentication failure.
+        /// </summary>
+        public string? ResolvedCredentialTag { get; set; }
+        /// <summary>
         /// Gets the canonical request this execution copy descends from. Set by
         /// <see cref="CreateExecutionCopy"/> to the root request — copies of copies
         /// keep pointing at the original caller-owned instance. Null on requests

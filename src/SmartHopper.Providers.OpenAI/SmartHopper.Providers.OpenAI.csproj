@@ -39,6 +39,15 @@
     <ProjectReference Include="..\SmartHopper.ProviderSdk\SmartHopper.ProviderSdk.csproj" />
   </ItemGroup>
 
+  <!--
+    Generate InternalsVisibleTo attributes at build time.
+    The PublicKey comes from Directory.Build.props (SmartHopperPublicKeyForIvt) so the friend
+    assembly key always matches the strong-name key.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="SmartHopper.ProviderSdk.Tests" Key="$(SmartHopperPublicKeyForIvt)" />
+  </ItemGroup>
+
   <!-- For Windows only builds -->
   <PropertyGroup Condition="$(TargetFramework.Contains('-windows')) or $(TargetFramework.StartsWith('net4'))">
     <UseWindowsForms>true</UseWindowsForms>

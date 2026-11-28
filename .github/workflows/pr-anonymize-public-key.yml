@@ -81,7 +81,7 @@ jobs:
           }
 
           # Run anonymization
-          & $anonymizeScript -CsprojPath $csprojPath
+          & $anonymizeScript -CsprojPath $propsPath
           $exitCode = $LASTEXITCODE
 
           # Handle cases where LASTEXITCODE might be null or undefined
@@ -95,9 +95,9 @@ jobs:
           }
 
           # Check if file was modified
-          $gitStatus = git status --porcelain $csprojPath
+          $gitStatus = git status --porcelain $propsPath
           if ($gitStatus) {
-            Write-Host "Changes detected in $csprojPath"
+            Write-Host "Changes detected in $propsPath"
             echo "changes_made=true" >> $env:GITHUB_OUTPUT
           } else {
             Write-Host "No changes needed - file already anonymized"
